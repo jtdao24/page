@@ -1,0 +1,7 @@
+# Pinned development dependencies for page-core (resolved from the "dev" dependency group).
+# Install with: python -m pip install -r packages/core/requirements-dev.txt -e packages/core
+iniconfig==2.3.1
+packaging==26.3
+pluggy==1.6.0
+Pygments==2.21.0
+pytest==9.1.1

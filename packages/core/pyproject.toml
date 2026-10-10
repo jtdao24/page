@@ -1,0 +1,23 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "page-core"
+dynamic = ["version"]
+description = "Local-first knowledge and context engine for Page."
+requires-python = ">=3.12,<3.13"
+dependencies = []
+
+[dependency-groups]
+dev = ["pytest>=9.1"]
+
+[tool.hatch.version]
+path = "src/page_core/__init__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/page_core"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = ["-ra", "--strict-markers", "--strict-config"]
