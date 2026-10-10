@@ -130,9 +130,14 @@ with `npm run tauri -w @page/desktop -- icon`. Only the desktop icons listed in
 The desktop connects to an explicitly launched local core service. A knowledge graph,
 neural reranking and packaged core-process lifecycle are not implemented yet.
 
-The main dashboard presents indexed notes as books on a shelf, with collection and
-text filters, recent additions, and a selected-note excerpt. Before connecting a
-vault, it shows a labeled sample library. The question composer saves an unsent
+The main dashboard displays indexed notes as an interactive node graph, with
+text filters, collection colors, pan/zoom, and recent entries. Graph connections
+show shared collections. A compact icon ribbon and collapsible vault sidebar
+provide file navigation. Each entry opens in its own closable app tab with full
+Markdown, contents, source view, and file provenance. Before connecting a
+vault, it shows a labeled sample library. See
+[docs/graph-workspace.md](docs/graph-workspace.md) for graph/tab behavior and limits.
+The question composer saves an unsent
 draft locally; Gemini integration is planned and the send control is disabled.
 Vault connection and indexing controls are available in Vault settings.
 

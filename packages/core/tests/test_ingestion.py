@@ -18,7 +18,7 @@ from page_core.ingestion.chunking import chunk_markdown
 from page_core.ingestion.index import IngestionIndex
 from page_core.ingestion.scanner import scan
 from page_core.ingestion.server import create_server
-from page_core.vault import FileSystemVault
+from page_core.vault import FileSystemVault, InvalidNotePathError, NoteNotFoundError, NoteTooLargeError, UnreadableNoteError
 
 
 class CharacterTokenizer:
@@ -115,6 +115,78 @@ def test_context_inventory_tracks_committed_notes_without_embedding(index, fs_va
     fs_vault.delete_note(moved)
     index.update()
     assert [n["id"] for n in index.list_context()] == [str(empty.id)]
+
+
+def test_reader_reads_full_current_source_without_embeddings_or_cache_writes(index, fs_vault):
+    original = "# Note\n\n" + "A thought.\n" * 100
+    note = fs_vault.create_note(PurePosixPath("ideas/a.md"), original)
+    index.update()
+    cached_notes = rows(index, "notes")
+    cached_chunks = rows(index, "chunks")
+    calls = list(index.embedder.calls)
+    # Edits are readable immediately, without indexing or serving stale excerpts.
+    current = original + "\n## Last section\nWords beyond the excerpt.\n"
+    fs_vault.update_note(note, current)
+    document = index.read_context(str(note.id))
+    assert document["content"] == current
+    assert document["id"] == str(note.id)
+    assert document["path"] == "ideas/a.md"
+    assert document["updated_at"]
+    assert index.embedder.calls == calls
+    assert rows(index, "notes") == cached_notes
+    assert rows(index, "chunks") == cached_chunks
+
+
+def test_reader_follows_indexed_rename_and_handles_empty_deleted_notes(index, fs_vault):
+    note = fs_vault.create_note(PurePosixPath("empty.md"), "")
+    index.update()
+    assert index.read_context(str(note.id))["content"] == ""
+    moved = fs_vault.move_note(note, PurePosixPath("folder/renamed.md"))
+    with pytest.raises(NoteNotFoundError):
+        index.read_context(str(note.id))
+    index.update()
+    assert index.read_context(str(note.id))["path"] == "folder/renamed.md"
+    fs_vault.delete_note(moved)
+    with pytest.raises(NoteNotFoundError):
+        index.read_context(str(note.id))
+    index.update()
+    with pytest.raises(KeyError):
+        index.read_context(str(note.id))
+
+
+@pytest.mark.parametrize("identifier", ["../outside.md", "/etc/passwd", "a.md", "not-a-uuid", "", "00000000-0000-0000-0000-000000000001/other"])
+def test_reader_accepts_only_note_uuids(index, identifier):
+    with pytest.raises(ValueError):
+        index.read_context(identifier)
+
+
+def test_reader_rejects_replaced_symlink_and_parent_symlink(index, fs_vault, tmp_path, symlinks):
+    note = fs_vault.create_note(PurePosixPath("folder/a.md"), "original")
+    index.update()
+    root = fs_vault.vault.root_path
+    outside = tmp_path / "outside.md"
+    outside.write_text("private outside content")
+    (root / "folder/a.md").unlink()
+    (root / "folder/a.md").symlink_to(outside)
+    with pytest.raises(InvalidNotePathError):
+        index.read_context(str(note.id))
+    (root / "folder/a.md").unlink()
+    (root / "folder").rmdir()
+    (root / "folder").symlink_to(tmp_path, target_is_directory=True)
+    with pytest.raises(InvalidNotePathError):
+        index.read_context(str(note.id))
+
+
+def test_reader_rejects_invalid_utf8_and_bounds_source_reads(index, fs_vault):
+    note = fs_vault.create_note(PurePosixPath("a.md"), "original")
+    index.update()
+    source = fs_vault.vault.root_path / "a.md"
+    source.write_bytes(b"\xff")
+    with pytest.raises(UnreadableNoteError):
+        index.read_context(str(note.id))
+    source.write_bytes(b"a" * (1024 * 1024 + 1))
+    with pytest.raises(NoteTooLargeError):
+        index.read_context(str(note.id))
 
 
 def test_incremental_edit_rename_delete(index, fs_vault):
@@ -320,6 +392,44 @@ def test_background_status_and_single_writer(index, fs_vault):
     release.set()
     index.wait(5)
     assert index.status()["state"] == "complete"
+
+
+def test_reader_endpoint_auth_errors_and_full_source(index, fs_vault):
+    note = fs_vault.create_note(PurePosixPath("a.md"), "# Original\n" + "words " * 100)
+    index.update()
+    source = fs_vault.vault.root_path / "a.md"
+    token = "reader-test-" + "x" * 32
+    server = create_server(index, token=token, port=0)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    base = f"http://127.0.0.1:{server.server_port}/api/context/"
+    headers = {"Authorization": f"Bearer {token}", "Origin": "tauri://localhost"}
+
+    def failure(identifier, code, request_headers=headers):
+        with pytest.raises(urllib.error.HTTPError) as error:
+            urllib.request.urlopen(urllib.request.Request(base + identifier, headers=request_headers))
+        assert error.value.code == code
+
+    try:
+        failure(str(note.id), 401, {})
+        failure(str(note.id), 403, {**headers, "Origin": "https://evil.example"})
+        with urllib.request.urlopen(urllib.request.Request(base + str(note.id), headers=headers)) as response:
+            assert json.load(response)["note"]["content"] == note.content
+            assert response.headers["Cache-Control"] == "no-store"
+            assert response.headers["Access-Control-Allow-Origin"] == "tauri://localhost"
+        failure(str(uuid4()), 404)
+        failure("not-a-uuid", 400)
+        failure("%2E%2E%2Foutside.md", 400)
+        source.write_bytes(b"a" * (1024 * 1024 + 1))
+        failure(str(note.id), 413)
+        source.write_bytes(b"\xff")
+        failure(str(note.id), 422)
+        source.unlink()
+        failure(str(note.id), 404)
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join()
 
 
 def test_api_auth_origin_and_development_gate(index):

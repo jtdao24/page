@@ -22,12 +22,6 @@ export function collectionOf(note: ContextNote): string {
   return note.path.includes("/") ? note.path.split("/")[0] : "Notes";
 }
 
-export function bookAppearance(id: string) {
-  const hash = Array.from(id).reduce((value, character) => (value * 31 + character.charCodeAt(0)) >>> 0, 0);
-  return { color: ["forest", "clay", "ochre", "ink", "sage", "sand", "blue"][hash % 7],
-    height: 170 + hash % 39, width: 48 + hash % 16 };
-}
-
 export function filterNotes(notes: ContextNote[], query: string, collection: string, recent: boolean) {
   const search = query.trim().toLocaleLowerCase();
   const matching = notes.filter((note) => (collection === "All collections" || collectionOf(note) === collection)

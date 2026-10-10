@@ -13,7 +13,7 @@ import secrets
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-from page_core.vault import FileSystemVault
+from page_core.vault import FileSystemVault, NoteNotFoundError, NoteTooLargeError, VaultError
 from .index import IngestionIndex
 
 ALLOWED_ORIGINS = frozenset({"http://localhost:1420", "http://127.0.0.1:1420",
@@ -69,6 +69,20 @@ def create_server(index: IngestionIndex, *, token: str, port: int = 8765,
                     self.reply(200, {"vault": index.vault.vault.name, **index.status()})
                 elif self.path == "/api/context":
                     self.reply(200, {"notes": index.list_context()})
+                elif self.path.startswith("/api/context/"):
+                    identifier = self.path.removeprefix("/api/context/")
+                    try:
+                        self.reply(200, {"note": index.read_context(identifier)})
+                    except (KeyError, NoteNotFoundError, FileNotFoundError):
+                        self.reply(404, {"error": "note not found; index vault changes"})
+                    except NoteTooLargeError:
+                        self.reply(413, {"error": "note too large"})
+                    except (OSError, VaultError):
+                        self.reply(422, {"error": "note source is unavailable or unreadable"})
+                    except ValueError:
+                        self.reply(400, {"error": "invalid note ID"})
+                    except Exception:
+                        self.reply(500, {"error": "could not read note"})
                 else:
                     self.reply(404, {"error": "not found"})
 

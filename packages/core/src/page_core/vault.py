@@ -65,6 +65,10 @@ class UnreadableNoteError(VaultError):
     """The note file is not valid UTF-8."""
 
 
+class NoteTooLargeError(VaultError):
+    """A bounded note read exceeded the caller's byte limit."""
+
+
 class FileSystemVault:
     """A vault rooted at a local directory.
 
@@ -408,13 +412,16 @@ def _timestamps(info: os.stat_result) -> tuple[datetime, datetime]:
     return min(datetime.fromtimestamp(birth, tz=UTC), updated_at), updated_at
 
 
-def _read_regular_file(path: Path) -> tuple[bytes, os.stat_result]:
+def _read_regular_file(path: Path, *, max_bytes: int | None = None) -> tuple[bytes, os.stat_result]:
     fd = os.open(path, os.O_RDONLY | _O_BINARY | _O_NOFOLLOW)
     with os.fdopen(fd, "rb") as stream:
         info = os.fstat(stream.fileno())
         if not stat.S_ISREG(info.st_mode):
             raise InvalidNotePathError(f"{path} is not a regular file")
-        return stream.read(), info
+        data = stream.read() if max_bytes is None else stream.read(max_bytes + 1)
+        if max_bytes is not None and len(data) > max_bytes:
+            raise NoteTooLargeError(f"note exceeds {max_bytes} bytes")
+        return data, info
 
 
 def _create_exclusive(path: Path, data: bytes | None) -> None:

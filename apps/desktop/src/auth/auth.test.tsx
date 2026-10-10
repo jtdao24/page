@@ -178,7 +178,7 @@ describe("navigation and local workspace", () => {
     Object.defineProperty(HTMLDialogElement.prototype, "showModal", { configurable: true, value: function(this: HTMLDialogElement) { this.setAttribute("open", ""); } });
     const user = userEvent.setup();
     render(<App />);
-    expect(screen.getByRole("heading", { name: "Your library." })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Your graph." })).toBeTruthy();
     await user.click(screen.getByRole("button", { name: "Profile and account settings" }));
     expect(screen.getByRole("heading", { name: "Workspace settings" })).toBeTruthy();
     await user.click(screen.getByRole("button", { name: "Log In" }));
@@ -189,7 +189,7 @@ describe("navigation and local workspace", () => {
     expect(screen.getByRole("button", { name: "Send Reset Link" })).toBeTruthy();
     await user.click(screen.getByRole("button", { name: "Continue to local workspace →" }));
     expect(screen.queryByRole("dialog")).toBeNull();
-    expect(screen.getByRole("heading", { name: "Your library." })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Your graph." })).toBeTruthy();
   });
   it("keeps a connected vault and its in-memory token while navigating account forms", async () => {
     Object.defineProperty(HTMLDialogElement.prototype, "showModal", { configurable: true, value: function(this: HTMLDialogElement) { this.setAttribute("open", ""); } });

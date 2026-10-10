@@ -1,7 +1,11 @@
-import { useEffect, useRef, useState } from "react";
-import type { CSSProperties, ReactNode } from "react";
-import { bookAppearance, collectionOf, filterNotes, PREVIEW_NOTES } from "./library";
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { DragEvent, ReactNode } from "react";
+import { collectionOf, filterNotes, PREVIEW_NOTES } from "./library";
+import { EntryGraph } from "./EntryGraph";
+import { EntryPane } from "./EntryPane";
 import type { ContextNote } from "./library";
+import { closeTab as removeTab, initialTabs, moveTab, openTab, paneOf, selectTab } from "./workspaceTabs";
+import type { PaneSide, WorkspaceTabs } from "./workspaceTabs";
 import { useCore } from "./useCore";
 import { AccountSettings } from "./auth/AccountSettings";
 import { useAuth } from "./auth/AuthProvider";
@@ -10,11 +14,12 @@ import { authStatusLabel } from "./auth/service";
 import { resolveAuthRoute } from "./auth/routes";
 import type { AuthRoute } from "./auth/routes";
 import "./auth/auth.css";
+import "./workspace.css";
 
-type IconName = "books" | "clock" | "search" | "plus" | "arrow" | "spark" | "settings" | "close" | "leaf" | "chevron" | "profile";
+type IconName = "graph" | "clock" | "search" | "plus" | "arrow" | "spark" | "settings" | "close" | "leaf" | "chevron" | "profile" | "panel" | "folder" | "file";
 function Icon({ name, size = 20 }: { name: IconName; size?: number }) {
   const paths: Record<IconName, ReactNode> = {
-    books: <><path d="M4 4h4v16H4zM10 4h4v16h-4zM16 5l4-1 3 15-4 1z" /><path d="M4 8h4m2 8h4" /></>,
+    graph: <><path d="m7 7 10 2M7 7l3 11m7-9-7 9" /><circle cx="7" cy="7" r="3" /><circle cx="17" cy="9" r="3" /><circle cx="10" cy="18" r="3" /></>,
     clock: <><circle cx="12" cy="12" r="8" /><path d="M12 7v5l3 2" /></>,
     search: <><circle cx="10.5" cy="10.5" r="6.5" /><path d="m16 16 4 4" /></>,
     plus: <path d="M12 5v14M5 12h14" />,
@@ -24,6 +29,9 @@ function Icon({ name, size = 20 }: { name: IconName; size?: number }) {
     close: <path d="m6 6 12 12M18 6 6 18" />,
     leaf: <><path d="M19 4C8 3 3 8 6 15s14 4 13-11Z" /><path d="M5 20 15 9" /></>,
     chevron: <path d="m9 6 6 6-6 6" />,
+    panel: <><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M9 4v16" /></>,
+    folder: <path d="M3 7V5h6l2 2h10v13H3Z" />,
+    file: <><path d="M5 3h9l5 5v13H5Z" /><path d="M14 3v6h5M8 13h8M8 17h6" /></>,
     profile: <><circle cx="12" cy="8" r="4" /><path d="M4 21v-2a8 8 0 0 1 16 0v2" /></>,
   };
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -44,24 +52,17 @@ function Modal({ title, children, onClose, className = "" }: { title: string; ch
   </dialog>;
 }
 
-function Book({ note, position, selected, onSelect }: { note: ContextNote; position: number; selected: boolean; onSelect: () => void }) {
-  const appearance = bookAppearance(note.id);
-  const face = position === 0;
-  const style = { "--book-height": `${appearance.height}px`, "--book-width": `${appearance.width}px`,
-    "--book-delay": `${Math.min(position, 10) * 35}ms` } as CSSProperties;
-  return <button type="button" style={style} className={`book book--${appearance.color}${face ? " book--face" : ""}${selected ? " book--selected" : ""}`}
-    onClick={onSelect} aria-label={`Open ${note.title}`} aria-pressed={selected} title={note.title}>
-    {face ? <><span className="book-face-category">{collectionOf(note)}</span>
-      <span className="book-face-title">{note.title}</span><span className="book-face-mark"><Icon name="leaf" size={32} /></span>
-      <span className="book-face-footer">A COLLECTION OF THOUGHTS</span></>
-      : <><span className="book-spine-rule" /><span className="book-spine-title">{note.title}</span>
-        <span className="book-spine-number">{String(position + 1).padStart(2, "0")}</span></>}
-  </button>;
-}
-
 function readDraft() {
   try { return typeof window === "undefined" ? "" : localStorage.getItem("page.question-draft") ?? ""; }
   catch { return ""; }
+}
+
+function readSidebarPreference() {
+  try {
+    const stored = localStorage.getItem("page.sidebar-collapsed");
+    if (stored !== null) return stored === "true";
+  } catch { /* Layout still works when storage is unavailable. */ }
+  return typeof window !== "undefined" && window.innerWidth <= 680;
 }
 
 function App() {
@@ -70,24 +71,87 @@ function App() {
   const [view, setView] = useState<"library" | "recent">("library");
   const [query, setQuery] = useState("");
   const [collection, setCollection] = useState("All collections");
-  const [shelfPage, setShelfPage] = useState(0);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [tabState, setTabState] = useState<{ scope: string; layout: WorkspaceTabs }>({ scope: "", layout: initialTabs() });
+  const draggedTab = useRef<{ scope: string; id: string } | null>(null);
+  const [dragScope, setDragScope] = useState<string | null>(null);
+  const [dropSide, setDropSide] = useState<PaneSide | null>(null);
+  const [lastOpenedId, setLastOpenedId] = useState<string | null>(null);
   const [modal, setModal] = useState<"connect" | "add" | "account" | AuthRoute | null>(null);
   const authRoute = resolveAuthRoute(modal ?? "");
   const [token, setToken] = useState("");
   const [draft, setDraft] = useState(readDraft);
   const [draftSaved, setDraftSaved] = useState(true);
   const composer = useRef<HTMLTextAreaElement>(null);
+  const searchInput = useRef<HTMLInputElement>(null);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(readSidebarPreference);
+  const toggleSidebar = useCallback(() => {
+    const next = !sidebarCollapsed;
+    setSidebarCollapsed(next);
+    try { localStorage.setItem("page.sidebar-collapsed", String(next)); } catch { /* Session-only preference. */ }
+  }, [sidebarCollapsed]);
+  useEffect(() => {
+    const shortcut = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || event.isComposing || document.querySelector("dialog[open]")) return;
+      if ((event.metaKey || event.ctrlKey) && event.key === "\\") {
+        event.preventDefault(); toggleSidebar();
+      }
+    };
+    window.addEventListener("keydown", shortcut);
+    return () => window.removeEventListener("keydown", shortcut);
+  }, [toggleSidebar]);
   const preview = core.notes === null;
   const notes = core.notes ?? PREVIEW_NOTES;
-  const collections = [...new Set(notes.map(collectionOf))].sort();
+  const scope = `${core.session ?? "local-preview"}:${preview ? "preview" : "vault"}`;
+  // A vault/session change unmounts its entry panels and aborts pending reads.
+  const layout = tabState.scope === scope ? tabState.layout : initialTabs();
+  const tabs = layout.entries;
+  const activeId = layout.selected[layout.focused];
+  const split = layout.panes.right.length > 0;
+  const dragging = dragScope === scope;
+  const tabId = (id: string) => `workspace-tab-${id}`;
+  const changeLayout = (change: (state: WorkspaceTabs) => WorkspaceTabs) => {
+    setTabState((previous) => ({ scope, layout: change(previous.scope === scope ? previous.layout : initialTabs()) }));
+  };
+  const activateTab = (id: string) => {
+    changeLayout((state) => selectTab(state, id));
+  };
+  const showGraph = (nextView: "library" | "recent" = "library") => { setView(nextView); activateTab("graph"); };
+  const closeTab = (id: string) => {
+    const next = removeTab(layout, id);
+    changeLayout(() => next);
+    setTimeout(() => document.getElementById(tabId(next.selected[next.focused]))?.focus(), 0);
+  };
+  const endDrag = () => { draggedTab.current = null; setDragScope(null); setDropSide(null); };
+  const startDrag = (event: DragEvent, id: string) => {
+    draggedTab.current = { scope, id };
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("application/x-page-tab", id);
+    setDragScope(scope);
+  };
+  const acceptDrag = (event: DragEvent, side: PaneSide) => {
+    if (draggedTab.current?.scope !== scope) return;
+    event.preventDefault(); event.dataTransfer.dropEffect = "move"; setDropSide(side);
+  };
+  const transferTab = (id: string, side: PaneSide, createSplit = false) => {
+    changeLayout((state) => moveTab(state, id, side, createSplit));
+    setTimeout(() => document.getElementById(tabId(id))?.focus(), 0);
+  };
+  const dropTab = (event: DragEvent, side: PaneSide, createSplit = false) => {
+    const dragged = draggedTab.current;
+    if (dragged?.scope !== scope) return;
+    event.preventDefault(); event.stopPropagation();
+    transferTab(dragged.id, side, createSplit); endDrag();
+  };
+  const noteCollections = new Map<string, ContextNote[]>();
+  for (const note of notes) {
+    const name = collectionOf(note);
+    const members = noteCollections.get(name) ?? [];
+    members.push(note);
+    noteCollections.set(name, members);
+  }
+  const collections = [...noteCollections.keys()].sort();
   const activeCollection = collections.includes(collection) ? collection : "All collections";
   const visible = filterNotes(notes, query, activeCollection, view === "recent");
-  const pageCount = Math.max(1, Math.ceil(visible.length / 8));
-  const currentPage = Math.min(shelfPage, pageCount - 1);
-  const pageNotes = visible.slice(currentPage * 8, (currentPage + 1) * 8);
-  const selected = pageNotes.find((note) => note.id === selectedId) ?? pageNotes[0] ?? null;
-  const shelves = [pageNotes];
 
   const updateDraft = (value: string) => {
     setDraft(value);
@@ -96,36 +160,95 @@ function App() {
   };
   const prompt = (value: string) => { updateDraft(value); composer.current?.focus(); };
 
-  return <div className="workspace">
-    <aside className="sidebar" aria-label="Workspace navigation">
-      <a className="brand" href="#library" onClick={() => setView("library")}>
-        <span className="brand-mark"><Icon name="books" size={24} /></span><h1>Page</h1><span className="brand-dot" /></a>
-      <div className="workspace-label"><span className="workspace-avatar">P</span><span>Personal workspace<small>A home for your ideas</small></span></div>
-      <p className="nav-eyebrow">YOUR WORKSPACE</p>
-      <nav>
-        <button aria-label="Your library" aria-current={view === "library" ? "page" : undefined} className={`nav-item${view === "library" ? " active" : ""}`} onClick={() => { setView("library"); setShelfPage(0); }}>
-          <Icon name="books" /><span>Your library</span><span className="nav-count">{notes.length}</span></button>
-        <button aria-label="Recent additions" aria-current={view === "recent" ? "page" : undefined} className={`nav-item${view === "recent" ? " active" : ""}`} onClick={() => { setView("recent"); setShelfPage(0); }}>
-          <Icon name="clock" /><span>Recent additions</span></button>
+  const openEntry = (note: ContextNote) => {
+    setLastOpenedId(note.id);
+    changeLayout((state) => openTab(state, note));
+    setTimeout(() => document.getElementById(tabId(note.id))?.focus(), 0);
+  };
+
+  return <div className={`workspace${sidebarCollapsed ? " workspace--sidebar-collapsed" : ""}`}>
+    <nav className="workspace-ribbon" aria-label="Workspace tools">
+      <button className="ribbon-button ribbon-home" aria-label="Go to graph" title="Page graph" onClick={() => showGraph()}><Icon name="graph" size={21} /></button>
+      <button className={`ribbon-button${!sidebarCollapsed ? " is-active" : ""}`} aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+        aria-expanded={!sidebarCollapsed} aria-controls="vault-sidebar" title="Toggle sidebar (⌘/Ctrl + \)" onClick={toggleSidebar}><Icon name="panel" size={19} /></button>
+      <button className="ribbon-button" aria-label="Focus library search" title="Search your library" onClick={() => { showGraph(view); setTimeout(() => searchInput.current?.focus(), 0); }}><Icon name="search" size={19} /></button>
+      <button className="ribbon-button" aria-label="Add Markdown context" title="Add context" onClick={() => setModal("add")}><Icon name="plus" size={19} /></button>
+      <div className="ribbon-spacer" />
+      <button className="ribbon-button" aria-label="Profile and account settings" title={`Profile · ${authStatusLabel(auth.state)}`} onClick={() => setModal("account")}><Icon name="profile" size={19} /></button>
+      <button className="ribbon-button" aria-label="Vault settings" title="Vault settings" onClick={() => setModal("connect")}><Icon name="settings" size={19} /></button>
+    </nav>
+    <aside className="sidebar" id="vault-sidebar" aria-label="Vault navigation" hidden={sidebarCollapsed}>
+      <div className="sidebar-heading"><a className="brand" href="#library" onClick={() => showGraph()}><h1>Page</h1></a>
+        <span className="sidebar-mode">{preview ? "Preview" : "Local"}</span></div>
+      <button className="sidebar-vault" onClick={() => setModal("connect")} title="Open vault settings"><Icon name="folder" size={15} /><span>{core.status?.vault ?? "Personal vault"}</span><Icon name="chevron" size={12} /></button>
+      <nav className="sidebar-views" aria-label="Library views">
+        <button aria-label="Your graph" aria-current={activeId === "graph" && view === "library" ? "page" : undefined} className={`nav-item${activeId === "graph" && view === "library" ? " active" : ""}`} onClick={() => showGraph()}>
+          <Icon name="graph" size={16} /><span>Your graph</span><span className="nav-count">{notes.length}</span></button>
+        <button aria-label="Recent entries" aria-current={activeId === "graph" && view === "recent" ? "page" : undefined} className={`nav-item${activeId === "graph" && view === "recent" ? " active" : ""}`} onClick={() => showGraph("recent")}>
+          <Icon name="clock" size={16} /><span>Recent entries</span></button>
       </nav>
-      <div className="sidebar-note"><Icon name="leaf" size={24} /><p>Good ideas deserve<br />a place to grow.</p><span>One page at a time.</span></div>
+      <div className="vault-files"><div className="vault-files-heading"><span>Files</span><span>{notes.length}</span></div>
+        {collections.map((name) => <details className="vault-folder" key={name} open>
+          <summary><Icon name="chevron" size={12} /><Icon name="folder" size={15} /><span>{name}</span>
+            <span className="folder-count">{noteCollections.get(name)?.length}</span></summary>
+          {noteCollections.get(name)?.map((note) => <button className={`vault-note${lastOpenedId === note.id ? " is-selected" : ""}`} key={note.id}
+            aria-label={`Read ${note.title}`} title={note.path} onClick={() => openEntry(note)}><Icon name="file" size={13} /><span>{note.title}</span></button>)}
+        </details>)}
+        {!notes.length && <p className="vault-empty">Your Markdown files will appear here.</p>}
+      </div>
       <div className="sidebar-footer">
-        <button className="nav-item profile-button" aria-label="Profile and account settings" onClick={() => setModal("account")}><Icon name="profile" /><span>Profile & account</span></button>
-        <p className="profile-status">{authStatusLabel(auth.state)}</p>
-        <button className="nav-item" aria-label="Vault settings" onClick={() => setModal("connect")}><Icon name="settings" /><span>Vault settings</span></button>
         <div className="connection-status"><span className={`status-dot${core.error ? " status-dot--error" : !preview ? " status-dot--live" : ""}`} />
-          {core.error ? "Connection interrupted" : core.status?.state === "running" ? "Adding to your shelves…" : preview ? "Preview workspace" : "Connected to your vault"}</div>
-        <span className="local-label">LOCAL FIRST. YOURS ALWAYS.</span>
+          {core.error ? "Connection interrupted" : core.status?.state === "running" ? "Updating your network…" : preview ? "Preview workspace" : "Connected to your vault"}</div>
+        <p className="profile-status">{authStatusLabel(auth.state)}</p>
       </div>
     </aside>
 
-    <main className="main-content" id="library">
-      <header className="topbar"><div className="breadcrumbs">Workspace <Icon name="chevron" size={13} /><span>{view === "library" ? "Your library" : "Recent additions"}</span></div>
-        <button className="workspace-button" onClick={() => setModal("connect")}><span className="tiny-avatar">P</span>{core.status?.vault ?? "Personal vault"}<Icon name="chevron" size={13} /></button></header>
+    <main className={`main-content${split ? " main-content--split" : ""}`} id="library"
+      onDragOver={(event) => { if (draggedTab.current?.scope !== scope) { event.preventDefault(); event.dataTransfer.dropEffect = "none"; } }}
+      onDrop={(event) => event.preventDefault()}>
+      {(["left", "right"] as const).filter((side) => side === "left" || split).map((side) => {
+        const ids = layout.panes[side];
+        const selected = layout.selected[side];
+        const splitLabel = split ? "Move active tab to other pane" : "Split active tab to right";
+        return <header key={side} className={`topbar pane-${side}${layout.focused === side ? " pane-focused" : ""}`}
+          onFocusCapture={(event) => activateTab((event.target as HTMLElement).closest<HTMLElement>("[data-tab-id]")?.dataset.tabId ?? selected)}
+          onDragOver={(event) => acceptDrag(event, side)} onDrop={(event) => dropTab(event, side)}>
+          <div className="workspace-tabs" role="tablist" aria-label={split ? `${side === "left" ? "Left" : "Right"} pane tabs` : "Workspace tabs"}
+            onKeyDown={(event) => {
+              if (!(event.target as Element).matches('[role="tab"]')) return;
+              const current = ids.indexOf(selected);
+              const next = event.key === "ArrowRight" ? ids[(current + 1) % ids.length]
+                : event.key === "ArrowLeft" ? ids[(current - 1 + ids.length) % ids.length]
+                : event.key === "Home" ? ids[0] : event.key === "End" ? ids[ids.length - 1] : null;
+              if (next) { event.preventDefault(); activateTab(next); document.getElementById(tabId(next))?.focus(); }
+              if (event.key === "Delete" && selected !== "graph") { event.preventDefault(); closeTab(selected); }
+              if (event.key === "Escape") endDrag();
+            }}>
+            {ids.map((id) => {
+              const note = tabs.find((entry) => entry.id === id);
+              const title = note?.title ?? "Graph";
+              return <div className={`entry-tab${selected === id ? " is-active" : ""}`} key={id}>
+                <button className="workspace-tab" role="tab" id={tabId(id)} data-tab-id={id} aria-selected={selected === id}
+                  aria-controls={`workspace-panel-${id}`} tabIndex={selected === id ? 0 : -1} onClick={() => activateTab(id)}
+                  draggable onDragStart={(event) => startDrag(event, id)} onDragEnd={endDrag}
+                  title={`${note?.path ?? "Graph"} · Drag to either side to split`}>
+                  <Icon name={note ? "file" : "graph"} size={14} /><span>{title}</span></button>
+                {note && <button className="tab-close" type="button" aria-label={`Close ${title} tab`} onClick={() => closeTab(id)}><Icon name="close" size={12} /></button>}
+              </div>;
+            })}
+          </div>
+          <button className="pane-split-button" aria-label={splitLabel} title={splitLabel} disabled={tabs.length === 0}
+            onClick={() => transferTab(selected, side === "left" ? "right" : "left")}><Icon name="panel" size={16} /></button>
+        </header>;
+      })}
+      <section key="graph" role="tabpanel" id="workspace-panel-graph" aria-labelledby={tabId("graph")}
+        className={`workspace-graph-panel pane-${paneOf(layout, "graph")}`}
+        onPointerDown={() => activateTab("graph")} onFocusCapture={() => activateTab("graph")}
+        hidden={layout.selected[paneOf(layout, "graph")] !== "graph"}>
       <div className="dashboard">
         <section className="library-heading">
-          <div><p className="eyebrow">A SPACE FOR WHAT YOU KNOW</p><h2>{view === "library" ? "Your library" : "Recently collected"}<span className="heading-period">.</span></h2>
-            <p className="subtitle">A few thoughts today. A world of possibilities tomorrow.</p></div>
+          <div><p className="eyebrow">WORKSPACE / GRAPH</p><h2>{view === "library" ? "Your graph" : "Recent entries"}<span className="heading-period">.</span></h2>
+            <p className="subtitle">Your knowledge, one connection at a time.</p></div>
           <button className="button button-primary" onClick={() => setModal("add")}><Icon name="plus" size={17} />Add context</button>
         </section>
 
@@ -137,52 +260,50 @@ function App() {
           <span>{core.status.completed}/{core.status.total}</span></div>}
         {core.status?.error && <p className="inline-error" role="alert">{core.status.error}</p>}
 
-        <div className="library-toolbar"><div className="library-count"><Icon name="books" size={17} /><span>{visible.length} {visible.length === 1 ? "book" : "books"}</span><span className="toolbar-divider" /><span className="muted">{preview ? "Sample context" : "Collected context"}</span></div>
-          <div className="library-filters"><label className="search-field"><Icon name="search" size={16} /><input type="search" placeholder="Find a book…" aria-label="Search your library" value={query} onChange={(event) => { setQuery(event.target.value); setShelfPage(0); }} /></label>
-            <select aria-label="Filter by collection" value={activeCollection} onChange={(event) => { setCollection(event.target.value); setShelfPage(0); }}><option>All collections</option>{collections.map((name) => <option key={name}>{name}</option>)}</select></div>
+        <div className="library-toolbar"><div className="library-count"><Icon name="graph" size={17} /><span>{visible.length} {visible.length === 1 ? "entry" : "entries"}</span><span className="toolbar-divider" /><span className="muted">{preview ? "Sample context" : "Collected context"}</span></div>
+          <div className="library-filters"><label className="search-field"><Icon name="search" size={16} /><input ref={searchInput} type="search" placeholder="Find an entry…" aria-label="Search your library" value={query} onChange={(event) => setQuery(event.target.value)} /></label>
+            <select aria-label="Filter by collection" value={activeCollection} onChange={(event) => setCollection(event.target.value)}><option>All collections</option>{collections.map((name) => <option key={name}>{name}</option>)}</select></div>
         </div>
 
-        <div className="library-layout">
-          <section className="bookcase" aria-label="Context bookshelf">
-            {shelves.map((shelf, row) => <div className="shelf-row" key={row}>
-              <div className="shelf-books">{shelf.map((note, column) => <Book key={note.id} note={note} position={row * 8 + column} selected={selected?.id === note.id} onSelect={() => setSelectedId(note.id)} />)}
-                {shelf.length === 0 && <div className="empty-shelf"><Icon name="books" size={30} /><h3>{notes.length ? "Nothing on this shelf yet" : "Your next chapter starts here"}</h3><p>{notes.length ? "Try another search or collection." : "Add Markdown notes to your vault, then index them to grow your library."}</p>
-                  <button className="text-button" onClick={() => notes.length ? (setQuery(""), setCollection("All collections")) : setModal("add")}>{notes.length ? "Clear filters" : "Add your first context"}<Icon name="arrow" size={15} /></button></div>}
-              </div><div className="shelf-plank"><span /></div>
-            </div>)}
-            <div className="shelf-caption"><Icon name="leaf" size={14} /><span>Your library grows with every note you collect.</span><span className="shelf-caption-count">{notes.length.toString().padStart(2, "0")} VOLUMES</span></div>
-            {pageCount > 1 && <nav className="shelf-pagination" aria-label="Bookshelf pages"><button className="icon-button previous-shelf" aria-label="Previous shelf" disabled={currentPage === 0} onClick={() => setShelfPage(currentPage - 1)}><Icon name="arrow" size={15} /></button>
-              <span aria-live="polite">Shelf {currentPage + 1} of {pageCount}</span><button className="icon-button" aria-label="Next shelf" disabled={currentPage === pageCount - 1} onClick={() => setShelfPage(currentPage + 1)}><Icon name="arrow" size={15} /></button></nav>}
-          </section>
+        <EntryGraph key={scope} notes={notes} visible={visible} selectedId={lastOpenedId} collection={activeCollection}
+          onOpen={openEntry} onFilter={setCollection}
+          emptyAction={() => { if (notes.length) { setQuery(""); setCollection("All collections"); } else setModal("add"); }} />
 
-          <aside className="reading-panel" aria-labelledby="reading-heading"><p className="eyebrow" id="reading-heading">ON YOUR DESK</p>
-            {selected ? <><span className={`reading-category category--${bookAppearance(selected.id).color}`}>{collectionOf(selected)}</span>
-              <h3>{selected.title}</h3><div className="reading-rule" /><p className="reading-excerpt">{selected.excerpt || "This note is waiting for its first words."}</p>
-              <div className="reading-meta"><span>{selected.chunks} {selected.chunks === 1 ? "passage" : "passages"}</span><span>{preview ? "Sample note" : "Markdown note"}</span></div>
-              <p className="note-path" title={selected.path}>{selected.path}</p>
-              <button className="text-button" onClick={() => prompt(`Help me explore the ideas in “${selected.title}”.`)}>Ask about this book <Icon name="arrow" size={15} /></button></>
-              : <div className="reading-empty"><Icon name="leaf" size={30} /><p>A thought worth revisiting will find its way here.</p></div>}
-          </aside>
-        </div>
-
-        <section className="conversation" aria-labelledby="conversation-heading"><div className="conversation-heading"><span className="spark-circle"><Icon name="spark" size={20} /></span><div><h2 id="conversation-heading">Where will your curiosity take you?</h2><p>Start with a question. Bring your context along.</p></div></div>
+        <section className="conversation" aria-labelledby="conversation-heading"><div className="conversation-heading"><span className="spark-circle"><Icon name="spark" size={20} /></span><div><h2 id="conversation-heading">Ask your vault</h2><p>A question, with your notes close at hand.</p></div></div>
           <form className="composer" onSubmit={(event) => event.preventDefault()}>
             <label className="sr-only" htmlFor="question">Ask a question about your context</label>
             <textarea id="question" ref={composer} value={draft} onChange={(event) => updateDraft(event.target.value)} placeholder="Connect a few ideas, explore a question, or start something new…" rows={3} maxLength={12000} />
-            <div className="composer-footer"><span className="composer-context"><Icon name="books" size={15} />{preview ? "Your context, connected" : `${notes.length} books in your library`}</span>
+            <div className="composer-footer"><span className="composer-context"><Icon name="graph" size={15} />{preview ? "Your context, connected" : `${notes.length} entries in your vault`}</span>
               <div className="composer-action"><span className="coming-soon"><span className="status-dot" />Gemini · coming soon</span><button className="send-button" disabled aria-label="Send question — Gemini is not connected yet" title="Gemini backend connection is coming soon"><Icon name="arrow" size={18} /></button></div></div>
           </form>
-          <div className="prompt-suggestions"><span>A LITTLE INSPIRATION</span>{["Find connections in my notes", "What should I explore next?", "Help me develop an idea"].map((suggestion) => <button key={suggestion} onClick={() => prompt(suggestion)}>{suggestion}<Icon name="arrow" size={12} /></button>)}</div>
+          <div className="prompt-suggestions"><span>TRY A QUESTION</span>{["Find connections in my notes", "What should I explore next?", "Help me develop an idea"].map((suggestion) => <button key={suggestion} onClick={() => prompt(suggestion)}>{suggestion}<Icon name="arrow" size={12} /></button>)}</div>
           <p className="draft-status" role="status">{draft ? draftSaved ? "Draft saved on this device. Nothing has been sent." : "Draft is available in this session. Browser storage is unavailable." : "A quiet space to think. Your notes stay yours."}</p>
         </section>
-        <footer className="dashboard-footer"><span>Made for a mind that keeps exploring.</span><span>PAGE <span className="footer-star">✳</span> YOUR PERSONAL KNOWLEDGE SPACE</span></footer>
+        <footer className="dashboard-footer"><span>{notes.length} Markdown {notes.length === 1 ? "note" : "notes"}</span><span>Page · local workspace</span></footer>
       </div>
+      </section>
+      {tabs.map((note) => <section key={`${scope}:${note.id}`} role="tabpanel" id={`workspace-panel-${note.id}`}
+        aria-labelledby={tabId(note.id)} className={`workspace-entry-panel pane-${paneOf(layout, note.id)}`}
+        onPointerDown={() => activateTab(note.id)} onFocusCapture={() => activateTab(note.id)}
+        hidden={layout.selected[paneOf(layout, note.id)] !== note.id}>
+        <EntryPane note={note} session={core.session} preview={preview} onAsk={() => {
+          updateDraft(`Help me explore the ideas in “${note.title}”.`);
+          activateTab("graph"); setTimeout(() => composer.current?.focus(), 0);
+        }} />
+      </section>)}
+      {dragging && <div className="split-drop-targets" onDragLeave={(event) => {
+        if (!(event.relatedTarget instanceof Node) || !event.currentTarget.contains(event.relatedTarget)) setDropSide(null);
+      }}>
+        {(["left", "right"] as const).map((side) => <div key={side} className={`split-drop-zone${dropSide === side ? " is-over" : ""}`}
+          role="group" aria-label={`Drop tab in ${side} pane`} onDragOver={(event) => acceptDrag(event, side)}
+          onDrop={(event) => dropTab(event, side, true)}><span>{split ? "Move to" : "Split to"} {side}<small>Release to place tab</small></span></div>)}
+      </div>}
     </main>
 
     {(modal === "connect" || modal === "account") && <Modal title="Workspace settings" onClose={() => setModal(null)}>
       <nav className="settings-tabs" aria-label="Settings sections"><button type="button" aria-pressed={modal === "connect"} onClick={() => setModal("connect")}>Vault</button><button type="button" aria-pressed={modal === "account"} onClick={() => setModal("account")}>Account</button></nav>
       {modal === "account" ? <AccountSettings onNavigate={setModal} /> : <>
-      <p className="modal-description">Connect your Markdown vault to bring your own books to these shelves.</p>
+      <p className="modal-description">Connect your Markdown vault to populate your knowledge graph.</p>
       <form className="connection-form" onSubmit={(event) => { event.preventDefault(); core.connect(token); }}>
         <label htmlFor="session-token">Core session token</label><input id="session-token" type="password" autoComplete="off" value={token} placeholder="Paste your local service’s token" onChange={(event) => setToken(event.target.value)} />
         <p className="field-hint">Start the local Page core service for your vault, then use the session token it provides. Your token isn’t saved.</p>
@@ -204,8 +325,8 @@ function App() {
       <div className="auth-switch"><button className="text-button" onClick={() => setModal(null)}>Continue to local workspace →</button><br /><button className="text-button" onClick={() => setModal("account")}>Return to account settings</button></div>
     </Modal>}
     {modal === "add" && <Modal title="Make room for a new idea" onClose={() => setModal(null)}>
-      <span className="add-illustration"><Icon name="books" size={40} /><Icon name="plus" size={20} /></span>
-      <p className="modal-description">Every Markdown note becomes a book in your library. Add a <strong>.md</strong> file to your vault, then index your changes to put it on the shelf.</p>
+      <span className="add-illustration"><Icon name="graph" size={40} /><Icon name="plus" size={20} /></span>
+      <p className="modal-description">Every Markdown note becomes an entry in your graph. Add a <strong>.md</strong> file to your vault, then index your changes to add it to your network.</p>
       <p className="field-hint">Your original files stay in your vault. New notes, edits, and renames appear after indexing.</p>
       {core.status ? <button className="button button-primary" disabled={core.pending || core.status.state === "running"} onClick={() => { void core.index(false); setModal(null); }}>Index my notes<Icon name="arrow" size={16} /></button>
         : <button className="button button-primary" onClick={() => setModal("connect")}>Connect your vault<Icon name="arrow" size={16} /></button>}

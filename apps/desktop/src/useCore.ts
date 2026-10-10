@@ -15,7 +15,7 @@ export interface IndexStatus {
   error: string | null;
 }
 
-const CORE_URL = "http://127.0.0.1:8765";
+export const CORE_URL = "http://127.0.0.1:8765";
 
 export function useCore() {
   const [session, setSession] = useState<string | null>(null);

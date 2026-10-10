@@ -1,0 +1,35 @@
+.entry-graph { margin-top: 18px; overflow: hidden; border: 1px solid var(--workspace-border); border-radius: 8px; background: var(--workspace-paper); }
+.graph-heading { display: flex; align-items: center; justify-content: space-between; gap: 14px; min-height: 48px; padding: 10px 16px; border-bottom: 1px solid var(--workspace-border); }
+.graph-heading > div:first-child { display: flex; align-items: center; gap: 8px; font-size: 10px; color: var(--workspace-muted); }
+.graph-heading strong { color: var(--workspace-accent); font-size: 11px; font-weight: 500; }
+.graph-live-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--workspace-accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--workspace-accent) 12%, transparent); }
+.graph-controls { display: flex; align-items: center; gap: 5px; }
+.graph-controls button { display: grid; place-items: center; min-width: 27px; height: 27px; padding: 0; border: 1px solid var(--workspace-border); border-radius: 4px; color: var(--workspace-muted); background: var(--workspace-surface); font-size: 16px; }
+.graph-controls button:hover { background: var(--workspace-hover); }
+.graph-controls output { min-width: 37px; text-align: center; font-size: 10px; color: var(--workspace-muted); }
+.graph-controls .graph-fit { padding: 0 8px; margin-left: 6px; font-size: 10px; }
+.graph-viewport { height: clamp(390px, 62vh, 660px); position: relative; overflow: hidden; touch-action: none; cursor: grab; background: radial-gradient(ellipse at center, color-mix(in srgb, var(--workspace-sage) 25%, transparent), transparent 65%), radial-gradient(circle, color-mix(in srgb, var(--workspace-edge) 25%, transparent) 1px, transparent 1px); background-size: auto, 22px 22px; }
+.graph-viewport:active { cursor: grabbing; }
+.graph-world { position: absolute; left: 50%; top: 50%; transform-origin: center; }
+.graph-connections { position: absolute; inset: 0; pointer-events: none; overflow: visible; }
+.graph-connections line { stroke: var(--workspace-edge); stroke-width: 1.3; opacity: .55; transition: stroke .15s, opacity .15s; }
+.graph-connections line.is-highlighted { stroke: var(--workspace-accent); opacity: 1; stroke-width: 2; }
+.graph-node { --node-color: var(--workspace-accent); position: absolute; width: 150px; padding: 4px 6px; min-height: 76px; transform: translate(-50%, -50%); display: flex; align-items: center; flex-direction: column; gap: 3px; border: 0; border-radius: 8px; background: transparent; color: var(--workspace-muted); cursor: pointer; }
+.graph-node-halo { display: grid; place-items: center; width: 38px; height: 38px; border: 1px solid transparent; border-radius: 50%; transition: background .15s, border-color .15s; }
+.graph-node-dot { width: 18px; height: 18px; border-radius: 50%; background: var(--node-color); box-shadow: 0 0 0 4px color-mix(in srgb, var(--node-color) 12%, transparent), 0 2px 5px color-mix(in srgb, var(--workspace-ink) 15%, transparent); transition: transform .15s; }
+.graph-node:hover .graph-node-halo, .graph-node:focus-visible .graph-node-halo, .graph-node.is-selected .graph-node-halo { background: color-mix(in srgb, var(--node-color) 8%, transparent); border-color: color-mix(in srgb, var(--node-color) 45%, transparent); }
+.graph-node:hover .graph-node-dot { transform: scale(1.15); }
+.graph-node-title { max-width: 100%; font-size: 12px; font-weight: 500; line-height: 1.35; text-align: center; background: color-mix(in srgb, var(--workspace-paper) 90%, transparent); border-radius: 3px; padding: 1px 3px; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.graph-node-collection { font-size: 9px; color: var(--workspace-muted); }
+.graph-canvas-label { position: absolute; bottom: 14px; right: 16px; pointer-events: none; font-size: 8px; letter-spacing: 1.5px; color: var(--workspace-muted); }
+.graph-legend { display: flex; align-items: center; flex-wrap: wrap; gap: 5px; padding: 11px 14px 0; border-top: 1px solid var(--workspace-border); }
+.graph-legend button { display: inline-flex; align-items: center; gap: 6px; border: 1px solid transparent; border-radius: 4px; background: transparent; color: var(--workspace-muted); padding: 5px 7px; font-size: 10px; }
+.graph-legend button[aria-pressed="true"] { border-color: var(--workspace-border); background: var(--workspace-sage); color: var(--workspace-accent); }
+.graph-legend button > span { width: 6px; height: 6px; border-radius: 50%; }
+.graph-help { margin: 8px 20px 13px; color: var(--workspace-muted); font-size: 10px; line-height: 1.6; }
+.graph-empty { display: flex; align-items: center; justify-content: center; flex-direction: column; height: 100%; padding: 30px; text-align: center; }
+.graph-empty > span { font-size: 48px; color: var(--workspace-muted); }
+.graph-empty h3 { font-size: 17px; font-weight: 500; color: var(--workspace-muted); }
+.graph-empty p { font-size: 12px; color: var(--workspace-muted); line-height: 1.7; }
+@media (max-width: 680px) { .graph-heading { flex-wrap: wrap; gap: 8px; padding: 10px; } .graph-viewport { height: 430px; } .graph-help { font-size: 9px; margin-left: 15px; } }
+@media (prefers-reduced-motion: reduce) { .graph-node-dot, .graph-node-halo, .graph-connections line { transition: none; } }

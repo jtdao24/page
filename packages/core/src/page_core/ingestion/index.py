@@ -15,7 +15,7 @@ from uuid import UUID
 import numpy as np
 import faiss
 
-from page_core.vault import FileSystemVault, _require_real_directory
+from page_core.vault import FileSystemVault, _decode, _read_regular_file, _require_real_directory
 from .chunking import CHUNK_VERSION, chunk_markdown
 from .embedding import MiniLM
 from .scanner import scan
@@ -355,6 +355,23 @@ class IngestionIndex:
                     "path": row["path"], "excerpt": excerpt, "chunks": row["chunks"],
                     "updated_at": datetime.fromtimestamp(row["mtime_ns"] / 1e9, tz=UTC).isoformat()})
             return result
+
+    def read_context(self, note_id: str) -> dict:
+        """Read a full current Markdown source by its committed index UUID.
+
+        The reader never accepts filesystem paths from clients, caches source
+        content, or loads the embedding model. Stage 3 path/UTF-8/no-follow
+        checks apply. Bound reads to 1 MiB to keep the desktop reader responsive.
+        """
+        identifier = str(UUID(note_id))
+        with self._lock, self._publication_lock(), self._connect() as db:
+            row = db.execute("SELECT path FROM notes WHERE id=?", (identifier,)).fetchone()
+            if row is None:
+                raise KeyError("unknown indexed note")
+            path = PurePosixPath(row["path"])
+            data, info = _read_regular_file(self.vault._existing_file(path), max_bytes=1024 * 1024)
+            return {"id": identifier, "path": str(path), "content": _decode(data, path),
+                    "updated_at": datetime.fromtimestamp(info.st_mtime_ns / 1e9, tz=UTC).isoformat()}
 
     def search(self, query: str, *, limit: int = 10) -> list[dict]:
         faiss.omp_set_num_threads(1)
