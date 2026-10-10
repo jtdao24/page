@@ -84,6 +84,19 @@ This downloads model files only. Ordinary indexing and search use the local cach
 and send no note or query content to a service. See [semantic search](semantic-search.md)
 for source attribution, incremental indexing, API contracts and limitations.
 
+## Neural reranker
+
+Stage 9's learned reranker reorders semantic search candidates. With the model
+prepared, retrain it and re-measure it on held-out queries:
+
+```sh
+.venv/bin/python -m page_core.ranking train      # writes training/reranker/model.json
+.venv/bin/python -m page_core.ranking evaluate   # writes benchmarks/reranker.json
+```
+
+See [neural ranking](neural-ranking.md) for features, the checkpoint format, the
+dataset and current results.
+
 ## Python tests
 
 ```sh
