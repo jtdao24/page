@@ -110,7 +110,7 @@ with `npm run tauri -w @page/desktop -- icon`. Only the desktop icons listed in
 
 ## Status
 
-**Stage 3 of 14: filesystem vault.** Completed so far:
+**Stage 4 of 14: SQLite metadata persistence.** Completed so far:
 
 1. Repository foundation: layout, tooling, a desktop shell that displays "Page", and an
    installable `page-core` package.
@@ -120,7 +120,16 @@ with `npm run tauri -w @page/desktop -- icon`. Only the desktop icons listed in
 3. Filesystem vault: `page_core.vault` creates and opens vaults and safely lists,
    reads, creates, updates, moves and deletes Markdown notes, specified in
    [docs/filesystem-vault.md](docs/filesystem-vault.md). Note IDs are kept in memory
-   only until Stage 4.
+   only when using the standalone Stage 3 interface.
+4. SQLite metadata: `page_core.metadata` adds versioned migrations, persistent
+   note IDs and creation timestamps, transactional CRUD, and reconciliation
+   through an opt-in filesystem adapter. Notes remain the source of truth;
+   no parsing, API, UI integration, embeddings, or vector indexing are included.
+   See [docs/sqlite-metadata.md](docs/sqlite-metadata.md) for usage and limitations.
+
+Private metadata permissions are currently enforced on POSIX and tested on
+macOS. Windows metadata support fails closed pending verified ACL enforcement;
+the existing Stage 2/3 interfaces retain their behavior.
 
 The desktop app is not connected to Page Core yet, and no retrieval or AI features are
 implemented.

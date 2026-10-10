@@ -141,14 +141,45 @@ class FileSystemVault:
     def vault(self) -> Vault:
         return self._vault
 
-    def list_note_paths(self) -> list[PurePosixPath]:
+    def note_identity(self, path: PurePosixPath) -> UUID:
+        """Allocate an in-memory identity without reading note content.
+
+        Stage 4 can persist this UUID, including for notes with invalid UTF-8.
+        """
+        relative = _require_managed_path(path)
+        if relative not in self._ids:
+            identifier = self._new_id()
+            if not isinstance(identifier, UUID):
+                raise TypeError("note identity must be UUID")
+            self._ids[relative] = identifier
+        return self._ids[relative]
+
+    def restore_note_identities(self, identities: dict[PurePosixPath, UUID]) -> None:
+        """Restore a complete validated registry from Stage 4 metadata.
+
+        Use before retaining snapshots. The default Stage 3 instance still
+        keeps identities only in memory; this method performs no I/O.
+        """
+        restored = {}
+        for path, identifier in identities.items():
+            relative = _require_managed_path(path)
+            if not isinstance(identifier, UUID):
+                raise TypeError("note identity must be UUID")
+            restored[relative] = identifier
+        if len(set(restored.values())) != len(restored):
+            raise ValueError("note identities must be unique")
+        self._ids = restored
+
+    def list_note_paths(
+        self, *, on_error: Callable[[OSError], None] | None = None
+    ) -> list[PurePosixPath]:
         """Return every managed note path, sorted. Does not read note contents.
 
         Hidden entries, symlinks, and files whose names break the note path
         rules are skipped.
         """
         paths: list[PurePosixPath] = []
-        for dirpath, dirnames, filenames in os.walk(self._root):
+        for dirpath, dirnames, filenames in os.walk(self._root, onerror=on_error):
             directory = Path(dirpath)
             dirnames[:] = [
                 name
