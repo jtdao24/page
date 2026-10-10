@@ -28,6 +28,7 @@ from page_core.metadata import NoteMetadata, ReconcileResult
 
 from .errors import ApiError, error_response, field_error, translate, validation_error
 from .schemas import (
+    GraphResponse, GraphNodeResponse, GraphLinkResponse,
     REQUEST_MODELS, CreateNoteRequest, CreateVaultRequest, ErrorResponse, HealthResponse,
     MoveNoteRequest, NoteResponse, NoteSummaryResponse, OpenVaultRequest, ReconcileRequest,
     ReconcileResponse, UpdateNoteRequest, VaultResponse, parse_note_path, parse_root, parse_uuid,
@@ -288,6 +289,21 @@ def create_app(*, session_token: str | None = None) -> FastAPI:
         renames = {parse_uuid(key): parse_note_path(value) for key, value in body.known_renames.items()}
         result = await _run(request, lambda service: service.reconcile(identifier, renames))
         return _json(_reconcile_response(result))
+
+    @app.get(f"{PREFIX}/vaults/{{vault_id}}/graph", response_model=GraphResponse,
+             responses=_errors(404, 409, 422, 503))
+    async def get_graph(request: Request, vault_id: str) -> Response:
+        identifier = _path_uuid("vault_id", vault_id)
+        graph = await _run(request, lambda service: service.get_graph(identifier))
+        return _json(GraphResponse(
+            vault_id=str(graph.vault_id),
+            nodes=[GraphNodeResponse(id=str(node.id), relative_path=str(node.relative_path))
+                   for node in graph.nodes],
+            links=[GraphLinkResponse(source_note_id=str(edge.link.source_note_id),
+                    target_reference=edge.link.target_reference,
+                    target_note_id=str(edge.link.target_note_id) if edge.link.target_note_id else None,
+                    alias=edge.alias, line=edge.line, unresolved_reason=edge.unresolved_reason)
+                   for edge in graph.links]))
 
     @app.get(f"{PREFIX}/vaults/{{vault_id}}/notes", response_model=list[NoteSummaryResponse],
              responses=_errors(404, 409, 422, 503))

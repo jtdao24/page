@@ -15,6 +15,7 @@
     "allow-vault-get",
     "allow-vault-close",
     "allow-vault-reconcile",
+    "allow-graph-read",
     "allow-note-list",
     "allow-note-read",
     "allow-note-create",

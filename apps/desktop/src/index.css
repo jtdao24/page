@@ -110,3 +110,24 @@ details[open] > .folder-row::before { transform: rotate(90deg); }
   .vault-welcome { padding: 25px; }
 }
 @media (prefers-reduced-motion: reduce) { button, .folder-row::before { transition: none; } }
+
+.knowledge-panel { width: 330px; flex-shrink: 0; display: flex; flex-direction: column; overflow: auto; padding: 14px; background: var(--surface-sidebar); border-left: 1px solid var(--line); }
+.knowledge-heading { display: flex; align-items: center; justify-content: space-between; }
+.knowledge-heading h2 { font-size: 13px; font-weight: 600; }
+.knowledge-heading button { background: transparent; border: 0; font-size: 20px; }
+.knowledge-hint, .graph-counts { color: var(--muted); font-size: 10px; margin: 8px 0; }
+.graph-actions { display: flex; gap: 7px; margin: 5px 0; }
+.graph-canvas { height: 250px; min-height: 250px; background: var(--surface); border-radius: 7px; margin: 10px 0; }
+.graph-details { font-size: 12px; }
+.graph-details h3, .graph-details summary { color: var(--accent); margin: 16px 0 6px; }
+.graph-details ul { padding: 0; list-style: none; }
+.graph-details li { padding: 3px 0; overflow-wrap: anywhere; }
+.graph-details button { border: 0; background: transparent; justify-content: flex-start; text-align: left; padding: 3px 0; overflow-wrap: anywhere; }
+.graph-details button[aria-current="true"] { color: var(--accent); }
+.graph-details small { display: block; color: var(--muted); font-size: 9px; }
+.graph-details p { color: var(--muted); font-size: 11px; }
+.unresolved-link { color: #c4a876; }
+@media (max-width: 1050px) {
+  .knowledge-panel { width: 290px; }
+  .page-app:has(.knowledge-panel) .workspace-sidebar { display: none; }
+}

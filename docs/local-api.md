@@ -438,3 +438,11 @@ are not part of this stage. Desktop connection and process ownership are impleme
 separately in Stage 6 without changing the API contract. There are no filesystem watchers,
 background reconciliation, remote or multi-user access, TLS, uploads,
 arbitrary file access, vault deletion, trash, pagination or WebSockets.
+
+## Knowledge graph
+
+Stage 7 adds authenticated `GET /api/v1/vaults/{vault_id}/graph`, returning
+canonical note nodes and directed wiki-link references with unresolved reasons.
+See [knowledge-graph.md](knowledge-graph.md) for the wire shape, resolution rules,
+refresh behavior and limits. It uses the existing storage worker and session;
+no additional server, credential or note-writing endpoint is introduced.

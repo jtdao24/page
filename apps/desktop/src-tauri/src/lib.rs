@@ -143,6 +143,7 @@ pub fn run() {
             commands::vault_get,
             commands::vault_close,
             commands::vault_reconcile,
+            commands::graph_read,
             commands::note_list,
             commands::note_read,
             commands::note_create,

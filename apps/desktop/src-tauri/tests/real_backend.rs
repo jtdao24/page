@@ -63,6 +63,20 @@ fn desktop_bridge_drives_the_real_backend() {
         content.as_bytes()
     );
 
+    let linking = client
+        .create_note(&vault.id, "links.md", "[[ideas/first|First]] [[missing]]")
+        .unwrap();
+    let graph = client.read_graph(&vault.id).unwrap();
+    assert_eq!(graph.links[0].source_note_id, linking.id);
+    assert_eq!(
+        graph.links[0].target_note_id.as_deref(),
+        Some(created.id.as_str())
+    );
+    assert_eq!(graph.links[1].unresolved_reason.as_deref(), Some("missing"));
+    client
+        .delete_note(&vault.id, &linking.id, &linking.revision)
+        .unwrap();
+
     let read = client.read_note(&vault.id, &created.id).unwrap();
     assert_eq!(
         (read.content.as_str(), read.revision.as_str()),

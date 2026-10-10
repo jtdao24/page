@@ -10,6 +10,7 @@ pub const COMMAND_NAMES: &[&str] = &[
     "vault_get",
     "vault_close",
     "vault_reconcile",
+    "graph_read",
     "note_list",
     "note_read",
     "note_create",

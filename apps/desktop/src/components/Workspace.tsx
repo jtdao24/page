@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { type WorkspaceController, backendReady, isDirty, mutationsBlocked, navigationBlocked } from "../workspace/controller";
 import { useWorkspace } from "../workspace/useWorkspace";
 import { buildTree } from "../workspace/tree";
@@ -11,11 +11,14 @@ import { NoteTree } from "./NoteTree";
 import { VaultForms } from "./VaultForms";
 import { Icon } from "./Icon";
 
+const KnowledgeGraph = lazy(() => import("./KnowledgeGraph").then((module) => ({ default: module.KnowledgeGraph })));
+
 type Modal = "vault" | "create" | "move" | "delete" | "convert" | "orphan" | "reload" | "overwrite" | "failed-move" | "reset" | null;
 
 export function Workspace({ controller }: { controller: WorkspaceController }) {
   const state = useWorkspace(controller);
   const [modal, setModal] = useState<Modal>(null);
+  const [graphVisible, setGraphVisible] = useState(false);
   const [sidebarVisible, setSidebarVisible] = useState(true);
   const document = state.document;
   const blocked = mutationsBlocked(state) || state.vaultBusy;
@@ -88,6 +91,8 @@ export function Workspace({ controller }: { controller: WorkspaceController }) {
             onClick={() => noteAction("create")}><Icon name="note" /></button>
           <button className="ribbon-button" title="Open Vault · Cmd/Ctrl+O" aria-label="Open Vault" disabled={navigation}
             onClick={() => setModal("vault")}><Icon name="folder" /></button>
+          <button className="ribbon-button" title="Knowledge graph" aria-label="Knowledge graph" aria-expanded={graphVisible}
+            disabled={!state.vault} onClick={() => setGraphVisible(!graphVisible)}><Icon name="graph" /></button>
           <div className="ribbon-spacer" />
           <button className="ribbon-button" title="Quit Page" aria-label="Quit Page" disabled={state.pending !== null || state.quitting}
             onClick={() => void controller.requestQuit()}><Icon name="quit" /></button>
@@ -171,6 +176,9 @@ export function Workspace({ controller }: { controller: WorkspaceController }) {
             {document && <footer className="document-statusbar"><span>Markdown</span><span>{document.mixed ? "Mixed line endings" : describeSeparator(document.separator)} · UTF-8</span><span>Cmd/Ctrl+S to save</span></footer>}
           </>}
         </section>
+        {graphVisible && state.vault && <Suspense fallback={<aside className="knowledge-panel" role="status">Loading graph view…</aside>}>
+          <KnowledgeGraph controller={controller} state={state} onClose={() => setGraphVisible(false)} />
+        </Suspense>}
       </div>
     </>}
     {modal === "vault" && <Dialog title="Choose a Vault" onCancel={cancel}>
