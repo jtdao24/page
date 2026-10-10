@@ -11,6 +11,7 @@
     "lint": "npm run lint -w @page/desktop",
     "test": "npm run test -w @page/desktop",
     "tauri:dev": "npm run tauri:dev -w @page/desktop",
-    "tauri:build": "npm run tauri:build -w @page/desktop"
+    "tauri:build": "npm run tauri:build -w @page/desktop",
+    "dev:api": "python -m page_core"
   }
 }
