@@ -8,6 +8,7 @@
     "dev": "npm run dev -w @page/desktop",
     "build": "npm run build -w @page/desktop",
     "landing:export": "node scripts/export-landing-site.mjs",
+    "landing:preview": "python3 -m http.server 4173 --directory dist/page-website --bind 127.0.0.1",
     "typecheck": "npm run typecheck -w @page/desktop",
     "lint": "npm run lint -w @page/desktop",
     "test": "npm run test -w @page/desktop",

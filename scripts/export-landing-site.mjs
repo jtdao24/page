@@ -1,26 +1,39 @@
-// Create a buildless Sites snapshot from the already-built Vite frontend.
-// The editable source remains in apps/desktop/src/LandingPage.tsx and landing.css.
+// Export the landing page as a standalone static website. No hosting service required.
 import { cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 
 const repository = fileURLToPath(new URL("../", import.meta.url));
 const build = path.join(repository, "apps/desktop/dist");
-const site = path.join(repository, "sites/page-landing");
-const manifestPath = path.join(site, ".openai/hosting.json");
+const output = path.join(repository, "dist/page-website");
+const app = path.resolve(process.env.PAGE_MAC_APP ?? path.join(repository, "apps/desktop/src-tauri/target/release/bundle/macos/Page.app"));
 if (!existsSync(path.join(build, "landing.html"))) throw new Error("Run npm run build before exporting the landing page.");
-if (!existsSync(manifestPath)) throw new Error("Open the existing Page Site checkout before exporting. See docs/landing-page.md.");
-const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
-if (!manifest.project_id) throw new Error("The Page Site project_id must be persisted before export.");
-const output = path.join(site, "dist");
+// Require a real supported bundle so the exported Download button cannot lead to a missing file.
+const executable = path.join(app, "Contents/MacOS/page-desktop");
+if (!existsSync(executable)) throw new Error("Build the macOS app first: npm run tauri:build -- --bundles app. Or set PAGE_MAC_APP to an existing Page.app.");
+const architecture = execFileSync("file", [executable], { encoding: "utf8" });
+if (!architecture.trim().endsWith("Mach-O 64-bit executable arm64")) throw new Error("This download is labeled Apple Silicon; export requires an arm64 Page.app.");
 mkdirSync(output, { recursive: true });
 cpSync(build, output, { recursive: true });
 mkdirSync(path.join(output, "app"), { recursive: true });
 cpSync(path.join(build, "index.html"), path.join(output, "app/index.html"));
-const landing = readFileSync(path.join(build, "landing.html"), "utf8").replace('data-app-url="/"', 'data-app-url="/app/"');
+const downloads = path.join(output, "downloads");
+mkdirSync(downloads, { recursive: true });
+const filename = "Page-macos-arm64.zip";
+const archive = path.join(downloads, filename);
+execFileSync("ditto", ["-c", "-k", "--sequesterRsrc", "--keepParent", app, archive]);
+const bytes = readFileSync(archive);
+writeFileSync(path.join(downloads, "manifest.json"), JSON.stringify({
+  filename, platform: "macOS", architecture: "arm64", channel: "development",
+  bytes: bytes.length, sha256: createHash("sha256").update(bytes).digest("hex"),
+  created_at: new Date().toISOString(), core_bundled: false,
+}, null, 2) + "\n");
+const landing = readFileSync(path.join(build, "landing.html"), "utf8")
+  .replace('data-app-url="/"', `data-app-url="/app/" data-mac-download-url="/downloads/${filename}"`);
 writeFileSync(path.join(output, "index.html"), landing);
 writeFileSync(path.join(output, "landing.html"), landing);
-writeFileSync(manifestPath, JSON.stringify({ ...manifest, static: { ...manifest.static, directory: "dist" } }, null, 2) + "\n");
-writeFileSync(path.join(site, ".gitignore"), "node_modules/\n.sites-runtime/\n.sites-checkout*/\n.DS_Store\n*.log\n");
-writeFileSync(path.join(site, "README.md"), "# Page landing page\n\nBuildless publication snapshot of the Vite Page frontend. The landing page is at `/`; the workspace preview is at `/app/`.\n\nEditable source: https://github.com/jtdao24/page, in `apps/desktop/src/LandingPage.tsx` and `landing.css`. Refresh this snapshot from that checkout with `npm run build` followed by `npm run landing:export`. Publish through the Sites source workflow; preserve `.openai/hosting.json` and its project ID. No Python backend, credentials, or user vault data are included.\n");
-console.log(`Prepared Page landing page snapshot at ${site}`);
+console.log(`Static website ready at ${output}`);
+console.log(`Included download: ${filename} (${(bytes.length / 1024 / 1024).toFixed(2)} MiB). Python core is installed separately.`);
+console.log("Preview with: npm run landing:preview");

@@ -1,53 +1,66 @@
-# Page landing page
+# Page download website
 
-Page has a separate marketing entry point alongside the workspace:
+The landing page reuses the app's pale beige, tan, sage, and forest green palette.
+Large sans-serif headlines, open spacing, a book-and-paper hero, and pill buttons
+continue the visual direction inspired by notacareerfair.com. The copy, imagery,
+and interactive graph are Page's own.
 
-- `http://localhost:1420/landing.html`: landing page.
-- `http://localhost:1420/`: bookshelf dashboard, also the default Tauri window.
+Content includes the mission (knowledge ownership and future source-attributed
+context selection), a three-step explanation, an illustrative clickable graph,
+native FAQ disclosures, and a dedicated download section. AI answers and context
+optimization are described as future work, not available features. The graph demo
+uses sample content; the real app's current graph lines represent shared collections.
 
-Run `npm run dev` to preview both. `npm run build` produces `dist/index.html` and
-`dist/landing.html` using Vite's multiple HTML entry points. Landing styles are
-isolated in `apps/desktop/src/landing.css`; the dashboard styles are unchanged.
+## Preview and export
 
-The direction adapts [notacareerfair.com](https://notacareerfair.com)'s white space,
-oversized black sans-serif headlines, cutout hero and glossy orange CTA. Page's
-copy, branding, interactive library example and generated book image are original.
-The hero asset lives in `apps/desktop/src/assets/page-books.png` with transparency.
+The frontend remains a Vite multi-page build used by Tauri. This web export does
+not change the default desktop window or require a hosting SDK/service.
 
-Calls-to-action open the existing workspace preview. They do not promise a finished
-installer or working Gemini chat. The FAQ describes those features' actual status.
-The sample bookshelf is interactive and explicitly illustrative. FAQ rows use
-native keyboard-accessible disclosure controls. Layouts adapt to mobile, and
-motion respects the visitor's reduced-motion preference.
+- `npm run dev`: landing page at `http://localhost:1420/landing.html`, workspace at `/`.
+- `npm run build`: TypeScript validation and Vite production assets.
+- `npm run tauri:build -- --bundles app`: build the native macOS bundle.
+- `npm run landing:export`: create `dist/page-website/`, including the app ZIP.
+- `npm run landing:preview`: serve the export at `http://localhost:4173/`.
 
-## Private Sites publication
+The export serves the landing page at `/`, workspace preview at `/app/`, and
+account interfaces at `/login/`, `/signup/`, and `/forgot-password/`. Deploy the
+contents of `dist/page-website/` to any static web host at its domain root. Configure
+the host to serve directory `index.html` files and ZIP files as downloads. This
+workflow does not publish anything automatically.
 
-Private preview: [Page landing page](https://page-knowledge-workspace.richflea64.chatgpt.site).
+The exporter requires a real Apple Silicon `Page.app`, defaulting to
+`apps/desktop/src-tauri/target/release/bundle/macos/Page.app`. Override its location
+with `PAGE_MAC_APP=/absolute/path/Page.app npm run landing:export`. It checks the
+bundle's executable architecture, archives the complete app with `ditto` (preserving
+macOS bundle metadata), and writes:
 
-The registered project is `appgprj_6ac9c757204481919490b6dadbcd809b`, with slug
-`page-knowledge-workspace`. Its publication checkout is `sites/page-landing`,
-ignored by the Page repository and versioned separately through the Sites workflow.
-The hosting manifest in that checkout must retain this exact project ID.
+- `downloads/Page-macos-arm64.zip`
+- `downloads/manifest.json`: archive size, SHA-256, generation time, and platform.
 
-Refresh its buildless snapshot after building the app:
+Rebuild the desktop app before exporting when its frontend has changed. Exporting
+uses the existing bundle; it does not compile Rust or install dependencies. Build
+output and downloads are ignored by Git.
 
-```sh
-npm run build
-npm run landing:export
-```
+## Download behavior and current limits
 
-The snapshot serves the landing page at `/` and the workspace preview at `/app/`.
-It includes compiled frontend assets and no Python backend, session credentials,
-user notes, or vault databases. Hosted workspace preview shows the sample library;
-the real local core connection is intended for the desktop/local development origin.
+The export adds `data-mac-download-url` to the landing page's root element. The
+React component accepts this URL and shows a real download anchor. An unconfigured
+landing page (including ordinary Vite development) shows an unavailable download
+state rather than a broken link. Hero and navigation buttons always lead to the
+download section. The export's macOS button points to the bundled ZIP.
 
-To resume publishing on another machine, use the existing Sites project and its
-source-opening helper to retrieve the publication checkout, rather than creating
-another Site. After export, run the Sites source workflow to push and package the
-snapshot, then publish that exact commit/archive to the existing private Site.
+This is an unnotarized **development** app for Apple Silicon. Unzip it to get
+`Page.app`. The sample workspace runs without an account or Python service. The
+Python core is not included in the archive: real vault reading/indexing requires
+separate setup as described in the repository README and `docs/ingestion.md`.
+Windows downloads are unavailable. Online authentication and AI answers remain
+unconfigured. There is no automatic update or installer service.
 
-Validation: TypeScript, ESLint, Vitest (4 tests), and the production build passed.
-Both local and exported HTML entries resolve all linked build assets. The local
-landing route returned HTTP 200 and the native Sites deployment completed
-successfully. Visual browser inspection was unavailable because screen capture
-permission was disabled; it has not been claimed as verified.
+The export includes compiled frontend assets and the native app, with no session
+credentials, user notes, vault databases, or account secrets. Existing authentication
+navigation remains accessible; browser workspace previews are illustrative and do
+not connect to a visitor's local backend automatically.
+
+Layouts adapt to mobile widths, focus styles and labels support keyboard use, and
+motion respects reduced-motion preferences. Native/browser visual capture has not
+been performed because capture authorization was unavailable in this session.

@@ -179,9 +179,12 @@ draft locally; Gemini integration is planned and the send control is disabled.
 Vault connection and indexing controls are available in Vault settings.
 
 The Page landing page is available at `http://localhost:1420/landing.html`, with
-bold typography, an original book-and-paper hero, and a sample bookshelf. The
-dashboard remains at `/`. See [docs/landing-page.md](docs/landing-page.md) for
-source files, build behavior, and the private Sites publishing workflow.
+bold typography, the app's paper-and-green palette, a mission statement, and an
+interactive sample graph. `npm run landing:export` creates a standalone static
+website with a ZIP download of the existing Apple Silicon desktop build;
+`npm run landing:preview` serves it at `http://localhost:4173`.
+The development app still requires a separately installed Python core for real
+vaults. See [docs/landing-page.md](docs/landing-page.md) for build and hosting details.
 
 Account interfaces are bundled in the Tauri 2 frontend: `/login`, `/signup`, and
 `/forgot-password`, plus Profile & account settings in the sidebar toolbar.
