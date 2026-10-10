@@ -1,0 +1,338 @@
+"""Application factory, lifespan, routes and transport adaptation.
+
+Handlers validate the wire format, convert strings explicitly to UUID/path
+values, and submit each complete storage operation to the application's single
+storage worker thread. Health and request validation never wait for storage.
+"""
+
+import asyncio
+import re
+from collections.abc import AsyncIterator, Callable
+from concurrent.futures import ThreadPoolExecutor
+from contextlib import asynccontextmanager
+from dataclasses import dataclass
+from typing import Any
+from uuid import UUID
+
+from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.openapi.utils import get_openapi
+from pydantic import BaseModel, ValidationError
+from starlette.exceptions import HTTPException
+from starlette.responses import JSONResponse, Response
+from starlette.routing import Match
+
+import page_core
+from page_core.domain import Note
+from page_core.metadata import NoteMetadata, ReconcileResult
+
+from .errors import ApiError, error_response, field_error, translate, validation_error
+from .schemas import (
+    REQUEST_MODELS, CreateNoteRequest, CreateVaultRequest, ErrorResponse, HealthResponse,
+    MoveNoteRequest, NoteResponse, NoteSummaryResponse, OpenVaultRequest, ReconcileRequest,
+    ReconcileResponse, UpdateNoteRequest, VaultResponse, parse_note_path, parse_root, parse_uuid,
+)
+from .security import LocalAccessMiddleware, generate_token, validate_token
+from .service import (
+    LocalVaultService, VaultSession, format_timestamp, revision_of_metadata, revision_of_note,
+)
+
+PREFIX = "/api/v1"
+_IF_MATCH = re.compile(r'"([0-9a-f]{64})"')
+
+
+@dataclass(frozen=True, slots=True)
+class _Storage:
+    executor: ThreadPoolExecutor
+    service: LocalVaultService
+
+
+async def _submit[T](executor: ThreadPoolExecutor, job: Callable[[], T]) -> T:
+    # Shielded: a disconnecting client never cancels submitted storage work,
+    # and nothing is retried.
+    future = asyncio.wrap_future(executor.submit(job))
+    future.add_done_callback(_observe)
+    return await asyncio.shield(future)
+
+
+def _observe(future: "asyncio.Future[object]") -> None:
+    # If the waiting request was cancelled, nobody reads this future's result.
+    # Retrieve its exception so asyncio never logs the unsanitized error text;
+    # requests that are still waiting report errors through the API as usual.
+    if not future.cancelled():
+        future.exception()
+
+
+@asynccontextmanager
+async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
+    executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="page-storage")
+    try:
+        # Built on the worker so the service's owning thread is the worker.
+        service = await _submit(executor, LocalVaultService)
+        app.state.storage = _Storage(executor, service)
+        try:
+            yield
+        finally:
+            del app.state.storage
+            # Queued behind all submitted work: in-flight operations finish,
+            # then every vault closes on the thread that opened it.
+            await _submit(executor, service.close)
+    finally:
+        executor.shutdown(wait=True)
+
+
+async def _run[T](request: Request, operation: Callable[[LocalVaultService], T]) -> T:
+    storage: _Storage = request.app.state.storage
+    try:
+        return await _submit(storage.executor, lambda: operation(storage.service))
+    except Exception as exc:
+        raise translate(exc) from None
+
+
+def _path_uuid(name: str, value: str) -> UUID:
+    try:
+        return parse_uuid(value)
+    except ValueError:
+        raise field_error(["path", name], "invalid_uuid") from None
+
+
+def _if_match(request: Request) -> str:
+    values = request.headers.getlist("if-match")
+    if not values:
+        raise ApiError(428, "precondition_required", "This request requires an If-Match revision.")
+    match = _IF_MATCH.fullmatch(values[0].strip(" \t")) if len(values) == 1 else None
+    if match is None:
+        raise field_error(["header", "If-Match"], "invalid_if_match")
+    return match.group(1)
+
+
+async def _body[M: BaseModel](request: Request, model: type[M]) -> M:
+    content_types = request.headers.getlist("content-type")
+    media_type = content_types[0].split(";", 1)[0].strip().lower() if len(content_types) == 1 else None
+    if media_type != "application/json":
+        raise ApiError(415, "unsupported_media_type", "The request body must be application/json.")
+    raw = await request.body()
+    try:
+        return model.model_validate_json(raw, strict=True)
+    except ValidationError as exc:
+        fields = frozenset(model.model_fields)
+        raise validation_error(exc.errors(include_input=False, include_context=False, include_url=False),
+                               prefix=("body",), known_fields=fields) from None
+
+
+def _json(model: BaseModel | list[Any], status: int = 200, headers: dict[str, str] | None = None) -> JSONResponse:
+    content = [item.model_dump(mode="json") for item in model] if isinstance(model, list) else model.model_dump(mode="json")
+    return JSONResponse(content, status_code=status, headers=headers)
+
+
+def _vault(session: VaultSession) -> VaultResponse:
+    vault = session.vault
+    return VaultResponse(id=str(vault.id), name=vault.name, root_path=str(vault.root_path),
+                         needs_reconciliation=session.needs_reconciliation)
+
+
+def _summary(record: NoteMetadata) -> NoteSummaryResponse:
+    return NoteSummaryResponse(
+        id=str(record.id), vault_id=str(record.vault_id), relative_path=str(record.relative_path),
+        created_at=format_timestamp(record.created_at), updated_at=format_timestamp(record.updated_at),
+        revision=revision_of_metadata(record))
+
+
+def _note(note: Note, status: int = 200, *, location: bool = False) -> JSONResponse:
+    revision = revision_of_note(note)
+    body = NoteResponse(
+        id=str(note.id), vault_id=str(note.vault_id), relative_path=str(note.relative_path),
+        created_at=format_timestamp(note.created_at), updated_at=format_timestamp(note.updated_at),
+        revision=revision, content=note.content)
+    headers = {"ETag": f'"{revision}"'}
+    if location:
+        headers["Location"] = f"{PREFIX}/vaults/{note.vault_id}/notes/{note.id}"
+    return _json(body, status, headers)
+
+
+def _reconcile_response(result: ReconcileResult) -> ReconcileResponse:
+    return ReconcileResponse(added=result.added, modified=result.modified, renamed=result.renamed,
+                             missing=result.missing, unchanged=result.unchanged)
+
+
+def _errors(*statuses: int) -> dict[int | str, dict[str, Any]]:
+    common = (400, 401, 403, 500)
+    return {status: {"model": ErrorResponse, "description": "Error envelope"}
+            for status in sorted(set(common + statuses))}
+
+
+def _json_body(model: type[BaseModel]) -> dict[str, Any]:
+    return {"requestBody": {"required": True, "content": {
+        "application/json": {"schema": {"$ref": f"#/components/schemas/{model.__name__}"}}}}}
+
+
+_IF_MATCH_PARAMETER = {
+    "name": "If-Match", "in": "header", "required": True,
+    "description": "Exactly one strong quoted revision from the note's ETag or summary.",
+    "schema": {"type": "string", "pattern": '^"[0-9a-f]{64}"$'},
+}
+
+
+def _precondition(model: type[BaseModel] | None = None) -> dict[str, Any]:
+    extra = _json_body(model) if model else {}
+    return {**extra, "parameters": [_IF_MATCH_PARAMETER]}
+
+
+def _allowed_methods(app: FastAPI, scope: dict[str, Any]) -> str:
+    methods: set[str] = set()
+    for route in app.router.routes:
+        match, _ = route.matches({**scope, "method": ""})
+        if match is not Match.NONE:
+            methods |= getattr(route, "methods", None) or set()
+    return ", ".join(sorted(methods))
+
+
+def create_app(*, session_token: str | None = None) -> FastAPI:
+    """Build an application with its own credential, registry and worker.
+
+    Nothing is opened, started or bound until the ASGI lifespan starts. Omit
+    ``session_token`` to generate one from 32 random bytes.
+    """
+    token = generate_token() if session_token is None else validate_token(session_token)
+    app = FastAPI(
+        title="Page Core Local API",
+        version=page_core.__version__,
+        debug=False,
+        docs_url=None,
+        redoc_url=None,
+        swagger_ui_oauth2_redirect_url=None,
+        openapi_url="/openapi.json",
+        redirect_slashes=False,
+        lifespan=_lifespan,
+        # No request telemetry: it can record URLs, inputs and exception text.
+        telemetry={"tracing": False, "metrics": False, "logs": False,
+                   "operation_spans": False, "auto_configure": False},
+    )
+    app.add_middleware(LocalAccessMiddleware, token=token)
+
+    @app.exception_handler(ApiError)
+    async def api_error(request: Request, exc: ApiError) -> Response:
+        return error_response(exc)
+
+    @app.exception_handler(HTTPException)
+    async def http_error(request: Request, exc: HTTPException) -> Response:
+        if exc.status_code == 404:
+            return error_response(ApiError(404, "route_not_found", "No route matches this path."))
+        if exc.status_code == 405:
+            return error_response(ApiError(405, "method_not_allowed", "This method is not allowed here.",
+                                           headers={"Allow": _allowed_methods(app, dict(request.scope))}))
+        return error_response(ApiError(exc.status_code, "http_error", "The request could not be processed."))
+
+    @app.exception_handler(RequestValidationError)
+    async def request_validation_error(request: Request, exc: RequestValidationError) -> Response:
+        return error_response(validation_error(exc.errors()))
+
+    def custom_openapi() -> dict[str, Any]:
+        if app.openapi_schema is None:
+            schema = get_openapi(title=app.title, version=app.version, routes=app.routes,
+                                 description="Authenticated loopback API for Page vaults and notes.")
+            components = schema.setdefault("components", {})
+            schemas = components.setdefault("schemas", {})
+            for model in REQUEST_MODELS:
+                definition = model.model_json_schema(ref_template="#/components/schemas/{model}")
+                schemas.update(definition.pop("$defs", {}))
+                schemas[model.__name__] = definition
+            components["securitySchemes"] = {"bearerAuth": {"type": "http", "scheme": "bearer"}}
+            schema["security"] = [{"bearerAuth": []}]
+            app.openapi_schema = schema
+        return app.openapi_schema
+
+    app.openapi = custom_openapi  # type: ignore[method-assign]
+
+    @app.get(f"{PREFIX}/health", response_model=HealthResponse, responses=_errors())
+    async def health() -> Response:
+        return _json(HealthResponse(status="ok", version=page_core.__version__))
+
+    @app.post(f"{PREFIX}/vaults", status_code=201, response_model=VaultResponse,
+              responses=_errors(404, 409, 415, 422, 503), openapi_extra=_json_body(CreateVaultRequest))
+    async def create_vault(request: Request) -> Response:
+        body = await _body(request, CreateVaultRequest)
+        root, name = parse_root(body.root_path), body.name
+        session = await _run(request, lambda service: service.create_vault(root, name))
+        return _json(_vault(session), 201, {"Location": f"{PREFIX}/vaults/{session.vault.id}"})
+
+    @app.post(f"{PREFIX}/vaults/open", response_model=VaultResponse,
+              responses=_errors(404, 409, 415, 422, 503), openapi_extra=_json_body(OpenVaultRequest))
+    async def open_vault(request: Request) -> Response:
+        root = parse_root((await _body(request, OpenVaultRequest)).root_path)
+        session = await _run(request, lambda service: service.open_vault(root))
+        return _json(_vault(session))
+
+    @app.get(f"{PREFIX}/vaults", response_model=list[VaultResponse], responses=_errors())
+    async def list_vaults(request: Request) -> Response:
+        sessions = await _run(request, lambda service: service.list_vaults())
+        return _json([_vault(session) for session in sessions])
+
+    @app.get(f"{PREFIX}/vaults/{{vault_id}}", response_model=VaultResponse, responses=_errors(404, 422))
+    async def get_vault(request: Request, vault_id: str) -> Response:
+        identifier = _path_uuid("vault_id", vault_id)
+        return _json(_vault(await _run(request, lambda service: service.get_vault(identifier))))
+
+    @app.delete(f"{PREFIX}/vaults/{{vault_id}}", status_code=204, response_class=Response,
+                responses=_errors(404, 422))
+    async def close_vault(request: Request, vault_id: str) -> Response:
+        identifier = _path_uuid("vault_id", vault_id)
+        await _run(request, lambda service: service.close_vault(identifier))
+        return Response(status_code=204)
+
+    @app.post(f"{PREFIX}/vaults/{{vault_id}}/reconcile", response_model=ReconcileResponse,
+              responses=_errors(404, 415, 422, 503), openapi_extra=_json_body(ReconcileRequest))
+    async def reconcile(request: Request, vault_id: str) -> Response:
+        identifier = _path_uuid("vault_id", vault_id)
+        body = await _body(request, ReconcileRequest)
+        renames = {parse_uuid(key): parse_note_path(value) for key, value in body.known_renames.items()}
+        result = await _run(request, lambda service: service.reconcile(identifier, renames))
+        return _json(_reconcile_response(result))
+
+    @app.get(f"{PREFIX}/vaults/{{vault_id}}/notes", response_model=list[NoteSummaryResponse],
+             responses=_errors(404, 409, 422, 503))
+    async def list_notes(request: Request, vault_id: str) -> Response:
+        identifier = _path_uuid("vault_id", vault_id)
+        records = await _run(request, lambda service: service.list_notes(identifier))
+        return _json([_summary(record) for record in records])
+
+    @app.post(f"{PREFIX}/vaults/{{vault_id}}/notes", status_code=201, response_model=NoteResponse,
+              responses=_errors(404, 409, 415, 422, 503), openapi_extra=_json_body(CreateNoteRequest))
+    async def create_note(request: Request, vault_id: str) -> Response:
+        identifier = _path_uuid("vault_id", vault_id)
+        body = await _body(request, CreateNoteRequest)
+        path, content = parse_note_path(body.relative_path), body.content
+        note = await _run(request, lambda service: service.create_note(identifier, path, content))
+        return _note(note, 201, location=True)
+
+    @app.get(f"{PREFIX}/vaults/{{vault_id}}/notes/{{note_id}}", response_model=NoteResponse,
+             responses=_errors(404, 409, 422, 503))
+    async def get_note(request: Request, vault_id: str, note_id: str) -> Response:
+        identifiers = _path_uuid("vault_id", vault_id), _path_uuid("note_id", note_id)
+        return _note(await _run(request, lambda service: service.get_note(*identifiers)))
+
+    @app.put(f"{PREFIX}/vaults/{{vault_id}}/notes/{{note_id}}", response_model=NoteResponse,
+             responses=_errors(404, 409, 412, 415, 422, 428, 503), openapi_extra=_precondition(UpdateNoteRequest))
+    async def update_note(request: Request, vault_id: str, note_id: str) -> Response:
+        identifiers = _path_uuid("vault_id", vault_id), _path_uuid("note_id", note_id)
+        revision = _if_match(request)
+        content = (await _body(request, UpdateNoteRequest)).content
+        return _note(await _run(request, lambda service: service.update_note(*identifiers, revision, content)))
+
+    @app.post(f"{PREFIX}/vaults/{{vault_id}}/notes/{{note_id}}/move", response_model=NoteResponse,
+              responses=_errors(404, 409, 412, 415, 422, 428, 503), openapi_extra=_precondition(MoveNoteRequest))
+    async def move_note(request: Request, vault_id: str, note_id: str) -> Response:
+        identifiers = _path_uuid("vault_id", vault_id), _path_uuid("note_id", note_id)
+        revision = _if_match(request)
+        path = parse_note_path((await _body(request, MoveNoteRequest)).relative_path)
+        return _note(await _run(request, lambda service: service.move_note(*identifiers, revision, path)))
+
+    @app.delete(f"{PREFIX}/vaults/{{vault_id}}/notes/{{note_id}}", status_code=204, response_class=Response,
+                responses=_errors(404, 409, 412, 422, 428, 503), openapi_extra=_precondition())
+    async def delete_note(request: Request, vault_id: str, note_id: str) -> Response:
+        identifiers = _path_uuid("vault_id", vault_id), _path_uuid("note_id", note_id)
+        revision = _if_match(request)
+        await _run(request, lambda service: service.delete_note(*identifiers, revision))
+        return Response(status_code=204)
+
+    return app
