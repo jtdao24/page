@@ -1,7 +1,28 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Capability for the main window",
+  "description": "Page commands and backend events for the main window's local webview only",
   "windows": ["main"],
-  "permissions": ["core:default"]
+  "permissions": [
+    "core:event:allow-listen",
+    "core:event:allow-unlisten",
+    "allow-backend-start",
+    "allow-backend-status",
+    "allow-backend-restart",
+    "allow-vault-create",
+    "allow-vault-open",
+    "allow-vault-list",
+    "allow-vault-get",
+    "allow-vault-close",
+    "allow-vault-reconcile",
+    "allow-note-list",
+    "allow-note-read",
+    "allow-note-create",
+    "allow-note-update",
+    "allow-note-move",
+    "allow-note-delete",
+    "allow-preferences-read",
+    "allow-preferences-write",
+    "allow-desktop-quit"
+  ]
 }
