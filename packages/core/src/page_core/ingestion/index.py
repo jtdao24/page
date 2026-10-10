@@ -8,6 +8,7 @@ import threading
 from collections import Counter
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass
+from datetime import UTC, datetime
 from pathlib import PurePosixPath
 from uuid import UUID
 
@@ -83,6 +84,7 @@ class IngestionIndex:
                     start_line INTEGER NOT NULL, end_line INTEGER NOT NULL,
                     cache_key TEXT NOT NULL REFERENCES vectors(key)
                 );
+                CREATE INDEX IF NOT EXISTS chunks_note_ordinal ON chunks(note_id,ordinal);
             """)
             settings = dict(db.execute("SELECT key,value FROM settings"))
             if settings.get("vault_id", str(vault.vault.id)) != str(vault.vault.id):
@@ -329,6 +331,30 @@ class IngestionIndex:
             self._generation = settings.get("generation")
         except (OSError, ValueError, RuntimeError, AttributeError):
             self._rebuild(db)
+
+    def list_context(self) -> list[dict]:
+        """Read committed note summaries for the bookshelf; never load a model.
+
+        Metadata and excerpts describe the last successful indexing snapshot.
+        Empty notes remain visible, and persisted UUIDs are the frontend keys.
+        """
+        with self._lock, self._publication_lock(), self._connect() as db:
+            rows = db.execute("""SELECT n.id,n.path,n.mtime_ns,COUNT(c.vector_id) AS chunks,
+                (SELECT text FROM chunks WHERE note_id=n.id ORDER BY ordinal LIMIT 1) AS text,
+                (SELECT headings FROM chunks WHERE note_id=n.id ORDER BY ordinal LIMIT 1) AS headings
+                FROM notes n LEFT JOIN chunks c ON c.note_id=n.id
+                GROUP BY n.id ORDER BY n.path""")
+            result = []
+            for row in rows:
+                headings = json.loads(row["headings"]) if row["headings"] else []
+                text = row["text"] or ""
+                # The complete source/provenance stays in chunk metadata.
+                excerpt = "\n".join(line for line in text.splitlines()
+                                    if not line.lstrip().startswith("#")).strip()[:320]
+                result.append({"id": row["id"], "title": headings[0] if headings else PurePosixPath(row["path"]).stem,
+                    "path": row["path"], "excerpt": excerpt, "chunks": row["chunks"],
+                    "updated_at": datetime.fromtimestamp(row["mtime_ns"] / 1e9, tz=UTC).isoformat()})
+            return result
 
     def search(self, query: str, *, limit: int = 10) -> list[dict]:
         faiss.omp_set_num_threads(1)

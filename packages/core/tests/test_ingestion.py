@@ -97,6 +97,26 @@ def test_existing_vault_identity_is_reused(fs_vault):
     assert rows(index, "notes")[0]["id"] == str(note.id)
 
 
+def test_context_inventory_tracks_committed_notes_without_embedding(index, fs_vault):
+    note = fs_vault.create_note(PurePosixPath("ideas/a.md"), "# A title\nA thought.")
+    empty = fs_vault.create_note(PurePosixPath("empty.md"), "")
+    index.update()
+    calls = list(index.embedder.calls)
+    inventory = {n["id"]: n for n in index.list_context()}
+    assert inventory[str(note.id)]["title"] == "A title"
+    assert inventory[str(note.id)]["excerpt"] == "A thought."
+    assert inventory[str(note.id)]["chunks"] == 1
+    assert inventory[str(empty.id)]["chunks"] == 0
+    assert inventory[str(empty.id)]["title"] == "empty"
+    assert index.embedder.calls == calls
+    moved = fs_vault.move_note(note, PurePosixPath("renamed.md"))
+    index.update()
+    assert next(n for n in index.list_context() if n["id"] == str(note.id))["path"] == "renamed.md"
+    fs_vault.delete_note(moved)
+    index.update()
+    assert [n["id"] for n in index.list_context()] == [str(empty.id)]
+
+
 def test_incremental_edit_rename_delete(index, fs_vault):
     path = PurePosixPath("a.md")
     note = fs_vault.create_note(path, "# A\nfirst\n## B\nsecond\n")
@@ -316,6 +336,9 @@ def test_api_auth_origin_and_development_gate(index):
         request = urllib.request.Request(url + "/api/index/status", headers=headers)
         with urllib.request.urlopen(request) as response:
             assert json.load(response)["state"] == "idle"
+        request = urllib.request.Request(url + "/api/context", headers=headers)
+        with urllib.request.urlopen(request) as response:
+            assert json.load(response) == {"notes": []}
         request = urllib.request.Request(url + "/api/dev/search", data=b'{}', headers=headers)
         with pytest.raises(urllib.error.HTTPError) as error:
             urllib.request.urlopen(request)

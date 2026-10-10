@@ -127,6 +127,7 @@ selects its vault at startup; clients cannot supply arbitrary filesystem paths.
 | Method/path | Behavior |
 | --- | --- |
 | `GET /api/index/status` | Vault name; state, phase, scanned/total notes, changed/skipped/deleted notes, embedded/reused vectors, error |
+| `GET /api/context` | Read-only committed note inventory: UUID, title, path, excerpt, chunk count and modification date; no model loading |
 | `POST /api/index` | Queue incremental indexing; 202 or 409 when busy |
 | `POST /api/index/rebuild` | Queue a full chunk/FAISS rebuild using reusable cached embeddings |
 | `POST /api/dev/search` | Only enabled with `--development-search`; JSON `{"query":"...", "limit":10}` |

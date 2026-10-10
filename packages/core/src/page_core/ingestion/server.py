@@ -67,6 +67,8 @@ def create_server(index: IngestionIndex, *, token: str, port: int = 8765,
             if self.authorized():
                 if self.path == "/api/index/status":
                     self.reply(200, {"vault": index.vault.vault.name, **index.status()})
+                elif self.path == "/api/context":
+                    self.reply(200, {"notes": index.list_context()})
                 else:
                     self.reply(404, {"error": "not found"})
 
