@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-gemini-key-save"
+description = "Enables the gemini_key_save command without any pre-configured scope."
+commands.allow = ["gemini_key_save"]
+
+[[permission]]
+identifier = "deny-gemini-key-save"
+description = "Denies the gemini_key_save command without any pre-configured scope."
+commands.deny = ["gemini_key_save"]

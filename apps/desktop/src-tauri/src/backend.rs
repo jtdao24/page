@@ -47,6 +47,8 @@ pub struct LaunchSpec {
     pub program: PathBuf,
     pub args: Vec<OsString>,
     pub cwd: PathBuf,
+    /// Added to the inherited environment.
+    pub env: Vec<(OsString, OsString)>,
 }
 
 /// Lifecycle deadlines; tests inject short values.
@@ -93,7 +95,62 @@ pub fn development_launch() -> Result<LaunchSpec, DesktopError> {
             .map(OsString::from)
             .to_vec(),
         cwd: checkout,
+        env: Vec::new(),
     })
+}
+
+fn runtime_missing() -> DesktopError {
+    DesktopError::backend(
+        "runtime_missing",
+        "This build of Page does not include its Python runtime. Build it with npm run tauri:bundle.",
+    )
+}
+
+/// The packaged app's resource folder: `Contents/Resources` on macOS, the
+/// executable's folder on Windows.
+pub fn resource_dir(executable: &Path) -> Option<PathBuf> {
+    let folder = executable.parent()?;
+    if cfg!(target_os = "macos") {
+        Some(folder.parent()?.join("Resources"))
+    } else {
+        Some(folder.to_path_buf())
+    }
+}
+
+/// The bundled runtime: isolated mode (no user site or `PYTHON*` variables),
+/// no bytecode writes inside the signed app, and the bundled model, offline.
+pub fn bundled_launch(resources: &Path) -> Result<LaunchSpec, DesktopError> {
+    let runtime = resources.join("runtime");
+    let program = if cfg!(windows) {
+        runtime.join("python").join("python.exe")
+    } else {
+        runtime.join("python").join("bin").join("python3")
+    };
+    if !program.is_file() {
+        return Err(runtime_missing());
+    }
+    let env = [
+        ("PAGE_MODEL_DIR", runtime.join("model").into_os_string()),
+        ("HF_HUB_OFFLINE", "1".into()),
+        ("TRANSFORMERS_OFFLINE", "1".into()),
+        ("HF_HUB_DISABLE_TELEMETRY", "1".into()),
+    ]
+    .map(|(name, value)| (OsString::from(name), value))
+    .to_vec();
+    Ok(LaunchSpec {
+        program,
+        args: ["-I", "-B", "-m", "page_core.api", "--port", "0"]
+            .map(OsString::from)
+            .to_vec(),
+        cwd: runtime,
+        env,
+    })
+}
+
+/// Release builds run the bundled runtime next to the executable.
+pub fn packaged_launch() -> Result<LaunchSpec, DesktopError> {
+    let executable = std::env::current_exe().map_err(|_| runtime_missing())?;
+    bundled_launch(&resource_dir(&executable).ok_or_else(runtime_missing)?)
 }
 
 /// Accept exactly one nonempty absolute override, used verbatim: no argument
@@ -322,8 +379,12 @@ fn stopping() -> DesktopError {
     DesktopError::backend("backend_stopping", "Page is shutting down.")
 }
 
+/// Supplies the Gemini API key at each launch, so a changed key applies on restart.
+pub type SecretSource = Box<dyn Fn() -> Option<String> + Send + Sync>;
+
 struct Shared {
     launch: Result<LaunchSpec, DesktopError>,
+    gemini_key: Mutex<Option<SecretSource>>,
     timing: Timing,
     state: Mutex<State>,
     changed: Condvar,
@@ -395,6 +456,7 @@ impl BackendManager {
         Self {
             shared: Arc::new(Shared {
                 launch,
+                gemini_key: Mutex::new(None),
                 timing,
                 state: Mutex::new(state),
                 changed: Condvar::new(),
@@ -403,8 +465,20 @@ impl BackendManager {
         }
     }
 
-    pub fn development() -> Self {
-        Self::new(development_launch(), Timing::default())
+    /// The checkout's development interpreter in debug builds; the bundled
+    /// runtime in release builds.
+    pub fn for_build() -> Self {
+        let launch = if cfg!(debug_assertions) {
+            development_launch()
+        } else {
+            packaged_launch()
+        };
+        Self::new(launch, Timing::default())
+    }
+
+    /// A stored key overrides any inherited `GEMINI_API_KEY`.
+    pub fn set_gemini_key_source(&self, source: SecretSource) {
+        *lock(&self.shared.gemini_key) = Some(source);
     }
 
     pub fn set_listener(&self, listener: StatusListener) {
@@ -567,9 +641,18 @@ impl BackendManager {
         let spec = self.shared.launch.clone()?;
         let timing = self.shared.timing;
         let deadline = Instant::now() + timing.startup_deadline;
-        let mut child = Command::new(&spec.program)
+        let mut command = Command::new(&spec.program);
+        command
             .args(&spec.args)
             .current_dir(&spec.cwd)
+            .envs(spec.env.iter().map(|(name, value)| (name, value)));
+        if let Some(key) = lock(&self.shared.gemini_key)
+            .as_ref()
+            .and_then(|source| source())
+        {
+            command.env("GEMINI_API_KEY", key);
+        }
+        let mut child = command
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
@@ -829,6 +912,7 @@ mod tests {
             program: PathBuf::from("/bin/sh"),
             args: vec![OsString::from("-c"), OsString::from(script)],
             cwd: std::env::temp_dir(),
+            env: Vec::new(),
         }
     }
 
@@ -969,11 +1053,81 @@ mod tests {
     }
 
     #[test]
+    fn launch_environment_and_stored_key_reach_the_child() {
+        let out = std::env::temp_dir().join(format!("page-env-{}", std::process::id()));
+        let mut spec = shell(&format!(
+            "printf '%s|%s' \"$PAGE_TEST_VALUE\" \"$GEMINI_API_KEY\" > '{}'; exit 3",
+            out.display()
+        ));
+        spec.env = vec![("PAGE_TEST_VALUE".into(), "bundled".into())];
+        let manager = BackendManager::new(Ok(spec), timing());
+        manager.set_gemini_key_source(Box::new(|| Some("stored-key".to_owned())));
+        assert_eq!(manager.start().unwrap_err().code, "backend_exited");
+        assert!(
+            !manager
+                .status()
+                .error
+                .unwrap()
+                .message
+                .contains("stored-key")
+        );
+        assert_eq!(std::fs::read_to_string(&out).unwrap(), "bundled|stored-key");
+        manager.set_gemini_key_source(Box::new(|| None));
+        let _ = manager.restart();
+        let inherited = std::env::var("GEMINI_API_KEY").unwrap_or_default();
+        assert_eq!(
+            std::fs::read_to_string(&out).unwrap(),
+            format!("bundled|{inherited}")
+        );
+        let _ = std::fs::remove_file(out);
+    }
+
+    #[test]
+    fn bundled_launch_uses_the_runtime_in_resources() {
+        let resources = std::env::temp_dir().join(format!("page-resources-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&resources);
+        assert_eq!(
+            bundled_launch(&resources).unwrap_err().code,
+            "runtime_missing"
+        );
+        let runtime = resources.join("runtime");
+        std::fs::create_dir_all(runtime.join("python/bin")).unwrap();
+        std::fs::write(runtime.join("python/bin/python3"), b"").unwrap();
+        let spec = bundled_launch(&resources).unwrap();
+        assert_eq!(spec.program, runtime.join("python/bin/python3"));
+        assert_eq!(
+            spec.args,
+            ["-I", "-B", "-m", "page_core.api", "--port", "0"]
+                .map(OsString::from)
+                .to_vec()
+        );
+        assert_eq!(spec.cwd, runtime);
+        assert!(
+            spec.env
+                .contains(&("PAGE_MODEL_DIR".into(), runtime.join("model").into()))
+        );
+        assert!(spec.env.contains(&("HF_HUB_OFFLINE".into(), "1".into())));
+        std::fs::remove_dir_all(resources).unwrap();
+    }
+
+    #[test]
+    fn resources_are_found_from_the_executable() {
+        let executable = Path::new("/Applications/Page.app/Contents/MacOS/page-desktop");
+        let expected = if cfg!(target_os = "macos") {
+            "/Applications/Page.app/Contents/Resources"
+        } else {
+            "/Applications/Page.app/Contents/MacOS"
+        };
+        assert_eq!(resource_dir(executable).unwrap(), PathBuf::from(expected));
+    }
+
+    #[test]
     fn missing_interpreter_is_actionable() {
         let spec = LaunchSpec {
             program: PathBuf::from("/nonexistent/page/python"),
             args: vec![],
             cwd: std::env::temp_dir(),
+            env: Vec::new(),
         };
         let manager = BackendManager::new(Ok(spec), timing());
         assert_eq!(manager.start().unwrap_err().code, "interpreter_not_found");
@@ -982,6 +1136,7 @@ mod tests {
                 program,
                 args: vec![],
                 cwd: PathBuf::from("/"),
+                env: Vec::new(),
             }),
             timing(),
         );

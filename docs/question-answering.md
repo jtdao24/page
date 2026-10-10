@@ -22,7 +22,10 @@ If no passage is relevant, no model is called and Page says it found nothing.
 
 ## Setup
 
-Set your key in the terminal that starts Page:
+In the app, open **Ask your notes → Gemini API key**, paste the key and choose
+**Save Key**. Page keeps it in the macOS Keychain and restarts Page Core to use it.
+
+When running from a terminal, you can instead set it in the environment:
 
 ```sh
 export GEMINI_API_KEY=...                       # required
@@ -30,11 +33,9 @@ export PAGE_GEMINI_MODEL=gemini-3.1-flash-lite  # optional; default gemini-3.5-f
 npm run tauri:dev
 ```
 
-Page Core reads the key once at startup. To change it, restart Page. Without a key,
-everything else works and the Ask panel explains how to set one.
-
-An app launched from Finder doesn't inherit terminal variables. Configuring a key for
-the packaged app is part of Stage 14.
+A key saved in the app takes precedence over `GEMINI_API_KEY`. Page Core reads the key
+when it starts; saving or removing a key restarts it. Without a key, everything else
+works and the Ask panel shows where to add one.
 
 ## Using it
 

@@ -15,6 +15,7 @@ use crate::api::{
 use crate::backend::{BackendManager, BackendStatus};
 use crate::error::DesktopError;
 use crate::preferences::{DesktopPreferences, PreferencesStore};
+use crate::secrets::{self, GeminiKeyStatus};
 
 pub const MAIN_LABEL: &str = "main";
 pub const BACKEND_STATUS_EVENT: &str = "backend-status";
@@ -318,6 +319,25 @@ pub async fn preferences_write(
     ensure_main(&webview)?;
     let store = Arc::clone(&state.preferences);
     blocking(move || store.write(&preferences)).await
+}
+
+#[tauri::command(rename_all = "snake_case")]
+pub async fn gemini_key_status(webview: Webview) -> Result<GeminiKeyStatus, DesktopError> {
+    ensure_main(&webview)?;
+    blocking(secrets::status).await
+}
+
+/// Save the key; the frontend restarts Page Core so it takes effect.
+#[tauri::command(rename_all = "snake_case")]
+pub async fn gemini_key_save(webview: Webview, key: String) -> Result<(), DesktopError> {
+    ensure_main(&webview)?;
+    blocking(move || secrets::save_key(&key)).await
+}
+
+#[tauri::command(rename_all = "snake_case")]
+pub async fn gemini_key_clear(webview: Webview) -> Result<(), DesktopError> {
+    ensure_main(&webview)?;
+    blocking(secrets::clear_key).await
 }
 
 /// Begin the approved shutdown. Repeated calls do not start another one.

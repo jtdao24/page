@@ -1,5 +1,7 @@
 """Real FAISS indexing and source fidelity, with offline embeddings for mechanics."""
+import json
 import re
+import sys
 from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import PurePosixPath
@@ -183,3 +185,77 @@ def test_search_line_ranges_match_for_each_line_ending(tmp_path):
             hits = index.search('fruit', (note,), {note.id: 'a'*64}, 10)
             ranges[name] = sorted((hit.start_line, hit.end_line) for hit in hits)
     assert ranges['crlf'] == ranges['lf'] == ranges['cr']
+
+
+class RecordingSentenceTransformer:
+    calls: list = []
+
+    def __init__(self, source, **kwargs):
+        RecordingSentenceTransformer.calls.append((source, kwargs))
+
+    def eval(self):
+        pass
+
+
+@pytest.fixture
+def fake_sentence_transformers(monkeypatch):
+    import types
+    RecordingSentenceTransformer.calls = []
+    module = types.SimpleNamespace(SentenceTransformer=RecordingSentenceTransformer)
+    monkeypatch.setitem(sys.modules, "sentence_transformers", module)
+    return RecordingSentenceTransformer.calls
+
+
+def test_bundled_model_folder_is_used_only_with_a_matching_marker(tmp_path, monkeypatch, fake_sentence_transformers):
+    from page_core import semantic
+    folder = tmp_path / "model"
+    folder.mkdir()
+    monkeypatch.setenv(semantic.MODEL_DIR_ENV, str(folder))
+    with pytest.raises(semantic.ModelUnavailableError):
+        SentenceEncoder()  # no marker
+    (folder / semantic.MODEL_MARKER).write_text(json.dumps({"model": semantic.MODEL, "revision": "other"}))
+    with pytest.raises(semantic.ModelUnavailableError):
+        SentenceEncoder()
+    assert fake_sentence_transformers == []
+    (folder / semantic.MODEL_MARKER).write_text(json.dumps({"model": semantic.MODEL, "revision": semantic.REVISION}))
+    SentenceEncoder()
+    (source, kwargs), = fake_sentence_transformers
+    assert source == str(folder) and kwargs["revision"] is None and kwargs["local_files_only"] is True
+    SentenceEncoder(download=True)  # downloading always targets the pinned hub revision
+    assert fake_sentence_transformers[1][0] == semantic.MODEL
+    assert fake_sentence_transformers[1][1]["revision"] == semantic.REVISION
+
+
+def test_without_a_bundled_folder_the_pinned_cache_is_used(monkeypatch, fake_sentence_transformers):
+    from page_core import semantic
+    monkeypatch.delenv(semantic.MODEL_DIR_ENV, raising=False)
+    SentenceEncoder()
+    (source, kwargs), = fake_sentence_transformers
+    assert (source, kwargs["revision"], kwargs["local_files_only"]) == (semantic.MODEL, semantic.REVISION, True)
+
+
+def test_export_copies_a_plain_folder_with_a_marker(tmp_path, monkeypatch):
+    import types
+    from page_core import semantic
+    snapshot = tmp_path / "cache" / "snapshot"
+    (snapshot / "1_Pooling").mkdir(parents=True)
+    (tmp_path / "blob").write_text("weights")
+    (tmp_path / "blob").chmod(0o444)  # the Hugging Face cache stores blobs read-only
+    (snapshot / "model.safetensors").symlink_to(tmp_path / "blob")
+    (snapshot / "1_Pooling" / "config.json").write_text("{}")
+    (snapshot / "README.md").write_text("readme")
+    requested = []
+
+    def snapshot_download(model, *, revision, local_files_only):
+        requested.append((model, revision, local_files_only))
+        return str(snapshot)
+    monkeypatch.setitem(sys.modules, "huggingface_hub", types.SimpleNamespace(snapshot_download=snapshot_download))
+    semantic.export_model(tmp_path / "out")
+    out = tmp_path / "out"
+    assert requested == [(semantic.MODEL, semantic.REVISION, True)]
+    assert not (out / "model.safetensors").is_symlink() and (out / "model.safetensors").read_text() == "weights"
+    assert (out / "model.safetensors").stat().st_mode & 0o200  # writable, so rebuilds can replace it
+    assert (out / "1_Pooling" / "config.json").exists() and not (out / "README.md").exists()
+    assert semantic._checked_model_dir(out) == out
+    with pytest.raises(FileExistsError):
+        semantic.export_model(out)

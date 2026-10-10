@@ -1,15 +1,67 @@
 import { useEffect, useRef, useState } from "react";
-import { type AskResponse, type DesktopError, toDesktopError } from "../core/types";
+import { type AskResponse, type DesktopError, type GeminiKeyStatus, toDesktopError } from "../core/types";
 import { backendReady, navigationBlocked, type WorkspaceController, type WorkspaceState } from "../workspace/controller";
 import { ErrorText } from "./ErrorText";
 
 const BUDGETS = [500, 1500, 4000] as const;
+
+/** The Gemini key, saved in the system credential store; saving restarts Core. */
+function GeminiKey({ controller, canRestart }: { controller: WorkspaceController; canRestart: boolean }) {
+  const [status, setStatus] = useState<GeminiKeyStatus | null>(null);
+  const [key, setKey] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState<{ message?: string; error?: DesktopError } | null>(null);
+  const live = useRef(true);
+  useEffect(() => {
+    live.current = true;
+    controller.geminiKeyStatus().then(
+      (value) => { if (live.current) setStatus(value); },
+      (cause: unknown) => { if (live.current) setNotice({ error: toDesktopError(cause) }); });
+    return () => { live.current = false; };
+  }, [controller]);
+
+  async function apply(value: string | null) {
+    setBusy(true);
+    setNotice(null);
+    try {
+      await controller.setGeminiKey(value);
+      const next = await controller.geminiKeyStatus();
+      if (!live.current) return;
+      setKey("");
+      setStatus(next);
+      setNotice({ message: value === null ? "Key removed." : "Key saved. Page Core restarted to use it." });
+    } catch (cause: unknown) {
+      if (live.current) setNotice({ error: toDesktopError(cause) });
+    } finally {
+      if (live.current) setBusy(false);
+    }
+  }
+
+  return <div className="ask-key" aria-label="Gemini API key">
+    <p className="knowledge-hint">
+      {status === null ? "Checking for a Gemini API key…"
+        : status.stored ? "A Gemini API key is saved in your system keychain."
+        : status.from_environment ? "Using GEMINI_API_KEY from the environment Page started in."
+        : "No Gemini API key is set. Create one in Google AI Studio."}
+    </p>
+    <form onSubmit={(event) => { event.preventDefault(); if (key.trim()) void apply(key); }}>
+      <label htmlFor="gemini-key">Gemini API key</label>
+      <input id="gemini-key" type="password" autoComplete="off" spellCheck={false} value={key}
+        onChange={(event) => setKey(event.target.value)} />
+      <button type="submit" disabled={busy || !canRestart || !key.trim()}>Save Key</button>
+      {status?.stored && <button type="button" disabled={busy || !canRestart} onClick={() => void apply(null)}>Remove Key</button>}
+    </form>
+    {notice?.message && <p role="status">{notice.message}</p>}
+    {notice?.error && <div role="alert"><ErrorText error={notice.error} /></div>}
+  </div>;
+}
 
 export function AskPanel({ controller, state, onClose }: {
   controller: WorkspaceController; state: WorkspaceState; onClose: () => void;
 }) {
   const [question, setQuestion] = useState("");
   const [budget, setBudget] = useState<number>(1500);
+  const [keyVisible, setKeyVisible] = useState(false);
   const [busy, setBusy] = useState<{ key: string; request: number } | null>(null);
   const [result, setResult] = useState<{ key: string; response?: AskResponse; error?: DesktopError } | null>(null);
   const owner = useRef(0);
@@ -45,10 +97,15 @@ export function AskPanel({ controller, state, onClose }: {
   }
 
   const response = visible?.response;
+  const showKey = keyVisible || visible?.error?.code === "llm_not_configured";
   const sources = new Map(response?.sources.map((source) => [source.number, source]) ?? []);
 
   return <aside className="knowledge-panel ask-panel" aria-label="Ask your notes">
     <header className="knowledge-heading"><h2>Ask your notes</h2><button aria-label="Close ask" onClick={onClose}>×</button></header>
+    <button type="button" className="ask-key-toggle" aria-expanded={showKey} onClick={() => setKeyVisible(!keyVisible)}>
+      Gemini API key
+    </button>
+    {showKey && <GeminiKey controller={controller} canRestart={!state.pending && !state.vaultBusy && !state.quitting} />}
     <p className="knowledge-hint">
       Answers use only your saved notes. The passages selected for a question, not your whole vault,
       are sent to Google Gemini. Unsaved drafts are excluded.
@@ -67,7 +124,7 @@ export function AskPanel({ controller, state, onClose }: {
     {loading && <p role="status">Finding relevant passages and asking Gemini…</p>}
     {visible?.error && <div role="alert">
       {visible.error.code === "llm_not_configured"
-        ? <p>Ask needs a Gemini API key. Quit Page, set <code>GEMINI_API_KEY</code>, and start Page again from that terminal.</p>
+        ? <p>Ask needs a Gemini API key. Add one under Gemini API key above.</p>
         : <ErrorText error={visible.error} />}
       {visible.error.code !== "llm_not_configured" &&
         <button disabled={!available || loading} onClick={() => void ask()}>Try Again</button>}

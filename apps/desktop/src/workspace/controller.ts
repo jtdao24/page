@@ -730,6 +730,17 @@ export class WorkspaceController {
     return this.api.askQuestion(vaultId, question, budget);
   }
 
+  geminiKeyStatus() {
+    return this.api.geminiKeyStatus();
+  }
+
+  /** Save or remove the stored key, then restart Core so it takes effect. */
+  async setGeminiKey(key: string | null): Promise<void> {
+    if (key === null) await this.api.geminiKeyClear();
+    else await this.api.geminiKeySave(key);
+    await this.restart();
+  }
+
   indexVault(vaultId: string, rebuild = false) {
     return this.api.semanticIndex(vaultId, rebuild);
   }

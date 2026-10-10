@@ -130,8 +130,8 @@ def translate(error: BaseException) -> ApiError:
                         })
     simple: list[tuple[type[BaseException], int, str, str]] = [
         (LLMNotConfiguredError, 503, "llm_not_configured",
-         "Set GEMINI_API_KEY before starting Page Core to ask questions with Gemini."),
-        (LLMAuthError, 502, "llm_auth_failed", "Gemini rejected the API key; check GEMINI_API_KEY."),
+         "Add a Gemini API key in Page, or set GEMINI_API_KEY before starting Page Core."),
+        (LLMAuthError, 502, "llm_auth_failed", "Gemini rejected the API key; check the key saved in Page or GEMINI_API_KEY."),
         (LLMRateLimitError, 429, "llm_rate_limited", "Gemini's rate limit or quota was reached; try again later."),
         (LLMBlockedError, 422, "llm_blocked", "Gemini declined to answer this request."),
         (LLMUnavailableError, 503, "llm_unavailable", "Gemini could not be reached; try again."),

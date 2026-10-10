@@ -1,5 +1,5 @@
 import type {
-  AskResponse, GraphResponse, IndexResponse, SearchResponse,
+  AskResponse, GeminiKeyStatus, GraphResponse, IndexResponse, SearchResponse,
   BackendStatus,
   DesktopPreferences,
   NoteResponse,
@@ -33,6 +33,9 @@ export interface PageClient {
   preferencesRead(): Promise<DesktopPreferences>;
   preferencesWrite(preferences: DesktopPreferences): Promise<void>;
   desktopQuit(): Promise<void>;
+  geminiKeyStatus(): Promise<GeminiKeyStatus>;
+  geminiKeySave(key: string): Promise<void>;
+  geminiKeyClear(): Promise<void>;
   /** Resolves to an unsubscribe function. */
   onBackendStatus(handler: (status: BackendStatus) => void): Promise<() => void>;
   onQuitRequested(handler: () => void): Promise<() => void>;
@@ -85,6 +88,9 @@ export function createPageClient(invoke: InvokeFn, listen: ListenFn): PageClient
     preferencesRead: () => call("preferences_read"),
     preferencesWrite: (preferences) => call("preferences_write", { preferences }),
     desktopQuit: () => call("desktop_quit"),
+    geminiKeyStatus: () => call("gemini_key_status"),
+    geminiKeySave: (key) => call("gemini_key_save", { key }),
+    geminiKeyClear: () => call("gemini_key_clear"),
     onBackendStatus: (handler) =>
       listen(BACKEND_STATUS_EVENT, (payload) => handler(payload as BackendStatus)),
     onQuitRequested: (handler) => listen(QUIT_REQUESTED_EVENT, () => handler()),
