@@ -1,0 +1,40 @@
+{"id": "e01", "question": "what usually causes a dripping tap", "answer": "worn washer", "relevant": [{"path": "home/leaks.md", "contains": "worn washer"}]}
+{"id": "e02", "question": "what should I do before taking a tap apart", "answer": "Turn off the water supply", "relevant": [{"path": "home/leaks.md", "contains": "Turn off the water supply"}]}
+{"id": "e03", "question": "how much water can a slow drip waste in a year", "answer": "three thousand litres", "relevant": [{"path": "home/leaks.md", "contains": "three thousand litres"}]}
+{"id": "e04", "question": "how often should I drain sediment from a water heater", "answer": "every six months", "relevant": [{"path": "home/water-heater.md", "contains": "every six months"}]}
+{"id": "e05", "question": "what temperature should a water heater thermostat be set to", "answer": "50 degrees Celsius", "relevant": [{"path": "home/water-heater.md", "contains": "50 degrees Celsius"}]}
+{"id": "e06", "question": "how long do tank water heaters last", "answer": "eight to twelve years", "relevant": [{"path": "home/water-heater.md", "contains": "eight to twelve years"}]}
+{"id": "e07", "question": "what does rusty hot water mean", "answer": "the tank is failing", "relevant": [{"path": "home/water-heater.md", "contains": "tank is failing"}]}
+{"id": "e08", "question": "how long to wait before a second coat of paint", "answer": "four hours", "relevant": [{"path": "home/paint.md", "contains": "four hours"}]}
+{"id": "e09", "question": "why use primer before painting", "answer": "show through", "relevant": [{"path": "home/paint.md", "contains": "primer over patched spots"}]}
+{"id": "e10", "question": "how to avoid lap marks when rolling paint", "answer": "edges are still wet", "relevant": [{"path": "home/paint.md", "contains": "edges are still wet"}]}
+{"id": "e11", "question": "how often to check bicycle tyre pressure", "answer": "every week", "relevant": [{"path": "cycling/tyres.md", "contains": "every week"}]}
+{"id": "e12", "question": "where is the recommended tyre pressure written", "answer": "tyre sidewall", "relevant": [{"path": "cycling/tyres.md", "contains": "sidewall"}]}
+{"id": "e13", "question": "how do I find a hole in an inner tube", "answer": "bubbles", "relevant": [{"path": "cycling/tyres.md", "contains": "watching for bubbles"}]}
+{"id": "e14", "question": "when should a bike chain be replaced", "answer": "0.5 percent stretch", "relevant": [{"path": "cycling/chain.md", "contains": "0.5 percent stretch"}]}
+{"id": "e15", "question": "how much lubricant to put on a chain", "answer": "one drop", "relevant": [{"path": "cycling/chain.md", "contains": "one drop of lubricant"}]}
+{"id": "e16", "question": "what does a skipping chain mean", "answer": "worn chain or cassette", "relevant": [{"path": "cycling/chain.md", "contains": "worn chain or cassette"}]}
+{"id": "e17", "question": "how many grams of coffee for a double shot", "answer": "eighteen grams", "relevant": [{"path": "coffee/espresso.md", "contains": "eighteen grams"}]}
+{"id": "e18", "question": "how long should an espresso shot take", "answer": "twenty-five to thirty seconds", "relevant": [{"path": "coffee/espresso.md", "contains": "twenty-five to thirty seconds"}]}
+{"id": "e19", "question": "why does my espresso taste sour", "answer": "faster shot", "relevant": [{"path": "coffee/espresso.md", "contains": "faster shot tastes sour"}]}
+{"id": "e20", "question": "burr grinder versus blade grinder", "answer": "even size", "relevant": [{"path": "coffee/grinders.md", "contains": "Burr grinders crush beans"}]}
+{"id": "e21", "question": "how often to clean grinder burrs", "answer": "every month", "relevant": [{"path": "coffee/grinders.md", "contains": "every month"}]}
+{"id": "e22", "question": "coffee to water ratio for pour over", "answer": "sixteen grams of water", "relevant": [{"path": "coffee/pour-over.md", "contains": "sixteen grams of water"}]}
+{"id": "e23", "question": "what is the bloom in pour over", "answer": "thirty seconds", "relevant": [{"path": "coffee/pour-over.md", "contains": "bloom"}]}
+{"id": "e24", "question": "best water temperature for pour over", "answer": "94 degrees", "relevant": [{"path": "coffee/pour-over.md", "contains": "94 degrees"}]}
+{"id": "e25", "question": "what is the fifty thirty twenty budget rule", "answer": "twenty percent savings", "relevant": [{"path": "money/budget.md", "contains": "fifty percent needs"}]}
+{"id": "e26", "question": "how often should I review my budget", "answer": "every quarter", "relevant": [{"path": "money/budget.md", "contains": "every quarter"}]}
+{"id": "e27", "question": "how big should an emergency fund be", "answer": "three to six months", "relevant": [{"path": "money/emergency-fund.md", "contains": "three to six months"}]}
+{"id": "e28", "question": "where should emergency savings be kept", "answer": "easy-access savings account", "relevant": [{"path": "money/emergency-fund.md", "contains": "easy-access savings account"}]}
+{"id": "e29", "question": "shutter speed to freeze motion", "answer": "1/500", "relevant": [{"path": "photo/exposure.md", "contains": "1/500"}]}
+{"id": "e30", "question": "what does a wide aperture do", "answer": "blurs the background", "relevant": [{"path": "photo/exposure.md", "contains": "blurs the background"}]}
+{"id": "e31", "question": "why avoid high ISO", "answer": "noise", "relevant": [{"path": "photo/exposure.md", "contains": "high ISO adds visible noise"}]}
+{"id": "e32", "question": "what is the rule of thirds", "answer": "three parts", "relevant": [{"path": "photo/composition.md", "contains": "rule of thirds"}]}
+{"id": "e33", "question": "how long to cool a burn", "answer": "twenty minutes", "relevant": [{"path": "health/first-aid.md", "contains": "twenty minutes"}]}
+{"id": "e34", "question": "how to stop bleeding from a cut", "answer": "direct pressure", "relevant": [{"path": "health/first-aid.md", "contains": "direct pressure"}]}
+{"id": "e35", "question": "when to call emergency services", "answer": "chest pain", "relevant": [{"path": "health/first-aid.md", "contains": "chest pain"}]}
+{"id": "e36", "question": "how long should daily music practice be", "answer": "twenty to thirty minutes", "relevant": [{"path": "music/practice.md", "contains": "twenty to thirty minutes"}]}
+{"id": "e37", "question": "how often to change guitar strings", "answer": "two to three months", "relevant": [{"path": "music/guitar.md", "contains": "two to three months"}]}
+{"id": "e38", "question": "what humidity is best for a guitar", "answer": "forty to fifty percent", "relevant": [{"path": "music/guitar.md", "contains": "forty to fifty percent"}]}
+{"id": "e39", "question": "which seed attracts the most garden birds", "answer": "Black sunflower seeds", "relevant": [{"path": "birds/feeders.md", "contains": "Black sunflower seeds"}]}
+{"id": "e40", "question": "how often should bird feeders be cleaned", "answer": "every two weeks", "relevant": [{"path": "birds/feeders.md", "contains": "every two weeks"}]}
