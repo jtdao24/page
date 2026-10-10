@@ -46,7 +46,8 @@ _STOPWORDS = frozenset(
 )
 
 
-def _terms(text: str) -> set[str]:
+def text_terms(text: str) -> set[str]:
+    """Lowercase words of three or more characters, minus common stopwords."""
     return {word for word in re.findall(r"[a-z0-9]+", text.lower())
             if len(word) > 2 and word not in _STOPWORDS}
 
@@ -89,7 +90,7 @@ def extract_features(query: str, hits: Sequence[SearchHit],
         neighbors.setdefault(target, set()).add(source)
         backlinks.setdefault(target, set()).add(source)
 
-    terms = _terms(query)
+    terms = text_terms(query)
     top = hits[0].score
     top_note = hits[0].chunk.note_id
     candidate_notes = {hit.chunk.note_id for hit in hits}
@@ -105,8 +106,8 @@ def extract_features(query: str, hits: Sequence[SearchHit],
             hit.score,
             1.0 / rank,
             hit.score - top,
-            len(terms & _terms(hit.chunk.text)) / len(terms) if terms else 0.0,
-            len(terms & _terms(path_words)) / len(terms) if terms else 0.0,
+            len(terms & text_terms(hit.chunk.text)) / len(terms) if terms else 0.0,
+            len(terms & text_terms(path_words)) / len(terms) if terms else 0.0,
             1.0 if hit.chunk.text.lstrip("﻿ \t").startswith("#") else 0.0,
             min(1.0, math.log1p(tokens) / math.log1p(MAX_TOKENS)),
             1.0 if hit.chunk.ordinal == 0 else 0.0,

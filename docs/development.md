@@ -97,6 +97,12 @@ prepared, retrain it and re-measure it on held-out queries:
 See [neural ranking](neural-ranking.md) for features, the checkpoint format, the
 dataset and current results.
 
+## Context optimization
+
+Stage 10's `page_core.context.optimize_context` packs ranked passages into
+source-attributed context that fits a token budget, dropping repeats and trimming
+oversized passages to exact excerpts. See [context optimization](context-optimization.md).
+
 ## Python tests
 
 ```sh
