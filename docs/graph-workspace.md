@@ -1,8 +1,13 @@
 # Entry graph and workspace tabs
 
-The Tauri 2 workspace displays each indexed Markdown note as a node keyed by its
+The experimental workspace at `/graph.html` displays each indexed Markdown note as a node keyed by its
 existing UUID. The compact sidebar controls, collapsible file sidebar, local account
 controls, indexing controls, and question draft remain available.
+
+The default Tauri window and `/` now use main's Stage 6 editing workspace. This
+preview is preserved in `GraphWorkspace.tsx`, with its original styles isolated
+in `graph-index.css` and `workspace.css`. Its ingestion service remains separate
+from the Stage 6 backend. The landing export serves this preview at `/app/`.
 
 The workspace uses a parchment and tan palette with forest green selected tabs,
 sage navigation highlights, and warm ink for text. Shared colors live in the

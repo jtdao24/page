@@ -16,6 +16,7 @@ export default defineConfig({
       input: {
         app: fileURLToPath(new URL("./index.html", import.meta.url)),
         landing: fileURLToPath(new URL("./landing.html", import.meta.url)),
+        graph: fileURLToPath(new URL("./graph.html", import.meta.url)),
         login: fileURLToPath(new URL("./login/index.html", import.meta.url)),
         signup: fileURLToPath(new URL("./signup/index.html", import.meta.url)),
         forgotPassword: fileURLToPath(new URL("./forgot-password/index.html", import.meta.url)),

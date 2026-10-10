@@ -61,8 +61,8 @@ export default function LandingPage({ appHref = "/", macDownloadUrl, windowsDown
         <div className="section-label"><span>02 / HOW IT WORKS</span><span>ONE NOTE. A BIGGER PICTURE.</span></div>
         <div className="how-heading"><h2 id="how-title">a little context.<br />a lot to come back to.</h2><p>Start with files you own.<br />Build a workspace that grows with you.</p></div>
         <ol className="landing-steps">
-          <li><span className="step-number">01 / COLLECT</span><h3>bring your notes.</h3><p>Keep your writing in a local Markdown vault. Connect it to Page’s local core and index the files. Your original notes remain the source of truth.</p></li>
-          <li><span className="step-number">02 / CONNECT</span><h3>see the big picture.</h3><p>Explore entries as nodes in your graph. Browse one folder at a time, open a note in a tab, or split the workspace to read ideas side by side.</p></li>
+          <li><span className="step-number">01 / COLLECT</span><h3>bring your notes.</h3><p>Open a local Markdown vault in Page. Read, write, and organize your files with the installed local core. Your original notes remain the source of truth.</p></li>
+          <li><span className="step-number">02 / CONNECT</span><h3>see the big picture.</h3><p>The desktop gives you a focused Markdown editor and folder navigation. Try the experimental graph preview to explore entries in tabs and read ideas side by side.</p></li>
           <li><span className="step-number">03 / RETURN</span><h3>pick up the thread.</h3><p>Read the full note and see where it came from. Local semantic indexing lays the groundwork for finding relevant context beyond exact keywords.</p></li>
         </ol>
       </section>
@@ -70,7 +70,7 @@ export default function LandingPage({ appHref = "/", macDownloadUrl, windowsDown
       <section className="landing-section landing-library" id="the-library" aria-labelledby="library-title">
         <div className="section-label"><span>03 / A LOOK INSIDE</span><span>YOUR KNOWLEDGE, IN GOOD COMPANY.</span></div>
         <div className="library-demo-layout"><div className="library-demo-copy"><h2 id="library-title">follow<br />a thought.</h2><p>Every node is an entry. Open it, read it, and make room beside it for another idea.</p>
-          <a className="landing-text-link" href={appHref}>explore the workspace preview <Arrow diagonal /></a><p className="demo-disclaimer">Illustrative sample below. Graph lines in the app currently show shared collections.</p></div>
+          <a className="landing-text-link" href={appHref}>explore the workspace preview <Arrow diagonal /></a><p className="demo-disclaimer">Illustrative sample below. The experimental graph preview shows shared collections; the native app currently focuses on Markdown editing.</p></div>
           <div className="landing-demo"><div className="demo-topbar"><span className="demo-brand">Page</span><span className="demo-label">ILLUSTRATIVE PREVIEW</span><span className="demo-dots" aria-hidden="true">● ● ●</span></div>
             <div className="demo-tabs"><span>Your graph</span><span className="demo-active-tab">{example.title}</span></div>
             <div className="demo-main"><div className="demo-graph" role="group" aria-label="Sample knowledge graph">
@@ -90,7 +90,7 @@ export default function LandingPage({ appHref = "/", macDownloadUrl, windowsDown
           <details><summary>Where do my notes live?<span aria-hidden="true">+</span></summary><p>In your own Markdown vault on your device. Page builds a local index around your files; your Markdown remains the source of truth.</p></details>
           <details><summary>Do I need an account?<span aria-hidden="true">+</span></summary><p>No account is required for the local workspace. Online sign-in is not configured yet. Future accounts will support connected services and synchronization.</p></details>
           <details><summary>Can I ask AI about my notes?<span aria-hidden="true">+</span></summary><p>Not yet. The question box currently keeps an unsent local draft. AI answers, neural context ranking, and token-budget controls are planned. Local semantic indexing and a development search API already exist.</p></details>
-          <details><summary>What’s included in the download?<span aria-hidden="true">+</span></summary><p>The current macOS development download contains the native Page desktop app, including the sample workspace. To read and index your own vault, the Python core must be installed and started separately. This is not yet a self-contained release.</p></details>
+          <details><summary>What’s included in the download?<span aria-hidden="true">+</span></summary><p>The macOS development app provides the native Markdown editing workspace. Install the Python core and configure its interpreter separately; the desktop then starts it for vault access. The experimental sample graph is available in the web preview. This is not yet a self-contained release.</p></details>
           <details><summary>Will Page be available on Windows?<span aria-hidden="true">+</span></summary><p>Windows is a planned platform. A Windows download is not available yet, and local metadata permissions still need platform-specific support.</p></details>
         </div></div>
       </section>
@@ -107,7 +107,7 @@ export default function LandingPage({ appHref = "/", macDownloadUrl, windowsDown
             <small>We’ll add a download when a Windows build is ready.</small>
           </div>
         </div>
-        <div className="download-footnote"><a href={appHref}>Just looking? Open the workspace preview <Arrow diagonal /></a><a href="https://github.com/jtdao24/page/blob/caiden/docs/ingestion.md#install-and-run" target="_blank" rel="noreferrer">Local core setup & source <Arrow diagonal /></a></div>
+        <div className="download-footnote"><a href={appHref}>Just looking? Open the workspace preview <Arrow diagonal /></a><a href="https://github.com/jtdao24/page/blob/main/docs/development.md#running-the-desktop-app" target="_blank" rel="noreferrer">Local core setup & source <Arrow diagonal /></a></div>
       </section>
     </main>
 

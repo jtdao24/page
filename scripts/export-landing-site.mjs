@@ -18,7 +18,7 @@ if (!architecture.trim().endsWith("Mach-O 64-bit executable arm64")) throw new E
 mkdirSync(output, { recursive: true });
 cpSync(build, output, { recursive: true });
 mkdirSync(path.join(output, "app"), { recursive: true });
-cpSync(path.join(build, "index.html"), path.join(output, "app/index.html"));
+cpSync(path.join(build, "graph.html"), path.join(output, "app/index.html"));
 const downloads = path.join(output, "downloads");
 mkdirSync(downloads, { recursive: true });
 const filename = "Page-macos-arm64.zip";
@@ -31,7 +31,7 @@ writeFileSync(path.join(downloads, "manifest.json"), JSON.stringify({
   created_at: new Date().toISOString(), core_bundled: false,
 }, null, 2) + "\n");
 const landing = readFileSync(path.join(build, "landing.html"), "utf8")
-  .replace('data-app-url="/"', `data-app-url="/app/" data-mac-download-url="/downloads/${filename}"`);
+  .replace('data-app-url="/graph.html"', `data-app-url="/app/" data-mac-download-url="/downloads/${filename}"`);
 writeFileSync(path.join(output, "index.html"), landing);
 writeFileSync(path.join(output, "landing.html"), landing);
 console.log(`Static website ready at ${output}`);

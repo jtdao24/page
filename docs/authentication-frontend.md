@@ -7,18 +7,20 @@ The product continues to use its established Page branding.
 
 ## Navigation
 
-The landing page at `/landing.html` provides **Log In**, **Sign Up**, and **Open
-App** links. `/login`, `/signup`, and `/forgot-password` are separate Vite HTML
+The landing page at `/landing.html` provides an **Open App** link to the graph
+preview; its Log In and Sign Up navigation links were removed. `/login`, `/signup`,
+and `/forgot-password` remain separate Vite HTML
 entries, with directory index files included in the packaged frontend. These
 pages work without a server-side SPA rewrite. The main entry also resolves clean
 auth URLs when Vite or Tauri falls back to the workspace index. Each has an exit to the local
 workspace, which remains the default Tauri window at `/`.
 
-In the desktop workspace, **Profile & account** opens settings. The **Vault**
+In the graph preview at `/graph.html`, **Profile & account** opens settings. The **Vault**
 and **Account** sections share the existing native dialog. Login, signup, and
 reset forms open within that dialog, preserving the mounted workspace, its
 in-memory vault token, indexing polling, and draft. Closing or cancelling a
-dialog returns to the workspace without requiring authentication.
+dialog returns to the workspace without requiring authentication. The default
+native Stage 6 editing workspace does not yet expose these account controls.
 
 ## Provider boundary
 

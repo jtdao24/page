@@ -13,7 +13,7 @@ import type { AuthService, AuthState } from "./service";
 import { resolveAuthRoute } from "./routes";
 import { validateLogin, validatePasswordReset, validateSignup } from "./validation";
 import LandingPage from "../LandingPage";
-import App from "../App";
+import App from "../GraphWorkspace";
 
 afterEach(() => { cleanup(); vi.restoreAllMocks(); localStorage.clear(); });
 
@@ -146,10 +146,10 @@ describe("auth form interactions", () => {
 });
 
 describe("navigation and local workspace", () => {
-  it("offers landing authentication and a direct workspace link", () => {
+  it("offers a direct workspace link without landing authentication buttons", () => {
     render(<LandingPage appHref="/app/" />);
-    expect(screen.getByRole("link", { name: "Log In" }).getAttribute("href")).toBe("/login/");
-    expect(screen.getByRole("link", { name: "Sign Up" }).getAttribute("href")).toBe("/signup/");
+    expect(screen.queryByRole("link", { name: "Log In" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Sign Up" })).toBeNull();
     expect(screen.getByRole("link", { name: "Open App" }).getAttribute("href")).toBe("/app/");
   });
   it("provides all auth pages with navigation and an account-free workspace exit", () => {
@@ -178,7 +178,7 @@ describe("navigation and local workspace", () => {
     Object.defineProperty(HTMLDialogElement.prototype, "showModal", { configurable: true, value: function(this: HTMLDialogElement) { this.setAttribute("open", ""); } });
     const user = userEvent.setup();
     render(<App />);
-    expect(screen.getByRole("heading", { name: "Your graph." })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: /^Your graph\s*\.$/ })).toBeTruthy();
     await user.click(screen.getByRole("button", { name: "Profile and account settings" }));
     expect(screen.getByRole("heading", { name: "Workspace settings" })).toBeTruthy();
     await user.click(screen.getByRole("button", { name: "Log In" }));
@@ -189,7 +189,7 @@ describe("navigation and local workspace", () => {
     expect(screen.getByRole("button", { name: "Send Reset Link" })).toBeTruthy();
     await user.click(screen.getByRole("button", { name: "Continue to local workspace →" }));
     expect(screen.queryByRole("dialog")).toBeNull();
-    expect(screen.getByRole("heading", { name: "Your graph." })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: /^Your graph\s*\.$/ })).toBeTruthy();
   });
   it("keeps a connected vault and its in-memory token while navigating account forms", async () => {
     Object.defineProperty(HTMLDialogElement.prototype, "showModal", { configurable: true, value: function(this: HTMLDialogElement) { this.setAttribute("open", ""); } });

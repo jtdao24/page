@@ -16,13 +16,14 @@ uses sample content; the real app's current graph lines represent shared collect
 The frontend remains a Vite multi-page build used by Tauri. This web export does
 not change the default desktop window or require a hosting SDK/service.
 
-- `npm run dev`: landing page at `http://localhost:1420/landing.html`, workspace at `/`.
+- `npm run dev`: landing page at `http://localhost:1420/landing.html`, graph preview
+  at `/graph.html`, and the Stage 6 desktop editing interface at `/`.
 - `npm run build`: TypeScript validation and Vite production assets.
 - `npm run tauri:build -- --bundles app`: build the native macOS bundle.
 - `npm run landing:export`: create `dist/page-website/`, including the app ZIP.
 - `npm run landing:preview`: serve the export at `http://localhost:4173/`.
 
-The export serves the landing page at `/`, workspace preview at `/app/`, and
+The export serves the landing page at `/`, graph workspace preview at `/app/`, and
 account interfaces at `/login/`, `/signup/`, and `/forgot-password/`. Deploy the
 contents of `dist/page-website/` to any static web host at its domain root. Configure
 the host to serve directory `index.html` files and ZIP files as downloads. This
@@ -50,9 +51,11 @@ state rather than a broken link. Hero and navigation buttons always lead to the
 download section. The export's macOS button points to the bundled ZIP.
 
 This is an unnotarized **development** app for Apple Silicon. Unzip it to get
-`Page.app`. The sample workspace runs without an account or Python service. The
-Python core is not included in the archive: real vault reading/indexing requires
-separate setup as described in the repository README and `docs/ingestion.md`.
+`Page.app`. The default native workspace uses the Stage 6 editing interface from
+`main`. The sample graph remains a separate web preview. The Python core is not
+included in the archive: native vault editing requires separate installation and
+interpreter configuration as described in `docs/development.md`. The optional
+graph ingestion service uses separate setup described in `docs/ingestion.md`.
 Windows downloads are unavailable. Online authentication and AI answers remain
 unconfigured. There is no automatic update or installer service.
 
