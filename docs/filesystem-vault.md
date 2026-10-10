@@ -61,9 +61,16 @@ files.
 - IDs live **only in memory**, in the `FileSystemVault` instance. A note keeps its ID
   for the life of the instance, including across `move_note` and `rename_note`.
 - Reopening the vault assigns new IDs. Changes made outside Page (renames or moves) also
-  produce new IDs. Persisting note identity is deferred to Stage 4.
+  produce new IDs in the standalone Stage 3 interface. For Stage 4 persistence,
+  use the opt-in adapter described in [sqlite-metadata.md](sqlite-metadata.md).
 - A `Note` snapshot is accepted only by the instance that produced it and only while it
   is still at its recorded path. Otherwise `NoteConflictError` is raised.
+
+Stage 4 uses `note_identity(path)` and `restore_note_identities(mapping)` to
+persist/restore the registry. Both perform no I/O; a complete restore validates
+paths and unique UUIDs before replacing state. `list_note_paths(on_error=...)`
+can reject traversal failures for reconciliation. Omitting the callback retains
+Stage 3's existing listing behavior.
 
 ## Content and timestamps
 
@@ -77,7 +84,7 @@ files.
 - `updated_at` is the file's modification time in UTC. `created_at` is the file's birth
   time where the platform reports one (macOS, Windows), and otherwise equals
   `updated_at`. Because each save replaces the file, birth time resets on every update;
-  creation times that survive edits are deferred to Stage 4.
+  creation times that survive edits are provided by the opt-in Stage 4 adapter.
 
 ## Atomic writes
 
