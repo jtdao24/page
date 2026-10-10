@@ -116,6 +116,8 @@ still be overwritten. The window is short but not zero.
 - The destination name is reserved with an exclusive create before the file is moved
   over the reservation. An existing file is never replaced, even if it appears after the
   check.
+- A destination name that already exists is occupied even when it is a hard link to the
+  note's own file. A case-only rename is the only move onto the same file that succeeds.
 - On failure the source is kept and the reservation removed.
 - Missing destination folders are created. Emptied source folders are left in place.
 - Content and modification time are preserved.
