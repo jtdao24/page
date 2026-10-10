@@ -31,6 +31,10 @@ class MetadataSyncError(MetadataError):
         super().__init__(f"{operation} changed the filesystem but metadata could not be saved; reconcile the vault")
 
 
+class InvalidRenameError(ValueError):
+    """Known-rename confirmations do not name a missing source and a unique existing destination."""
+
+
 @dataclass(frozen=True, slots=True)
 class ReconcileResult:
     added: int = 0
@@ -216,7 +220,7 @@ class PersistentVault:
                 path = _require_managed_path(path)
                 record = all_records.get(identifier)
                 if record is None or record.relative_path in sources or path not in sources or path in explicit:
-                    raise ValueError("known renames require a missing source ID and a unique existing destination")
+                    raise InvalidRenameError("known renames require a missing source ID and a unique existing destination")
                 explicit[path] = record
             used = {record.id for record in explicit.values()}
             missing = [record for path, record in active.items() if path not in sources and record.id not in used]
