@@ -240,14 +240,20 @@ class FileSystemVault:
         if destination == source:
             return self.read_note(source)
         source_file = self._existing_file(source)
-        destination_file, _ = self._locate(destination)
+        destination_file, destination_info = self._locate(destination)
+        if destination_info is not None:
+            # An entry with exactly this name is occupied, even when it is a
+            # hard link to the source: renaming over it would be a no-op.
+            raise NoteExistsError(f"{destination} already exists")
         self._make_parent_directories(destination)
         try:
             _create_exclusive(destination_file, None)
         except FileExistsError as exc:
-            if not _same_file(source_file, destination_file):
+            # Only a case-insensitive filesystem resolving the new spelling to
+            # the source itself makes this a case-only rename.
+            case_only = str(destination).casefold() == str(source).casefold()
+            if not (case_only and _same_file(source_file, destination_file)):
                 raise NoteExistsError(f"{destination} already exists") from exc
-            # Case-only rename on a case-insensitive filesystem.
             os.rename(source_file, destination_file)
         else:
             try:

@@ -38,6 +38,20 @@ def symlinks(tmp_path: Path) -> Iterator[None]:
 
 
 @pytest.fixture
+def hardlinks(tmp_path: Path) -> Iterator[None]:
+    """Skip the test where the filesystem cannot create hard links."""
+    source = tmp_path / "hardlink-source"
+    source.touch()
+    try:
+        os.link(source, tmp_path / "hardlink-probe")
+    except (OSError, NotImplementedError):
+        pytest.skip("hard links are not supported here")
+    (tmp_path / "hardlink-probe").unlink()
+    source.unlink()
+    yield
+
+
+@pytest.fixture
 def case_insensitive(tmp_path: Path) -> bool:
     (tmp_path / "case-probe").touch()
     return (tmp_path / "CASE-PROBE").exists()
