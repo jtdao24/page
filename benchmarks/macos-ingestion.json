@@ -1,0 +1,63 @@
+{
+  "platform": "macOS-26.6.2-arm64-arm-64bit",
+  "machine": "arm64",
+  "python": "3.12.15",
+  "model": "sentence-transformers/all-MiniLM-L6-v2@c9745ed1d9f207416be6d2e6f8de32d1f16199bf",
+  "device": "cpu",
+  "cpu_threads": 1,
+  "corpus": "synthetic Markdown research notes",
+  "versions": {
+    "numpy": "2.5.3",
+    "faiss-cpu": "1.15.1",
+    "sentence-transformers": "6.1.0",
+    "torch": "2.14.1",
+    "transformers": "5.19.0"
+  },
+  "notes": 100,
+  "queries": 30,
+  "runtime_import_seconds": 0.06727087499984918,
+  "model_load_seconds": 5.547579125000084,
+  "index_seconds": 7.292452665999917,
+  "unchanged_scan_seconds": 0.007104667000021436,
+  "single_edit_seconds": 0.02903508400049759,
+  "query_p50_ms": 5.581562500537984,
+  "query_p95_ms": 6.117625000115368,
+  "indexed": {
+    "state": "complete",
+    "phase": "idle",
+    "completed": 100,
+    "total": 100,
+    "changed": 100,
+    "skipped": 0,
+    "embedded": 300,
+    "reused": 0,
+    "deleted": 0,
+    "error": null
+  },
+  "unchanged": {
+    "state": "complete",
+    "phase": "idle",
+    "completed": 100,
+    "total": 100,
+    "changed": 0,
+    "skipped": 100,
+    "embedded": 0,
+    "reused": 0,
+    "deleted": 0,
+    "error": null
+  },
+  "edited": {
+    "state": "complete",
+    "phase": "idle",
+    "completed": 100,
+    "total": 100,
+    "changed": 1,
+    "skipped": 99,
+    "embedded": 1,
+    "reused": 2,
+    "deleted": 0,
+    "error": null
+  },
+  "sqlite_bytes": 1150976,
+  "faiss_bytes": 463290
+}

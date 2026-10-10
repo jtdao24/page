@@ -110,7 +110,7 @@ with `npm run tauri -w @page/desktop -- icon`. Only the desktop icons listed in
 
 ## Status
 
-**Stage 3 of 14: filesystem vault.** Completed so far:
+**Stage 4 of 14: Markdown ingestion and semantic indexing.** Completed so far:
 
 1. Repository foundation: layout, tooling, a desktop shell that displays "Page", and an
    installable `page-core` package.
@@ -120,7 +120,12 @@ with `npm run tauri -w @page/desktop -- icon`. Only the desktop icons listed in
 3. Filesystem vault: `page_core.vault` creates and opens vaults and safely lists,
    reads, creates, updates, moves and deletes Markdown notes, specified in
    [docs/filesystem-vault.md](docs/filesystem-vault.md). Note IDs are kept in memory
-   only until Stage 4.
+   only unless the Stage 4 registry is opened.
 
-The desktop app is not connected to Page Core yet, and no retrieval or AI features are
-implemented.
+4. Ingestion: secure Markdown scanning, heading-aware tokenizer-budgeted chunks,
+   MiniLM embeddings, persistent SQLite metadata/vector caches, recoverable FAISS
+   indexing, background progress, and an authenticated local desktop bridge.
+   See [docs/ingestion.md](docs/ingestion.md) for setup, API and recovery behavior.
+
+The desktop connects to an explicitly launched local core service. A knowledge graph,
+neural reranking and packaged core-process lifecycle are not implemented yet.

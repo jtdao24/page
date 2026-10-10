@@ -9,6 +9,9 @@ description = "Local-first knowledge and context engine for Page."
 requires-python = ">=3.12,<3.13"
 dependencies = []
 
+[project.optional-dependencies]
+ingestion = ["numpy>=2,<3", "faiss-cpu>=1.9,<2", "sentence-transformers>=3,<7"]
+
 [dependency-groups]
 dev = ["pytest>=9.1"]
 

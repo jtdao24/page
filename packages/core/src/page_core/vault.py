@@ -70,7 +70,8 @@ class FileSystemVault:
 
     Use ``create`` or ``open``. Note IDs are assigned when a note is first
     read through this instance and are kept only in memory: they survive
-    renames and moves made through this instance, but not a restart.
+    renames and moves made through this instance, but not a restart unless the
+    optional Stage 4 ingestion registry restores them.
     Instances are not thread-safe.
     """
 
@@ -140,6 +141,37 @@ class FileSystemVault:
     @property
     def vault(self) -> Vault:
         return self._vault
+
+    def note_identity(self, path: PurePosixPath, *, restore: UUID | None = None) -> UUID:
+        """Allocate or restore an identity from the optional ingestion registry.
+
+        Does not read or modify Markdown. Restoring persisted identities should
+        happen before retaining note snapshots from this instance.
+        """
+        relative = _require_managed_path(path)
+        if restore is not None:
+            if not isinstance(restore, UUID):
+                raise TypeError("restore must be UUID")
+            self._ids[relative] = restore
+        elif relative not in self._ids:
+            self._ids[relative] = self._new_id()
+        return self._ids[relative]
+
+    def restore_note_identities(self, identities: dict[PurePosixPath, UUID]) -> None:
+        """Synchronize the in-memory registry with a complete persisted scan.
+
+        Forget deleted and externally renamed paths so newly created notes do
+        not inherit stale identities. Validate before replacing any state.
+        """
+        restored = {}
+        for path, note_id in identities.items():
+            relative = _require_managed_path(path)
+            if not isinstance(note_id, UUID):
+                raise TypeError("note identity must be UUID")
+            restored[relative] = note_id
+        if len(set(restored.values())) != len(restored):
+            raise ValueError("note identities must be unique")
+        self._ids = restored
 
     def list_note_paths(self) -> list[PurePosixPath]:
         """Return every managed note path, sorted. Does not read note contents.
