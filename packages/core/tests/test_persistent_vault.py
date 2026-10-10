@@ -34,7 +34,7 @@ def test_existing_notes_adopted_without_changing_bytes(fs_vault):
     assert (root / "existing.md").read_bytes() == before
 
 
-def test_attaching_metadata_preserves_an_already_issued_stage_three_id(fs_vault):
+def test_attaching_metadata_preserves_an_already_issued_filesystem_vault_id(fs_vault):
     original = fs_vault.create_note(PurePosixPath("a.md"), "already read")
     with MetadataRepository(fs_vault.vault) as metadata:
         with PersistentVault(fs_vault, metadata) as vault:

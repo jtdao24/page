@@ -1,4 +1,4 @@
-"""Stage 10 context optimizer: budgets, dedup, diversity, graph credit, excerpts."""
+"""Context optimizer: budgets, dedup, diversity, graph credit, excerpts."""
 import hashlib
 import re
 import subprocess

@@ -1,7 +1,7 @@
-# Stage 6: Desktop integration
+# Desktop integration
 
 Page Desktop is a macOS development application using Tauri 2, React, TypeScript
-and CodeMirror 6. Markdown files remain authoritative. Stage 6 acceptance is
+and CodeMirror 6. Markdown files remain authoritative. Acceptance is
 complete on macOS: native functional checks passed and the user accepted the
 visual layout on October 10, 2026. Backend integration is verified on macOS 26.6.2
 (25G83). Windows is unverified and private metadata access still fails closed
@@ -189,7 +189,7 @@ and editable `page-core`. Do not substitute versions or install during implement
 
 ## Requirement-to-test mapping
 
-| Stage requirement | Automated evidence |
+| Requirement | Automated evidence |
 | --- | --- |
 | 1–2: boundaries and typed commands | TypeScript checks; `core/client.test.ts`; Rust caller/DTO/endpoint tests |
 | 3–4: launch, bootstrap, readiness and failure | Rust `backend::tests` with fake children, short deadlines, concurrent start, restart, crash and reap |
@@ -217,7 +217,7 @@ Rust tests also passed (45 unit tests and two integration tests). Socket-binding
 tests required execution outside the filesystem sandbox. The production build
 reports a nonfatal warning for its 785 kB editor-containing JavaScript chunk.
 Native functional smoke checks passed. The user accepted the visual layout on
-October 10, 2026, completing Stage 6 acceptance on macOS.
+October 10, 2026, completing acceptance on macOS.
 
 ## Native smoke evidence and visual acceptance
 
@@ -259,7 +259,7 @@ visual inspection is claimed.
 
 The following procedure is retained for future validation runs.
 
-Run the eight validation commands in the Stage 6 specification, then launch
+Run the checks in [development.md](development.md), then launch
 `npm run tauri:dev`. Use a disposable vault outside real notes:
 
 1. Check startup, create/open and nested lexical navigation. Edit Unicode with

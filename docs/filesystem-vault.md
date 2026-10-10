@@ -1,6 +1,6 @@
 # Filesystem Vault
 
-Specification for `page_core.vault` (Stage 3). The source of truth is
+Specification for `page_core.vault`. The source of truth is
 `packages/core/src/page_core/vault.py`. It builds on the domain models in
 [domain-models.md](domain-models.md) and uses only the Python standard library.
 
@@ -61,16 +61,16 @@ files.
 - IDs live **only in memory**, in the `FileSystemVault` instance. A note keeps its ID
   for the life of the instance, including across `move_note` and `rename_note`.
 - Reopening the vault assigns new IDs. Changes made outside Page (renames or moves) also
-  produce new IDs in the standalone Stage 3 interface. For Stage 4 persistence,
+  produce new IDs in the standalone interface. For persistent IDs,
   use the opt-in adapter described in [sqlite-metadata.md](sqlite-metadata.md).
 - A `Note` snapshot is accepted only by the instance that produced it and only while it
   is still at its recorded path. Otherwise `NoteConflictError` is raised.
 
-Stage 4 uses `note_identity(path)` and `restore_note_identities(mapping)` to
+The SQLite metadata adapter uses `note_identity(path)` and `restore_note_identities(mapping)` to
 persist/restore the registry. Both perform no I/O; a complete restore validates
 paths and unique UUIDs before replacing state. `list_note_paths(on_error=...)`
 can reject traversal failures for reconciliation. Omitting the callback retains
-Stage 3's existing listing behavior.
+the existing listing behavior.
 
 ## Content and timestamps
 
@@ -84,7 +84,7 @@ Stage 3's existing listing behavior.
 - `updated_at` is the file's modification time in UTC. `created_at` is the file's birth
   time where the platform reports one (macOS, Windows), and otherwise equals
   `updated_at`. Because each save replaces the file, birth time resets on every update;
-  creation times that survive edits are provided by the opt-in Stage 4 adapter.
+  creation times that survive edits are provided by the opt-in SQLite metadata adapter.
 
 ## Atomic writes
 
@@ -146,12 +146,12 @@ only if its content is unchanged, and never removes folders.
 - Only macOS has been tested. Windows behavior described here follows the platform
   documentation but has not been verified.
 
-## Deferred
+## Built elsewhere
 
-| Concern | Stage |
+| Concern | Covered in |
 |---|---|
-| Persistent note IDs and creation times; metadata index | 4 |
-| Exposing the vault through an API | 5 |
-| Desktop integration | 6 |
-| Markdown parsing, links, backlinks, graph | 7 |
-| File watching | Not yet scheduled |
+| Persistent note IDs and creation times; metadata index | [sqlite-metadata.md](sqlite-metadata.md) |
+| Exposing the vault through an API | [local-api.md](local-api.md) |
+| Desktop integration | [desktop-integration.md](desktop-integration.md) |
+| Markdown parsing, links, backlinks, graph | [knowledge-graph.md](knowledge-graph.md) |
+| File watching | Not implemented |

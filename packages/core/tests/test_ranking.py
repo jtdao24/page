@@ -1,4 +1,4 @@
-"""Stage 9 reranker: features, deterministic training, safe checkpoints, metrics."""
+"""Reranker: features, deterministic training, safe checkpoints, metrics."""
 import hashlib
 import json
 import math

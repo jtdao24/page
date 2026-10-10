@@ -273,10 +273,10 @@ def test_permission_denied_root_is_forbidden(client: TestClient, tmp_path: Path)
     assert list(parent.iterdir()) == []
 
 
-def test_open_of_a_standalone_stage_three_vault(client: TestClient, tmp_path: Path) -> None:
-    files = FileSystemVault.create(tmp_path / "stage3", "Stage 3")
+def test_open_of_a_standalone_filesystem_vault(client: TestClient, tmp_path: Path) -> None:
+    files = FileSystemVault.create(tmp_path / "plain", "Plain")
     files.create_note(PurePosixPath("a.md"), "hello")
-    opened = client.post(f"{API}/vaults/open", json={"root_path": str(tmp_path / "stage3")})
+    opened = client.post(f"{API}/vaults/open", json={"root_path": str(tmp_path / "plain")})
     assert opened.status_code == 200 and opened.json()["id"] == str(files.vault.id)
     notes = client.get(f"{API}/vaults/{opened.json()['id']}/notes").json()
     assert [note["relative_path"] for note in notes] == ["a.md"]

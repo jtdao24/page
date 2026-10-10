@@ -1,23 +1,25 @@
-# Stage 9: neural context ranking
+# Neural context ranking
 
-Page reorders Stage 8's retrieval candidates with a small learned model. It combines
+Page reorders semantic search candidates with a small learned model. It combines
 the embedding similarity with lexical, passage-shape and knowledge-graph signals. This
-stage builds and measures the ranker. It does not yet select context under a token
-budget (Stage 10), run a broad benchmark (Stage 11) or call any LLM (Stage 12).
+document covers how the ranker is built and measured. Selecting context under a token
+budget, the broad benchmark and LLM answers are covered in
+[context optimization](context-optimization.md), [evaluation](evaluation.md) and
+[question answering](question-answering.md).
 
 The code is `page_core.ranking`. It adds no dependencies: training uses the PyTorch
 that Sentence Transformers already installs.
 
 ## How it works
 
-1. **Candidates.** Stage 8's `SemanticIndex.search` returns passages ranked by cosine
+1. **Candidates.** Semantic search (`SemanticIndex.search`) returns passages ranked by cosine
    similarity from the pinned MiniLM model. That order is the baseline.
 2. **Features.** `extract_features(query, hits, graph)` turns each candidate into 11
    numbers (`rank-features-v1`):
 
    | Feature | Meaning |
    |---|---|
-   | `cosine` | Stage 8 similarity score |
+   | `cosine` | Embedding similarity score |
    | `baseline_reciprocal_rank` | 1 / baseline position |
    | `gap_to_top` | Score minus the top candidate's score |
    | `query_terms_in_passage` | Share of query words (minus stopwords) in the passage |
@@ -29,7 +31,7 @@ that Sentence Transformers already installs.
    | `links_top_note` | This note links to or from the top candidate's note |
    | `links_other_candidates` | Share of the other candidates' notes linked to this one |
 
-   Graph features come from Stage 7's resolved wiki links. Features are pure Python and
+   Graph features come from resolved wiki links. Features are pure Python and
    deterministic.
 3. **Model.** The features are standardized and fed through a multilayer perceptron
    (11 inputs, 16 ReLU units, one output score). Candidates are reordered by that
@@ -83,7 +85,7 @@ and `--seed`.
 Measured on the 12 held-out queries, with 10 candidates each
 (`benchmarks/reranker.json`, macOS, October 10, 2026):
 
-| Metric | Baseline (Stage 8) | Reranker (Stage 9) |
+| Metric | Baseline (cosine) | Reranker |
 |---|---|---|
 | Recall@1 | 0.833 | 0.917 |
 | Recall@3 | 0.917 | 0.917 |
@@ -97,22 +99,22 @@ The reranker moved two queries up and none down:
 - The dataset is tiny and hand-written by the same author as the model, and 12 test
   queries move by one query at a time. The improvement is a promising sign, not
   evidence of general gains.
-- Nothing here measures LLM token usage or answer accuracy. Stage 11 owns a proper,
+- Nothing here measures LLM token usage or answer accuracy. The [evaluation](evaluation.md) is a proper,
   larger evaluation against the full-context and embedding-only baselines.
-- Retrieval quality is still capped by Stage 8: a passage outside the top 10 candidates
+- Retrieval quality is still capped by semantic search: a passage outside the top 10 candidates
   can never be recovered by reranking.
 - English-oriented, like the underlying embedding model.
 
-## Held-out evaluation (Stage 11)
+## Held-out evaluation
 
-The Stage 11 benchmark tested this checkpoint on a separate vault it never trained
+The benchmark tested this checkpoint on a separate vault it never trained
 on, and it **did not generalize**:
 - recall@1 dropped from 0.775 (plain embedding order) to 0.700;
 - MRR was 0.799, against the embedding order's 0.875.
 
 The improvement above reflects a tiny training set evaluated close to its own data.
 See [evaluation](evaluation.md). Until it is retrained on more varied data, prefer
-Stage 8's cosine order.
+the cosine order.
 
 ## Validation
 

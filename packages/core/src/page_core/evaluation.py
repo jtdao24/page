@@ -1,17 +1,17 @@
-"""Stage 11 benchmark: does Page's context optimization save tokens without losing answers?
+"""Benchmark: does Page's context optimization save tokens without losing answers?
 
 Compares four ways of building LLM context for the same held-out questions:
 
 - ``full_context``: every note in the vault;
-- ``embedding_top_k``: Stage 8's top-k passages, whole;
-- ``page_cosine``: Stage 10 optimization ranked by Stage 8 cosine;
-- ``page_reranked``: Stage 10 optimization ranked by the Stage 9 reranker.
+- ``embedding_top_k``: semantic search's top-k passages, whole;
+- ``page_cosine``: context optimization ranked by embedding cosine;
+- ``page_reranked``: context optimization ranked by the learned reranker.
 
 Each is measured on input tokens, whether the context contains the answer, whether
 a reader answers correctly from it, and whether the cited sources are right.
 Retrieval itself is measured with recall@k and MRR. No LLM is called here: the
 default reader is an offline extractive one, and an LLM reader can be plugged in
-through ``Answerer`` once Stage 12 exists.
+through ``Answerer``.
 """
 
 import hashlib
@@ -138,7 +138,7 @@ class BuiltContext:
 
 
 def full_context(notes: Sequence[Note], counter: TokenCounter) -> BuiltContext:
-    """Every note, whole, in path order, in the same block format as Stage 10."""
+    """Every note, whole, in path order, in the same block format as the context optimizer."""
     ordered = sorted(notes, key=lambda note: str(note.relative_path))
     text = "\n\n".join(f"[{i}] {note.relative_path} (whole note)\n{note.content.strip()}"
                        for i, note in enumerate(ordered, start=1))
@@ -307,7 +307,7 @@ def summary_markdown(report: dict[str, Any]) -> str:
     labels = {"full_context": "Full context (all notes)", "embedding_top_k": "Embedding top-k",
               "page_cosine": "Page optimizer, cosine", "page_reranked": "Page optimizer, reranked"}
     lines = [
-        "# Stage 11 benchmark results",
+        "# Benchmark results",
         "",
         f"{report['dataset']['questions']} held-out questions over {report['dataset']['notes']} notes. "
         f"Budget {report['settings']['budget']} tokens for the Page optimizer, top "
@@ -323,7 +323,7 @@ def summary_markdown(report: dict[str, Any]) -> str:
                      f"{row['answer_support']:.0%} | {row['answer_accuracy']:.0%} | "
                      f"{row['attribution_precision']:.0%} |")
     lines += ["", "| Retrieval order | Recall@1 | Recall@3 | Recall@5 | Recall@10 | MRR |", "|---|---|---|---|---|---|"]
-    for order, label in (("embedding", "Embedding (Stage 8)"), ("reranked", "Reranked (Stage 9)")):
+    for order, label in (("embedding", "Embedding"), ("reranked", "Reranked")):
         r = report["retrieval"][order]
         lines.append(f"| {label} | {r['recall_at_1']:.3f} | {r['recall_at_3']:.3f} | {r['recall_at_5']:.3f} | "
                      f"{r['recall_at_10']:.3f} | {r['mrr']:.3f} |")
@@ -343,12 +343,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     from page_core.semantic import SentenceEncoder
 
     parser = argparse.ArgumentParser(prog="python -m page_core.evaluation",
-                                     description="Run Page's Stage 11 context benchmark.")
+                                     description="Run Page's context benchmark.")
     parser.add_argument("command", choices=["run"])
     parser.add_argument("--data", type=Path, default=Path("benchmarks/eval"))
     parser.add_argument("--model", type=Path, default=Path("training/reranker/model.json"))
-    parser.add_argument("--report", type=Path, default=Path("benchmarks/results/stage11.json"))
-    parser.add_argument("--summary", type=Path, default=Path("benchmarks/results/stage11.md"))
+    parser.add_argument("--report", type=Path, default=Path("benchmarks/results/evaluation.json"))
+    parser.add_argument("--summary", type=Path, default=Path("benchmarks/results/evaluation.md"))
     parser.add_argument("--budget", type=int, default=300)
     parser.add_argument("--top-k", type=int, default=5)
     parser.add_argument("--candidates", type=int, default=10)

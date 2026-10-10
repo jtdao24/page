@@ -144,7 +144,7 @@ class FileSystemVault:
     def note_identity(self, path: PurePosixPath) -> UUID:
         """Allocate an in-memory identity without reading note content.
 
-        Stage 4 can persist this UUID, including for notes with invalid UTF-8.
+        SQLite metadata can persist this UUID, including for notes with invalid UTF-8.
         """
         relative = _require_managed_path(path)
         if relative not in self._ids:
@@ -155,9 +155,9 @@ class FileSystemVault:
         return self._ids[relative]
 
     def restore_note_identities(self, identities: dict[PurePosixPath, UUID]) -> None:
-        """Restore a complete validated registry from Stage 4 metadata.
+        """Restore a complete validated registry from SQLite metadata.
 
-        Use before retaining snapshots. The default Stage 3 instance still
+        Use before retaining snapshots. A standalone filesystem vault still
         keeps identities only in memory; this method performs no I/O.
         """
         restored = {}

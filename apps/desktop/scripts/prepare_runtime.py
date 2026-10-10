@@ -1,4 +1,4 @@
-"""Build the Python runtime bundled into the packaged Page app (Stage 14).
+"""Build the Python runtime bundled into the packaged Page app.
 
 Produces ``apps/desktop/src-tauri/runtime/``, which ``tauri.bundle.conf.json``
 copies into the app's resources:

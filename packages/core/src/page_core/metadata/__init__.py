@@ -1,4 +1,4 @@
-"""Stage 4 SQLite metadata persistence. No parsing, API, UI, or ML imports."""
+"""SQLite metadata persistence. No parsing, API, UI, or ML imports."""
 
 from .persistent import InvalidRenameError, MetadataSyncError, PersistentVault, ReconcileResult
 from .repository import (

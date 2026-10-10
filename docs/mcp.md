@@ -1,4 +1,4 @@
-# Stage 13: MCP integration
+# MCP integration
 
 Page's knowledge search and context optimization are available to AI agents through
 the [Model Context Protocol](https://modelcontextprotocol.io). An MCP client, such as
@@ -24,9 +24,9 @@ All tools are read-only and work on one vault, chosen when the server starts.
 | `read_note` | `path` | A note's full Markdown, ID and revision |
 | `related_notes` | `path` | Wiki links from the note and backlinks to it, with line numbers; unresolved links say why (`missing`, `ambiguous`, `invalid`) |
 
-`get_context` uses the same pipeline as the desktop Ask panel: Stage 8 retrieval, then
-Stage 10 optimization ranked by cosine similarity (see [evaluation](evaluation.md) for
-why the Stage 9 reranker isn't used). Token counts use Page's `utf8-bytes/3` estimate,
+`get_context` uses the same pipeline as the desktop Ask panel: semantic search, then
+context optimization ranked by cosine similarity (see [evaluation](evaluation.md) for
+why the learned reranker isn't used). Token counts use Page's `utf8-bytes/3` estimate,
 not the client model's tokenizer.
 
 Each call reads the saved files, so notes edited in Page or another editor are

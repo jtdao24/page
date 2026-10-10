@@ -156,7 +156,7 @@ def _private_file(path: Path, *, create: bool = False) -> None:
             os.chmod(path, 0o600, follow_symlinks=False)
         else:
             # The parent is already owner-only and the entry was checked with
-            # lstat. Retain Stage 3's trusted-owner assumption on platforms
+            # lstat. Retain the filesystem vault's trusted-owner assumption on platforms
             # without no-follow chmod; never open/close an existing DB inode.
             os.chmod(path, 0o600)
     _verify_private_file(path, required=True)
