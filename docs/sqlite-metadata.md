@@ -68,6 +68,8 @@ Foreign keys, nonnegative file counts, path/digest formats, canonical UTC
 timestamps, and creation/update chronology have SQL constraints. Public writes
 also use domain validation. SQLite uses full synchronization. Corrupt metadata
 is surfaced as an error, never silently discarded or treated as an empty vault.
+Stored values that pass the SQL constraints but fail domain validation raise
+`MetadataDecodeError`, a `MetadataError` that is also a `ValueError`.
 Source files remain untouched. Regenerating metadata can recover current file
 facts, but historical UUIDs and creation times are not encoded in Markdown.
 
@@ -123,7 +125,8 @@ counts. Unchanged records are not rewritten.
 - Edited external moves and ambiguous copies receive new IDs by default. Confirm
   a known move with `reconcile(known_renames={note_id: new_relative_path})`. This
   requires a missing source ID and a unique existing destination, and can restore
-  a previously recorded tombstone.
+  a previously recorded tombstone. Rejected confirmations raise
+  `InvalidRenameError`, a `ValueError` subclass, and publish nothing.
 - Missing files become tombstones; repeated scans keep the first missing time.
   A file recreated after its predecessor was marked missing gets a new ID.
 - Delete/recreate and path swaps entirely between scans can be indistinguishable
