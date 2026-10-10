@@ -204,6 +204,68 @@ pub struct SearchResponse {
     pub hits: Vec<SearchHitResponse>,
 }
 
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AskSource {
+    pub number: usize,
+    pub note_id: String,
+    pub relative_path: String,
+    pub start_line: usize,
+    pub end_line: usize,
+    pub text: String,
+    pub excerpt: bool,
+}
+
+impl fmt::Debug for AskSource {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("AskSource")
+            .field("number", &self.number)
+            .field("note_id", &self.note_id)
+            .finish_non_exhaustive()
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AskUsage {
+    pub context_tokens: usize,
+    pub budget: usize,
+    pub counter: String,
+    pub input_tokens: usize,
+    pub output_tokens: usize,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AskResponse {
+    pub vault_id: String,
+    pub model: String,
+    pub answer: String,
+    pub answered_by_model: bool,
+    pub finish_reason: String,
+    pub sources: Vec<AskSource>,
+    pub cited: Vec<usize>,
+    pub usage: AskUsage,
+}
+
+impl fmt::Debug for AskResponse {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("AskResponse")
+            .field("vault_id", &self.vault_id)
+            .field("model", &self.model)
+            .field("sources", &self.sources)
+            .field("cited", &self.cited)
+            .field("usage", &self.usage)
+            .finish_non_exhaustive()
+    }
+}
+
+#[derive(Serialize)]
+struct AskRequest<'a> {
+    question: &'a str,
+    budget: usize,
+}
+
 #[derive(Serialize)]
 struct IndexRequest {
     rebuild: bool,
@@ -476,6 +538,55 @@ impl CoreApiClient {
                     || hit.end_line < hit.start_line
                     || !hit.score.is_finite()
                     || !(-1.0..=1.0).contains(&hit.score)
+            })
+        {
+            return Err(invalid_response(Effect::Read));
+        }
+        Ok(response)
+    }
+
+    /// Ask a question answered from the vault by the configured language model.
+    pub fn ask_question(
+        &self,
+        vault_id: &str,
+        question: &str,
+        budget: usize,
+    ) -> Result<AskResponse, DesktopError> {
+        let route = format!("/vaults/{}/ask", uuid(vault_id)?);
+        let reply = self.send(
+            Method::POST,
+            &route,
+            Some(json(&AskRequest { question, budget })?),
+            None,
+            Some(Duration::from_secs(300)),
+            Effect::Read,
+            200,
+        )?;
+        let response: AskResponse = decode(&reply.body, Effect::Read)?;
+        // Sources are numbered 1..=n in order; citations must refer to them.
+        let numbered = response
+            .sources
+            .iter()
+            .enumerate()
+            .all(|(index, source)| source.number == index + 1);
+        let cited_known = response
+            .cited
+            .iter()
+            .all(|number| (1..=response.sources.len()).contains(number));
+        if response.vault_id != vault_id
+            || response.model.is_empty()
+            || response.answer.trim().is_empty()
+            || !numbered
+            || !cited_known
+            || response.usage.budget != budget
+            || response.usage.context_tokens > response.usage.budget
+            || (!response.answered_by_model && !response.cited.is_empty())
+            || response.sources.iter().any(|source| {
+                !is_canonical_uuid(&source.note_id)
+                    || source.relative_path.is_empty()
+                    || source.start_line == 0
+                    || source.end_line < source.start_line
+                    || source.text.is_empty()
             })
         {
             return Err(invalid_response(Effect::Read));
@@ -1051,6 +1162,64 @@ mod tests {
         for request in requests {
             assert_common(&request, "POST", &format!("/api/v1/vaults/{VAULT}/index"));
             assert_eq!(request.json(), json!({"rebuild":true}));
+        }
+    }
+
+    #[test]
+    fn ask_validates_sources_and_citations_and_hides_text() {
+        let valid = json!({"vault_id": VAULT, "model": "gemini-test", "answer": "Apples [1].",
+            "answered_by_model": true, "finish_reason": "STOP",
+            "sources": [{"number": 1, "note_id": NOTE, "relative_path": "a.md", "start_line": 1,
+                "end_line": 2, "text": "secret note text", "excerpt": false}],
+            "cited": [1],
+            "usage": {"context_tokens": 40, "budget": 500, "counter": "utf8-bytes/3",
+                "input_tokens": 120, "output_tokens": 8}});
+        let mut foreign = valid.clone();
+        foreign["vault_id"] = json!(NOTE);
+        let mut unknown_citation = valid.clone();
+        unknown_citation["cited"] = json!([2]);
+        let mut misnumbered = valid.clone();
+        misnumbered["sources"][0]["number"] = json!(3);
+        let mut over_budget = valid.clone();
+        over_budget["usage"]["context_tokens"] = json!(501);
+        let mut bad_note = valid.clone();
+        bad_note["sources"][0]["note_id"] = json!("bad");
+        let mut uncalled_citation = valid.clone();
+        uncalled_citation["answered_by_model"] = json!(false);
+        let bodies = vec![
+            valid,
+            foreign,
+            unknown_citation,
+            misnumbered,
+            over_budget,
+            bad_note,
+            uncalled_citation,
+        ];
+        let count = bodies.len();
+        let (results, requests) = with_server(
+            bodies
+                .iter()
+                .map(|body| json_response("200 OK", body))
+                .collect(),
+            |client| {
+                (0..count)
+                    .map(|_| client.ask_question(VAULT, "which fruit?", 500))
+                    .collect::<Vec<_>>()
+            },
+        );
+        let first = results[0].as_ref().unwrap();
+        assert_eq!(first.cited, vec![1]);
+        assert!(!format!("{first:?}").contains("secret note text"));
+        assert!(!format!("{first:?}").contains("Apples"));
+        for result in &results[1..] {
+            assert_eq!(result.as_ref().unwrap_err().code, "invalid_response");
+        }
+        for request in requests {
+            assert_common(&request, "POST", &format!("/api/v1/vaults/{VAULT}/ask"));
+            assert_eq!(
+                request.json(),
+                json!({"question": "which fruit?", "budget": 500})
+            );
         }
     }
 

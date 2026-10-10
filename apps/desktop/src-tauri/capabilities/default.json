@@ -18,6 +18,7 @@
     "allow-graph-read",
     "allow-semantic-index",
     "allow-semantic-search",
+    "allow-ask-question",
     "allow-note-list",
     "allow-note-read",
     "allow-note-create",

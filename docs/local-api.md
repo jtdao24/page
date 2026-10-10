@@ -456,3 +456,12 @@ unchanged embeddings; it returns canonical note and chunk identities, revisions,
 source byte/line ranges and exact cosine scores. Model preparation is explicit;
 ordinary requests remain offline. See [semantic search](semantic-search.md) for
 schemas, model setup, failure handling, incremental behavior and limits.
+
+## Question answering
+
+Stage 12 adds authenticated `POST /api/v1/vaults/{vault_id}/ask`. It retrieves and
+optimizes context like search, then sends only the selected passages and the question
+to the configured language model (Gemini, keyed by `GEMINI_API_KEY` at startup) and
+returns a cited answer with token usage. This is the only endpoint that contacts a
+remote service. See [question answering](question-answering.md) for schemas, errors
+and privacy.

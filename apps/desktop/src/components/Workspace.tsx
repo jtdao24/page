@@ -9,6 +9,7 @@ import { MarkdownEditor } from "./MarkdownEditor";
 import { NotePathForm } from "./NotePathForm";
 import { NoteTree } from "./NoteTree";
 import { VaultForms } from "./VaultForms";
+import { AskPanel } from "./AskPanel";
 import { SemanticSearch } from "./SemanticSearch";
 import { Icon } from "./Icon";
 
@@ -20,6 +21,7 @@ export function Workspace({ controller }: { controller: WorkspaceController }) {
   const state = useWorkspace(controller);
   const [modal, setModal] = useState<Modal>(null);
   const [searchVisible, setSearchVisible] = useState(false);
+  const [askVisible, setAskVisible] = useState(false);
   const [graphVisible, setGraphVisible] = useState(false);
   const [sidebarVisible, setSidebarVisible] = useState(true);
   const document = state.document;
@@ -96,7 +98,9 @@ export function Workspace({ controller }: { controller: WorkspaceController }) {
           <button className="ribbon-button" title="Knowledge graph" aria-label="Knowledge graph" aria-expanded={graphVisible}
             disabled={!state.vault} onClick={() => { setGraphVisible(!graphVisible); setSearchVisible(false); }}><Icon name="graph" /></button>
           <button className="ribbon-button" title="Semantic search" aria-label="Semantic search" aria-expanded={searchVisible}
-            disabled={!state.vault} onClick={() => { setSearchVisible(!searchVisible); setGraphVisible(false); }}><Icon name="search" /></button>
+            disabled={!state.vault} onClick={() => { setSearchVisible(!searchVisible); setGraphVisible(false); setAskVisible(false); }}><Icon name="search" /></button>
+          <button className="ribbon-button" title="Ask your notes" aria-label="Ask your notes" aria-expanded={askVisible}
+            disabled={!state.vault} onClick={() => { setAskVisible(!askVisible); setSearchVisible(false); setGraphVisible(false); }}><Icon name="ask" /></button>
           <div className="ribbon-spacer" />
           <button className="ribbon-button" title="Quit Page" aria-label="Quit Page" disabled={state.pending !== null || state.quitting}
             onClick={() => void controller.requestQuit()}><Icon name="quit" /></button>
@@ -181,6 +185,7 @@ export function Workspace({ controller }: { controller: WorkspaceController }) {
           </>}
         </section>
         {searchVisible && state.vault && <SemanticSearch controller={controller} state={state} onClose={() => setSearchVisible(false)} />}
+        {askVisible && state.vault && <AskPanel controller={controller} state={state} onClose={() => setAskVisible(false)} />}
         {graphVisible && state.vault && <Suspense fallback={<aside className="knowledge-panel" role="status">Loading graph view…</aside>}>
           <KnowledgeGraph controller={controller} state={state} onClose={() => setGraphVisible(false)} />
         </Suspense>}

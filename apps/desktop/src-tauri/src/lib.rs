@@ -146,6 +146,7 @@ pub fn run() {
             commands::graph_read,
             commands::semantic_index,
             commands::semantic_search,
+            commands::ask_question,
             commands::note_list,
             commands::note_read,
             commands::note_create,

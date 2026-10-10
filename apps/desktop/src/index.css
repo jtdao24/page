@@ -139,3 +139,10 @@ details[open] > .folder-row::before { transform: rotate(90deg); }
 .search-results button { text-align: left; overflow-wrap: anywhere; }
 .search-results small { display: block; color: var(--muted); margin-top: 6px; }
 .search-results p { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; line-height: 1.6; max-height: 180px; overflow: auto; }
+
+.ask-panel form { display: flex; flex-direction: column; gap: 8px; margin: 16px 0; }
+.ask-panel textarea { width: 100%; min-width: 0; resize: vertical; font: inherit; }
+.ask-answer { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 13px; line-height: 1.6; margin: 8px 0; }
+.ask-answer .citation { display: inline; border: 0; background: transparent; padding: 0 1px; color: var(--accent); font-size: 11px; vertical-align: super; }
+.ask-usage { color: var(--muted); font-size: 10px; }
+.ask-sources li.cited > button { color: var(--accent); }
