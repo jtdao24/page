@@ -169,3 +169,17 @@ def test_fingerprint_invalidates_vectors_and_failed_sql_rolls_back(tmp_path):
         with pytest.raises(sqlite3.IntegrityError):
             storage.metadata.replace_vectors(encoder.fingerprint, [(uuid4(), uuid4(), b'bad')])
         assert storage.metadata.read_vectors(encoder.fingerprint) == before
+
+
+def test_search_line_ranges_match_for_each_line_ending(tmp_path):
+    ranges = {}
+    for name, separator in (('lf', '\n'), ('crlf', '\r\n'), ('cr', '\r')):
+        encoder = CountingEncoder()
+        text = separator.join(['intro', '', 'fruit apples', 'fruit pears', '', 'space stars', ''])
+        with PersistentVault.create(tmp_path/name, 'Lines') as storage:
+            note = storage.create_note(PurePosixPath('n.md'), text)
+            index = SemanticIndex(storage.metadata, encoder)
+            index.update((note,))
+            hits = index.search('fruit', (note,), {note.id: 'a'*64}, 10)
+            ranges[name] = sorted((hit.start_line, hit.end_line) for hit in hits)
+    assert ranges['crlf'] == ranges['lf'] == ranges['cr']

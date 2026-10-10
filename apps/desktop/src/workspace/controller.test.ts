@@ -177,6 +177,22 @@ describe("workspace actions", () => {
     expect(controller.getState().document?.draft).toBe("draft");
     detach();
   });
+  it("retry after a crash reopens the active vault in the new Core process", async () => {
+    const { client, controller, draft, emit } = await setup();
+    const detach = controller.attach();
+    await Promise.resolve();
+    draft();
+    emit({ ...ready, state: "failed", generation: 2, error: failure("backend_exited") });
+    client.backendStart.mockResolvedValueOnce({ ...ready, generation: 3 });
+    const opens = client.vaultOpen.mock.calls.length;
+    await controller.retryStart();
+    expect(client.vaultOpen).toHaveBeenCalledTimes(opens + 1);
+    expect(client.vaultOpen).toHaveBeenLastCalledWith(vault.root_path);
+    expect(controller.getState().sessions.map((session) => session.id)).toEqual([vault.id]);
+    expect(controller.getState().backend?.generation).toBe(3);
+    expect(controller.getState().document?.draft).toBe("draft");
+    detach();
+  });
   it("restart during save preserves uncertainty and never replays the write", async () => {
     const { client, controller, draft } = await setup();
     const pending = deferred<NoteResponse>(); client.noteUpdate.mockReturnValueOnce(pending.promise);

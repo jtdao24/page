@@ -7,7 +7,8 @@ export function SemanticSearch({ controller, state, onClose }: {
   controller: WorkspaceController; state: WorkspaceState; onClose: () => void;
 }) {
   const [query, setQuery] = useState("");
-  const [busy, setBusy] = useState<string | null>(null);
+  // The workspace key and request number of the search in flight.
+  const [busy, setBusy] = useState<{ key: string; request: number } | null>(null);
   const [result, setResult] = useState<{ key: string; response?: SearchResponse; error?: DesktopError; message?: string } | null>(null);
   const owner = useRef(0);
   const available = backendReady(state) && !state.vaultBusy && !state.pending && !state.recovery && !state.unknown;
@@ -20,14 +21,14 @@ export function SemanticSearch({ controller, state, onClose }: {
     return () => { ownership.current++; };
   }, [key]);
   const visible = result?.key === key ? result : null;
-  const loading = busy === key;
+  const loading = busy?.key === key;
   const blocked = navigationBlocked(state) || state.recovery !== null;
 
   async function run(rebuild = false) {
     const vaultId = state.vault?.id;
     if (!vaultId || !available || loading || (!rebuild && !query.trim())) return;
     const request = ++owner.current;
-    setBusy(key);
+    setBusy({ key, request });
     setResult(null);
     try {
       if (rebuild) {
@@ -40,7 +41,10 @@ export function SemanticSearch({ controller, state, onClose }: {
     } catch (cause: unknown) {
       if (owner.current === request) setResult({ key, error: toDesktopError(cause) });
     } finally {
-      if (owner.current === request) setBusy(null);
+      // Clear this request's own busy flag even after it lost ownership, so a
+      // workspace change that later returns to the same key cannot leave the
+      // panel loading forever.
+      setBusy((current) => (current?.request === request ? null : current));
     }
   }
 
