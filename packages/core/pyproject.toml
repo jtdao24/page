@@ -7,10 +7,19 @@ name = "page-core"
 dynamic = ["version"]
 description = "Local-first knowledge and context engine for Page."
 requires-python = ">=3.12,<3.13"
-dependencies = []
+dependencies = [
+  "numpy>=2.0",
+  "faiss-cpu>=1.9",
+]
+
+[project.optional-dependencies]
+# HTTP API: python -m page_core.api
+api = ["fastapi>=0.115", "uvicorn[standard]>=0.30"]
+# Sentence Transformers embeddings (pulls in PyTorch).
+embeddings = ["sentence-transformers>=3.0"]
 
 [dependency-groups]
-dev = ["pytest>=9.1"]
+dev = ["pytest>=9.1", "fastapi>=0.115", "httpx>=0.28"]
 
 [tool.hatch.version]
 path = "src/page_core/__init__.py"

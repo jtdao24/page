@@ -22,7 +22,7 @@ particular LLM provider.
 
 | Area     | Tools                                                |
 | -------- | ---------------------------------------------------- |
-| Core     | Python 3.12, hatchling, pytest                       |
+| Core     | Python 3.12, hatchling, pytest, FastAPI, Sentence Transformers, FAISS, SQLite |
 | Desktop  | Tauri 2 (Rust), React 19, TypeScript 6 (strict), Vite 8, Tailwind CSS 4 |
 | Tooling  | npm workspaces, ESLint, Vitest, rustfmt              |
 
@@ -34,7 +34,8 @@ packages/core/        page-core Python package (src layout, import name page_cor
 integrations/mcp/     Reserved for the MCP integration
 training/             Reserved for model training code
 benchmarks/           Reserved for evaluation and benchmarks
-docs/                 Project documentation (domain-models.md, filesystem-vault.md)
+docs/                 Project documentation (domain-models.md, filesystem-vault.md,
+                      semantic-retrieval.md)
 ```
 
 ## Prerequisites
@@ -71,7 +72,12 @@ python -m pip install -r packages/core/requirements-dev.txt -e packages/core
 ```
 
 `packages/core/requirements-dev.txt` pins the exact versions of the `dev` dependency
-group declared in `packages/core/pyproject.toml`.
+group and the runtime dependencies declared in `packages/core/pyproject.toml`. To run
+the API with real embeddings, also install the extras (this pulls in PyTorch):
+
+```sh
+python -m pip install -e "packages/core[api,embeddings]"
+```
 
 ## Python tests
 
@@ -94,6 +100,19 @@ Rust formatting and checks, run from `apps/desktop`:
 npm run rust:fmt:check
 npm run rust:check
 ```
+
+## Running the Page Core API
+
+Semantic search needs the API running beside the desktop app:
+
+```sh
+python -m page_core.api --vault ~/Documents/Page --init "My Notes"
+```
+
+`--init` creates the vault manifest if the folder isn't a Page vault yet; existing
+Markdown files are adopted untouched. The first start downloads the embedding model and
+indexes every note, and later starts reuse the index in `<vault>/.page/index/`. See
+[docs/semantic-retrieval.md](docs/semantic-retrieval.md) for the endpoints and settings.
 
 ## Running the desktop app
 
@@ -122,5 +141,9 @@ with `npm run tauri -w @page/desktop -- icon`. Only the desktop icons listed in
    [docs/filesystem-vault.md](docs/filesystem-vault.md). Note IDs are kept in memory
    only until Stage 4.
 
-The desktop app is not connected to Page Core yet, and no retrieval or AI features are
-implemented.
+Semantic retrieval (built from the "Phase 2, Stage 5" brief, whose numbering differs from
+this list): `page_core.embeddings` chunks notes and keeps a persistent FAISS + SQLite
+index, `page_core.retrieval` answers natural-language queries with note-level results,
+`page_core.api` serves them over HTTP, and the desktop app has a search panel and note
+view. It is specified in [docs/semantic-retrieval.md](docs/semantic-retrieval.md).
+Persistent note IDs (Stage 4) and launching the API from Tauri (Stage 6) are still to do.
