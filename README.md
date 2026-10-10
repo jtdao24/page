@@ -34,7 +34,7 @@ packages/core/        page-core Python package (src layout, import name page_cor
 integrations/mcp/     Reserved for the MCP integration
 training/             Reserved for model training code
 benchmarks/           Reserved for evaluation and benchmarks
-docs/                 Project documentation (domain-models.md)
+docs/                 Project documentation (domain-models.md, filesystem-vault.md)
 ```
 
 ## Prerequisites
@@ -110,13 +110,17 @@ with `npm run tauri -w @page/desktop -- icon`. Only the desktop icons listed in
 
 ## Status
 
-**Stage 2 of 14: core domain models.** Completed so far:
+**Stage 3 of 14: filesystem vault.** Completed so far:
 
 1. Repository foundation: layout, tooling, a desktop shell that displays "Page", and an
    installable `page-core` package.
 2. Core domain models: immutable, validated `Vault`, `Note`, `Link`, `Chunk` and
    `ContextResult` types in `page_core.domain`, specified in
    [docs/domain-models.md](docs/domain-models.md).
+3. Filesystem vault: `page_core.vault` creates and opens vaults and safely lists,
+   reads, creates, updates, moves and deletes Markdown notes, specified in
+   [docs/filesystem-vault.md](docs/filesystem-vault.md). Note IDs are kept in memory
+   only until Stage 4.
 
-The domain models only describe data. No vault, retrieval or AI features are
-implemented yet.
+The desktop app is not connected to Page Core yet, and no retrieval or AI features are
+implemented.

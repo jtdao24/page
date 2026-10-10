@@ -107,7 +107,7 @@ belongs to the layers that own collections of objects.
 ## Markdown paths
 
 `Note.relative_path` is the portable, platform-independent location of a note inside
-its vault.
+its vault. `validate_note_path(path)` applies the same rules to a path on its own.
 
 - It must be a `PurePosixPath`. Concrete `Path` objects and Windows paths are rejected
   so that domain objects never carry filesystem-capable or platform-specific paths.
@@ -138,7 +138,7 @@ models performs no I/O.
 
 | Concern                                          | Stage |
 | ------------------------------------------------ | ----- |
-| Reading and writing vaults and notes on disk     | 3     |
+| Reading and writing vaults and notes on disk ([filesystem-vault.md](filesystem-vault.md)) | 3 |
 | Persistence, repositories, serialization         | 4     |
 | API exposure                                     | 5     |
 | Markdown parsing, link resolution, backlinks     | 7     |
