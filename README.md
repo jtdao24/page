@@ -22,7 +22,7 @@ particular LLM provider.
 
 | Area     | Tools                                                |
 | -------- | ---------------------------------------------------- |
-| Core     | Python 3.12, hatchling, pytest                       |
+| Core     | Python 3.12, hatchling, FastAPI, Pydantic 2, Uvicorn, pytest, HTTPX |
 | Desktop  | Tauri 2 (Rust), React 19, TypeScript 6 (strict), Vite 8, Tailwind CSS 4 |
 | Tooling  | npm workspaces, ESLint, Vitest, rustfmt              |
 
@@ -34,7 +34,7 @@ packages/core/        page-core Python package (src layout, import name page_cor
 integrations/mcp/     Reserved for the MCP integration
 training/             Reserved for model training code
 benchmarks/           Reserved for evaluation and benchmarks
-docs/                 Project documentation (domain-models.md, filesystem-vault.md)
+docs/                 Project documentation (domain models, filesystem vault, SQLite metadata, local API)
 ```
 
 ## Prerequisites
@@ -70,14 +70,32 @@ source .venv/bin/activate          # Windows: .venv\Scripts\activate
 python -m pip install -r packages/core/requirements-dev.txt -e packages/core
 ```
 
-`packages/core/requirements-dev.txt` pins the exact versions of the `dev` dependency
-group declared in `packages/core/pyproject.toml`.
+`packages/core/requirements-dev.txt` pins exact versions of the runtime dependencies
+(FastAPI, Pydantic, Uvicorn), the `dev` dependency group (pytest, HTTPX) declared in
+`packages/core/pyproject.toml`, and all of their transitive packages.
 
 ## Python tests
 
 ```sh
 python -m pytest packages/core
 ```
+
+This includes the local API tests and a real loopback server smoke test.
+
+## Running the core API
+
+Page Core runs on its own as an authenticated local HTTP API, bound only to
+`127.0.0.1`:
+
+```sh
+python -m page_core.api              # port 8765
+python -m page_core.api --port 0     # OS-assigned port
+```
+
+It prints one JSON line with the host, actual port and a fresh session token, which
+must be sent as `Authorization: Bearer <token>`. Keep that line private. See
+[docs/local-api.md](docs/local-api.md) for endpoints, readiness checks and security
+limits.
 
 ## Frontend checks
 
@@ -110,7 +128,7 @@ with `npm run tauri -w @page/desktop -- icon`. Only the desktop icons listed in
 
 ## Status
 
-**Stage 4 metadata persistence, with desktop and semantic indexing work.** Completed so far:
+**Stage 5 local API, with desktop and semantic indexing work.** Completed so far:
 
 1. Repository foundation: layout, tooling, a desktop shell that displays "Page", and an
    installable `page-core` package.
@@ -126,19 +144,26 @@ with `npm run tauri -w @page/desktop -- icon`. Only the desktop icons listed in
    through an opt-in filesystem adapter. Notes remain the source of truth;
    this adapter does not parse Markdown or perform vector indexing.
    See [docs/sqlite-metadata.md](docs/sqlite-metadata.md) for usage and limitations.
-5. Optional ingestion and semantic indexing: secure Markdown scanning,
+5. Local Core API: `page_core.api` serves an authenticated FastAPI interface on
+   IPv4 loopback for opening, creating, reconciling and closing vault sessions and
+   for listing, reading, creating, updating, moving and deleting notes by persistent
+   UUID, with revision checks against stale writes. See
+   [docs/local-api.md](docs/local-api.md).
+6. Optional ingestion and semantic indexing: secure Markdown scanning,
    heading-aware tokenizer-budgeted chunks,
    MiniLM embeddings, persistent SQLite metadata/vector caches, recoverable FAISS
    indexing, background progress, and an authenticated local desktop bridge.
    See [docs/ingestion.md](docs/ingestion.md) for setup, API and recovery behavior.
 
 Private Stage 4 metadata permissions are currently enforced on POSIX and tested on
-macOS. Windows metadata support fails closed pending verified ACL enforcement;
-the existing Stage 2/3 interfaces retain their behavior. The optional ingestion
+macOS. Windows metadata support fails closed pending verified ACL enforcement, so
+the Stage 5 API cannot open vaults there yet; the existing Stage 2/3 interfaces retain
+their behavior. The optional ingestion
 service maintains its own index cache; it is started separately from the metadata
 adapter.
 
-The desktop connects to an explicitly launched local core service. Backend knowledge-graph
+The desktop connects to the separately launched ingestion service; it does not yet
+use the Stage 5 vault and note API. Backend knowledge-graph
 relationships, neural reranking and packaged core-process lifecycle are not implemented yet.
 
 The main dashboard displays indexed notes as an interactive node graph, with

@@ -6,7 +6,7 @@ from uuid import uuid4
 
 import pytest
 
-from page_core.metadata import MetadataRepository, MetadataSyncError, PersistentVault
+from page_core.metadata import InvalidRenameError, MetadataRepository, MetadataSyncError, PersistentVault
 from page_core.vault import FileSystemVault, NoteConflictError, NoteExistsError, UnreadableNoteError
 
 pytestmark = pytest.mark.skipif(os.name != "posix", reason="private metadata currently requires POSIX permissions")
@@ -200,6 +200,17 @@ def test_invalid_rename_confirmations_roll_back(persistent, bad_mapping):
     with pytest.raises(ValueError):
         persistent.reconcile(known_renames=mappings[bad_mapping])
     assert persistent.metadata.list_notes(include_missing=True) == before
+
+
+@pytest.mark.parametrize("bad_mapping", ["unknown", "existing-source", "missing-target"])
+def test_rejected_confirmations_raise_a_typed_value_error(persistent, bad_mapping):
+    first = persistent.create_note(PurePosixPath("a.md"), "a")
+    second = persistent.create_note(PurePosixPath("b.md"), "b")
+    mappings = {"unknown": {uuid4(): second.relative_path}, "existing-source": {first.id: second.relative_path},
+                "missing-target": {first.id: PurePosixPath("missing.md")}}
+    with pytest.raises(InvalidRenameError) as error:
+        persistent.reconcile(known_renames=mappings[bad_mapping])
+    assert isinstance(error.value, ValueError)
 
 
 def test_failed_scan_never_marks_unread_files_missing(persistent, monkeypatch):

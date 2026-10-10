@@ -7,13 +7,17 @@ name = "page-core"
 dynamic = ["version"]
 description = "Local-first knowledge and context engine for Page."
 requires-python = ">=3.12,<3.13"
-dependencies = []
+dependencies = [
+    "fastapi>=0.143,<0.144",
+    "pydantic>=2.14,<3",
+    "uvicorn>=0.54,<0.55",
+]
 
 [project.optional-dependencies]
 ingestion = ["numpy>=2,<3", "faiss-cpu>=1.9,<2", "sentence-transformers>=3,<7"]
 
 [dependency-groups]
-dev = ["pytest>=9.1"]
+dev = ["httpx>=0.28,<0.29", "pytest>=9.1"]
 
 [tool.hatch.version]
 path = "src/page_core/__init__.py"
@@ -24,3 +28,5 @@ packages = ["src/page_core"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = ["-ra", "--strict-markers", "--strict-config"]
+# The pinned test client intentionally uses httpx, not Starlette's preferred httpx2.
+filterwarnings = ["ignore:Using `httpx` with `starlette.testclient` is deprecated"]

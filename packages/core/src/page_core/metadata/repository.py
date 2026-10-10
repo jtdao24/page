@@ -22,6 +22,14 @@ class MetadataNotFoundError(MetadataError):
     """The requested metadata record does not exist."""
 
 
+class MetadataDecodeError(MetadataError, ValueError):
+    """A stored record could not be decoded into valid metadata.
+
+    Raised for corrupt persisted values that satisfy the SQL constraints but
+    not domain validation. It remains a ValueError for existing callers.
+    """
+
+
 @dataclass(frozen=True, slots=True)
 class NoteMetadata:
     id: UUID
@@ -284,10 +292,13 @@ class MetadataRepository:
     def _record(row: sqlite3.Row | None) -> NoteMetadata | None:
         if row is None:
             return None
-        return NoteMetadata(UUID(row["id"]), UUID(row["vault_id"]), PurePosixPath(row["relative_path"]),
-                            datetime.fromisoformat(row["created_at"]), datetime.fromisoformat(row["updated_at"]),
-                            row["digest"], row["device"], row["inode"], row["size_bytes"], row["mtime_ns"],
-                            datetime.fromisoformat(row["missing_since"]) if row["missing_since"] else None)
+        try:
+            return NoteMetadata(UUID(row["id"]), UUID(row["vault_id"]), PurePosixPath(row["relative_path"]),
+                                datetime.fromisoformat(row["created_at"]), datetime.fromisoformat(row["updated_at"]),
+                                row["digest"], row["device"], row["inode"], row["size_bytes"], row["mtime_ns"],
+                                datetime.fromisoformat(row["missing_since"]) if row["missing_since"] else None)
+        except (TypeError, ValueError) as exc:
+            raise MetadataDecodeError("stored note metadata is corrupt") from exc
 
     def get(self, identifier: UUID) -> NoteMetadata | None:
         return self._record(self._db.execute("SELECT * FROM notes WHERE id=? AND vault_id=?", (self._id(identifier), str(self.vault.id))).fetchone())

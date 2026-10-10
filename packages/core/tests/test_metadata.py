@@ -11,7 +11,9 @@ from uuid import uuid4
 
 import pytest
 
-from page_core.metadata import MetadataError, MetadataNotFoundError, MetadataRepository, NoteMetadata
+from page_core.metadata import (
+    MetadataDecodeError, MetadataError, MetadataNotFoundError, MetadataRepository, NoteMetadata,
+)
 from page_core.metadata.repository import MIGRATIONS, SCHEMA_VERSION
 from page_core.vault import InvalidNotePathError
 
@@ -152,6 +154,17 @@ def test_database_constraints(repository, record, field, value):
         with repository.transaction():
             repository._db.execute(f"UPDATE notes SET {field}=? WHERE id=?", (value, str(record.id)))
     assert repository.get(record.id) == record
+
+
+@pytest.mark.parametrize("field,value", [("id", "x" * 36), ("relative_path", "CON.md"),
+                                         ("relative_path", "dir./a.md")])
+def test_corrupt_stored_values_raise_a_typed_decode_error(repository, record, field, value):
+    repository.insert(record)
+    with repository.transaction():
+        repository._db.execute(f"UPDATE notes SET {field}=? WHERE id=?", (value, str(record.id)))
+    with pytest.raises(MetadataDecodeError) as error:
+        repository.list_notes()
+    assert isinstance(error.value, ValueError) and isinstance(error.value, MetadataError)
 
 
 def test_fresh_schema_and_migration_history(repository):
