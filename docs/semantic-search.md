@@ -1,12 +1,9 @@
-# Stage 8: semantic indexing and retrieval
+# Semantic indexing and retrieval
 
 Page searches saved Markdown by meaning using a fixed pretrained model and an
 exact local similarity baseline. Markdown remains the source of truth. There is
 no custom model training, reranking, token-budget optimization, answer generation,
 or claim that retrieval reduces LLM token usage while preserving answer accuracy.
-
-The Stage 8 scope comes from `tools/stage_runner/context/stage-plans.md`; a separate
-Stage 8 specification is not present in this checkout.
 
 ## Setup and local execution
 
@@ -151,7 +148,7 @@ atomicity, while still exercising the real FAISS subprocess. Relevance acceptanc
 uses the actual pinned pretrained model and four paraphrased queries covering
 plants, SQL transactions, astronomy and bread baking. All four return their intended
 passage at rank one. This is a small regression fixture, not a general retrieval
-benchmark or evidence about LLM answer accuracy; Stage 11 owns broader evaluation.
+benchmark or evidence about LLM answer accuracy; see [evaluation](evaluation.md) for the broader benchmark.
 
 ```sh
 # Relevance tests are opt-in and never download a model during pytest.
@@ -169,7 +166,7 @@ rebuild, and stale responses after closing/vault/backend changes.
 
 ## Acceptance on macOS — October 10, 2026
 
-Stage 8 acceptance is complete on macOS. Windows remains unverified.
+Validated on macOS. Windows remains unverified.
 
 - Core: **891 passed**, including real pretrained relevance and source/chunk/cache
   checks, with `HF_HUB_OFFLINE=1`, `TRANSFORMERS_OFFLINE=1`, and

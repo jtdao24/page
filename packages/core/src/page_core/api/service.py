@@ -306,9 +306,9 @@ class LocalVaultService:
 
     def question_context(self, vault_id: UUID, question: str, budget: int,
                          candidates: int = 10) -> ContextPackage:
-        """Stage 10 context for a question, ranked by Stage 8 cosine similarity.
+        """Optimized context for a question, ranked by embedding cosine similarity.
 
-        Stage 11 found the Stage 9 reranker does not yet generalize, so it is not used.
+        The evaluation found the learned reranker does not yet generalize, so it is not used.
         """
         session, notes = self._semantic_snapshot(vault_id)
         if not isinstance(question, str) or not question.strip() or len(question) > 2000:

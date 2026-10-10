@@ -1,4 +1,4 @@
-"""Stage 14 runtime builder: pinned downloads, signing commands and pruning."""
+"""Runtime builder: pinned downloads, signing commands and pruning."""
 import importlib.util
 from pathlib import Path
 

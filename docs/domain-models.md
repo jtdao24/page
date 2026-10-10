@@ -1,6 +1,6 @@
 # Domain Models
 
-Specification for `page_core.domain` (Stage 2). The source of truth is
+Specification for `page_core.domain`. The source of truth is
 `packages/core/src/page_core/domain/models.py`.
 
 ## Conventions
@@ -134,14 +134,16 @@ libraries, LLM providers, MCP, or network services, and it has no serialization 
 Tests enforce that importing it loads no infrastructure modules and that constructing
 models performs no I/O.
 
-## Deferred
+## Built elsewhere
 
-| Concern                                          | Stage |
-| ------------------------------------------------ | ----- |
-| Reading and writing vaults and notes on disk ([filesystem-vault.md](filesystem-vault.md)) | 3 |
-| Persistence, repositories, serialization         | 4     |
-| API exposure                                     | 5     |
-| Markdown parsing, link resolution, backlinks     | 7     |
-| Chunking, embeddings, retrieval                  | 8     |
-| Neural ranking                                   | 9     |
-| Token counting and context selection             | 10    |
+The domain layer only defines the types. Everything else lives in other modules:
+
+| Concern | Covered in |
+|---|---|
+| Reading and writing vaults and notes on disk | [filesystem-vault.md](filesystem-vault.md) |
+| Persistence, repositories, serialization | [sqlite-metadata.md](sqlite-metadata.md) |
+| API exposure | [local-api.md](local-api.md) |
+| Markdown parsing, link resolution, backlinks | [knowledge-graph.md](knowledge-graph.md) |
+| Chunking, embeddings, retrieval | [semantic-search.md](semantic-search.md) |
+| Neural ranking | [neural-ranking.md](neural-ranking.md) |
+| Token counting and context selection | [context-optimization.md](context-optimization.md) |

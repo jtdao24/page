@@ -1,4 +1,4 @@
-"""Stage 13 MCP server: tools invoked through a real in-process MCP client."""
+"""MCP server: tools invoked through a real in-process MCP client."""
 import asyncio
 import json
 import subprocess

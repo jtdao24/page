@@ -1,4 +1,4 @@
-"""Token-budgeted, source-attributed context packages (Stage 10).
+"""Token-budgeted, source-attributed context packages.
 
 ``optimize_context`` turns ranked search candidates into the smallest useful
 context for an LLM: it drops duplicates, prefers passages that add something new,
@@ -33,7 +33,7 @@ class Utf8TokenEstimate:
 
     Common LLM tokenizers average about four characters per token on English
     text, so this overestimates and keeps packages within real budgets. Exact
-    provider counters can replace it once Stage 12 chooses a model.
+    provider counters can replace it.
     """
 
     name = "utf8-bytes/3"
@@ -194,7 +194,7 @@ def optimize_context(
 ) -> ContextPackage:
     """Select a source-attributed context package that fits ``budget`` tokens.
 
-    ``hits`` are Stage 8 results in baseline order. With a reranker, Stage 9
+    ``hits`` are semantic search results in baseline order. With a reranker, its
     scores rank them; otherwise cosine scores do. Relevance is measured relative
     to the best candidate (1.0) before thresholds and weights apply.
     """
@@ -232,8 +232,8 @@ def optimize_context(
         return value
 
     # Relevance relative to the best candidate, so the top scores 1 and close
-    # runners-up stay close to 1. Stage 9 scores are unbounded: exp(score - top).
-    # Stage 8 cosine scores: cosine / top cosine, with non-positive scores at 0.
+    # runners-up stay close to 1. Reranker scores are unbounded: exp(score - top).
+    # Cosine scores: cosine / top cosine, with non-positive scores at 0.
     if reranker is not None:
         ranked = [(item.hit, item.score) for item in reranker.rerank(query, hits, graph)]
         top = max((score for _, score in ranked), default=0.0)

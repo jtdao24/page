@@ -1,6 +1,6 @@
-"""Grounded question answering over optimized context (Stage 12).
+"""Grounded question answering over optimized context.
 
-The question's context comes from Stage 10's optimizer; the model is told to
+The question's context comes from the context optimizer; the model is told to
 answer only from those numbered sources and cite them as [n]. Without any
 relevant source, no model is called. Provider-neutral: any ``ChatModel`` works.
 """

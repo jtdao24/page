@@ -1,4 +1,4 @@
-"""Provider-neutral LLM interface and a Gemini implementation (Stage 12).
+"""Provider-neutral LLM interface and a Gemini implementation.
 
 Page Core depends only on ``ChatModel``; Gemini is one adapter. The Gemini
 client uses the standard library, reads its key from the environment, sends it

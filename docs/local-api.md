@@ -1,8 +1,8 @@
-# Stage 5: Local Core API
+# Local Core API
 
-`page_core.api` exposes the Stage 3 filesystem vault and Stage 4 persistent
+`page_core.api` exposes the filesystem vault and persistent SQLite
 metadata through an authenticated HTTP API on IPv4 loopback. It is a core
-development entry point. The Stage 6 desktop uses it through a trusted Rust HTTP
+development entry point. The desktop app uses it through a trusted Rust HTTP
 bridge; see [desktop-integration.md](desktop-integration.md). It offers no search,
 AI, graph or packaging features.
 
@@ -107,7 +107,7 @@ storage work is scheduled:
 The scheme is case-insensitive and the token is compared case-sensitively in
 constant time. Tokens in query strings, cookies, bodies or other headers are
 ignored. There is no login, token issuance, JWT or switch to disable
-authentication. CORS is not enabled, so browsers cannot use the API. The Stage 6
+authentication. CORS is not enabled, so browsers cannot use the API. The desktop
 Tauri webview invokes fixed commands; Rust sends authenticated requests without
 Origin. Credentials never reach React. Standalone API security is unchanged.
 
@@ -121,7 +121,7 @@ exception text. FastAPI request telemetry is disabled.
 The token grants the current OS user's access to explicitly opened vaults. It
 does not protect against malicious processes already running as that user,
 which can read the bootstrap line, the vault files or the database directly.
-Stage 3's trusted-owner filesystem assumption still applies.
+The filesystem vault's trusted-owner assumption still applies.
 
 ## Conventions
 
@@ -137,7 +137,7 @@ Stage 3's trusted-owner filesystem assumption still applies.
   characters. `~`, environment variables and relative paths are not expanded.
   The vault code resolves roots, including a symlinked root.
 - Note paths are canonical relative POSIX strings: no empty, `.` or `..`
-  components, no leading or trailing `/`, lowercase `.md`, and the Stage 3
+  components, no leading or trailing `/`, lowercase `.md`, and the vault's
   managed-path rules (no hidden components, backslashes, colons, NUL, control
   or `< > " | ? *` characters, Windows-reserved names, or names ending in a
   space or dot). Symlinks, non-regular files and case mismatches with existing
@@ -221,7 +221,7 @@ touching the filesystem. `GET /api/v1/vaults` is sorted by root path, then ID.
 
 Platforms without POSIX private-file enforcement fail closed: creation returns
 `503 storage_unavailable` before creating a folder or manifest, and opening
-returns the same error. Other Stage 4 privacy refusals (for example, a vault
+returns the same error. Other metadata privacy refusals (for example, a vault
 root writable by other users or a hard-linked database) also return
 `503 storage_unavailable`.
 
@@ -426,22 +426,22 @@ scripts, prefer passing the header through a file or standard input.
 
 Only macOS has been tested. Private metadata requires POSIX permissions and
 `O_NOFOLLOW`, so on Windows creating or opening a vault through the API fails
-with `503 storage_unavailable` until verified ACL support exists. Stage 3's
+with `503 storage_unavailable` until verified ACL support exists. The vault's
 filesystem races, durability limits and trusted-owner assumption apply
 unchanged.
 
 ## Deferred
 
-Search, indexing and embeddings (Stage 8), the knowledge graph (Stage 7), AI
-and context endpoints (Stages 9–12), MCP (Stage 13), and packaging (Stage 14)
-are not part of this stage. Desktop connection and process ownership are implemented
-separately in Stage 6 without changing the API contract. There are no filesystem watchers,
+The knowledge graph, semantic search and question answering add the endpoints
+described below. MCP and packaging don't change the API, and the desktop app's
+connection and process ownership are documented in
+[desktop-integration.md](desktop-integration.md). There are no filesystem watchers,
 background reconciliation, remote or multi-user access, TLS, uploads,
 arbitrary file access, vault deletion, trash, pagination or WebSockets.
 
 ## Knowledge graph
 
-Stage 7 adds authenticated `GET /api/v1/vaults/{vault_id}/graph`, returning
+The knowledge graph adds authenticated `GET /api/v1/vaults/{vault_id}/graph`, returning
 canonical note nodes and directed wiki-link references with unresolved reasons.
 See [knowledge-graph.md](knowledge-graph.md) for the wire shape, resolution rules,
 refresh behavior and limits. It uses the existing storage worker and session;
@@ -450,7 +450,7 @@ no additional server, credential or note-writing endpoint is introduced.
 
 ## Semantic indexing and retrieval
 
-Stage 8 adds authenticated `POST /api/v1/vaults/{vault_id}/index` and
+Semantic search adds authenticated `POST /api/v1/vaults/{vault_id}/index` and
 `POST /api/v1/vaults/{vault_id}/search`. Search reconciles current source and reuses
 unchanged embeddings; it returns canonical note and chunk identities, revisions,
 source byte/line ranges and exact cosine scores. Model preparation is explicit;
@@ -459,7 +459,7 @@ schemas, model setup, failure handling, incremental behavior and limits.
 
 ## Question answering
 
-Stage 12 adds authenticated `POST /api/v1/vaults/{vault_id}/ask`. It retrieves and
+Question answering adds authenticated `POST /api/v1/vaults/{vault_id}/ask`. It retrieves and
 optimizes context like search, then sends only the selected passages and the question
 to the configured language model (Gemini, keyed by `GEMINI_API_KEY` at startup) and
 returns a cited answer with token usage. This is the only endpoint that contacts a

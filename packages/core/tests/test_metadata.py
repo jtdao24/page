@@ -33,7 +33,7 @@ def record(fs_vault):
                         hashlib.sha256(b"original").hexdigest(), 1, 2, 8, 123456)
 
 
-def test_standard_install_has_no_later_stage_dependencies():
+def test_metadata_does_not_import_api_or_ml_dependencies():
     result = subprocess.run([sys.executable, "-c", "import sys,page_core.metadata; print(sorted(set(sys.modules) & {'faiss','numpy','torch','sentence_transformers','socket','http.server'}))"], capture_output=True, text=True, check=True)
     assert result.stdout.strip() == "[]"
 

@@ -1,6 +1,6 @@
 # Pinned runtime and development environment for page-core, including the
-# Stage 8 local Sentence Transformers and FAISS dependencies and the Stage 13
-# MCP SDK. Generated with pip freeze --exclude-editable on macOS (Python 3.12).
+# local Sentence Transformers and FAISS dependencies and the MCP SDK.
+# Generated with pip freeze --exclude-editable on macOS (Python 3.12).
 # Install with: python -m pip install -r packages/core/requirements-dev.txt -e packages/core
 annotated-doc==0.0.5
 annotated-types==0.8.0

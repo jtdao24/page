@@ -1,4 +1,4 @@
-# Stage 14: desktop packaging
+# Desktop packaging
 
 Page ships as a macOS app that includes its own Python runtime, Page Core, every Python
 dependency and the embedding model. Users install it by dragging it to Applications.
@@ -31,7 +31,7 @@ and `src-tauri/tauri.bundle.conf.json` copies it to `Page.app/Contents/Resources
 |---|---|
 | `python/` | CPython 3.12.15 from [python-build-standalone](https://github.com/astral-sh/python-build-standalone) release 20261009, a relocatable build. The archive's SHA-256 is pinned in the script. |
 | `python/lib/python3.12/site-packages/` | The page-core wheel and its dependencies, at the exact versions in `packages/core/requirements-dev.txt`. Wheels only, nothing compiled. Bytecode is precompiled; tests, C++ headers and pip are removed. |
-| `model/` | The pinned MiniLM model (`sentence-transformers/all-MiniLM-L6-v2` at the Stage 8 revision) as a plain folder, with a `page-model.json` marker naming that revision |
+| `model/` | The pinned MiniLM model (`sentence-transformers/all-MiniLM-L6-v2` at its pinned revision) as a plain folder, with a `page-model.json` marker naming that revision |
 | `bin/page-mcp` | Launcher for the [MCP server](mcp.md) using the bundled runtime |
 
 Before finishing, the script runs a smoke test with the bundled interpreter, offline,
@@ -39,7 +39,7 @@ exactly as the app runs it: it imports the API and MCP server and embeds a sente
 
 **Size:** the runtime is about 1.1 GB, mostly PyTorch (about 580 MB) and
 Transformers. Swapping PyTorch for a smaller inference runtime would cut this, but
-it would change the embedding stack, which Stage 11 measured, so it's left for later.
+it would change the embedding stack, which the [evaluation](evaluation.md) measured, so it's left for later.
 
 ## How the app runs Core
 

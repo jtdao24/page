@@ -1,4 +1,4 @@
-"""Opt-in persistent identities around the unchanged Stage 3 file operations."""
+"""Opt-in persistent identities around the unchanged filesystem vault operations."""
 
 import hashlib
 import os
@@ -52,7 +52,7 @@ class _Source:
 
 
 class PersistentVault:
-    """Stage 3 vault operations with Stage 4 metadata, without parsing content.
+    """Filesystem vault operations with SQLite metadata, without parsing content.
 
     Create/open automatically reconcile existing files. Reconciliation is also
     explicit for external changes. Use as a context manager or call close.
@@ -92,7 +92,7 @@ class PersistentVault:
         return self.files.vault
 
     def _restore_ids(self) -> None:
-        # Keep already-issued Stage 3 UUIDs for notes not yet registered, on
+        # Keep already-issued filesystem vault UUIDs for notes not yet registered, on
         # every refresh, not only when attaching. A registered path takes its
         # stored ID, and known or retired IDs are never reused.
         registered = {record.relative_path: record.id for record in self.metadata.list_notes()}
@@ -106,7 +106,7 @@ class PersistentVault:
 
     def _capture(self, path: PurePosixPath) -> tuple[_Source, bytes]:
         path = _require_managed_path(path)
-        # Reuse Stage 3's path checks and no-follow regular-file reader. Hash
+        # Reuse the filesystem vault's path checks and no-follow regular-file reader. Hash
         # raw bytes; even unreadable UTF-8 notes can have metadata reconciled.
         data, info = _read_regular_file(self.files._existing_file(path))
         return _Source(path, hashlib.sha256(data).hexdigest(), info), data

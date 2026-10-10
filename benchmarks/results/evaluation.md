@@ -1,4 +1,4 @@
-# Stage 11 benchmark results
+# Benchmark results
 
 40 held-out questions over 17 notes. Budget 300 tokens for the Page optimizer, top 5 for embedding retrieval, 10 candidates per question. Tokens: `utf8-bytes/3`. Reader: `extractive-overlap-v1`.
 
@@ -11,8 +11,8 @@
 
 | Retrieval order | Recall@1 | Recall@3 | Recall@5 | Recall@10 | MRR |
 |---|---|---|---|---|---|
-| Embedding (Stage 8) | 0.775 | 1.000 | 1.000 | 1.000 | 0.875 |
-| Reranked (Stage 9) | 0.700 | 0.875 | 0.925 | 1.000 | 0.799 |
+| Embedding | 0.775 | 1.000 | 1.000 | 1.000 | 0.875 |
+| Reranked | 0.700 | 0.875 | 0.925 | 1.000 | 0.799 |
 
 | Budget | System | Avg tokens | Answer in context | Reader correct |
 |---|---|---|---|---|

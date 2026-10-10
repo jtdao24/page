@@ -1,9 +1,9 @@
-# Stage 10: context optimization
+# Context optimization
 
 `page_core.context.optimize_context` turns ranked search candidates into a compact,
 source-attributed context package that never exceeds a token budget. It is the piece
-that is meant to save LLM tokens. Stage 11 measures how well it does that; Stage 12
-sends the package to a model.
+that is meant to save LLM tokens. The [evaluation](evaluation.md) measures how well it
+does that, and [question answering](question-answering.md) sends the package to a model.
 
 It is pure Python: no I/O, model calls or PyTorch import, and the same inputs always
 give the same package.
@@ -20,15 +20,15 @@ package.blocks                   # one entry per source block, with path and lin
 package.usage                    # token and selection accounting
 ```
 
-- `hits`: Stage 8 `SemanticIndex.search` results, in their original order.
-- `graph`: the Stage 7 `build_graph` snapshot for the same notes.
-- `reranker`: optional Stage 9 model. Without it, cosine similarity ranks candidates.
+- `hits`: semantic search (`SemanticIndex.search`) results, in their original order.
+- `graph`: the knowledge graph (`build_graph`) snapshot for the same notes.
+- `reranker`: optional [learned reranker](neural-ranking.md). Without it, cosine similarity ranks candidates.
 - `budget`: the maximum number of tokens for the whole package.
 
 ## How passages are chosen
 
 1. **Relevance.** Each candidate gets a relevance relative to the best one, which
-   scores 1.0. With a reranker that is `exp(score - top score)`, since Stage 9 scores
+   scores 1.0. With a reranker that is `exp(score - top score)`, since reranker scores
    have no fixed range; otherwise `cosine / top cosine`. Candidates below
    `min_relevance` (default 0.25) are dropped, which is often where most savings come
    from.
@@ -39,7 +39,7 @@ package.usage                    # token and selection accounting
    - plus `0.2 ×` the share of query words it covers that nothing chosen covers yet
      (`coverage_weight`);
    - plus `0.1` if its note links to or from a note already chosen (`graph_weight`,
-     from Stage 7 wiki links).
+     from wiki links).
 3. **Redundancy.** Exact duplicates (ignoring whitespace) and near-duplicates (word-set
    similarity of 0.8 or more, `redundancy_threshold`) of chosen passages are skipped.
 4. **Budget.** A passage is added only if the whole package, including the new block
@@ -76,23 +76,22 @@ budget is always checked against the complete assembled text. The default
 `Utf8TokenEstimate` counts one token per three UTF-8 bytes, rounded up. Common LLM
 tokenizers average about four characters per English token, so this overestimates on
 purpose and keeps packages within real limits. Page doesn't depend on a particular LLM
-provider; once Stage 12 chooses a model, its exact tokenizer can be passed as
-`counter`.
+provider; a model's exact tokenizer can be passed as `counter`.
 
 ## Early measurements
 
-On the Stage 9 fixture (40 queries, 10 candidates each, real MiniLM model, macOS,
+On the reranker's training fixture (40 queries, 10 candidates each, real MiniLM model, macOS,
 October 10, 2026). "Found" means a labeled passage, or part of it, made it into the
 package:
 
 | Budget | Ranking | Found | Avg tokens | Saved vs. all candidates |
 |---|---|---|---|---|
-| 60 | Stage 8 cosine | 35/40 | 53 | 88% |
-| 60 | Stage 9 reranker | 37/40 | 46 | 90% |
-| 120 | Stage 8 cosine | 38/40 | 111 | 75% |
-| 120 | Stage 9 reranker | 39/40 | 53 | 88% |
-| 250 | Stage 8 cosine | 39/40 | 226 | 50% |
-| 250 | Stage 9 reranker | 39/40 | 54 | 88% |
+| 60 | Cosine | 35/40 | 53 | 88% |
+| 60 | Reranker | 37/40 | 46 | 90% |
+| 120 | Cosine | 38/40 | 111 | 75% |
+| 120 | Reranker | 39/40 | 53 | 88% |
+| 250 | Cosine | 39/40 | 226 | 50% |
+| 250 | Reranker | 39/40 | 54 | 88% |
 
 With the reranker, packages stay small even when the budget grows, because its scores
 separate the best passage more sharply and the relevance cutoff removes the rest.
@@ -102,15 +101,15 @@ separate the best passage more sharply and the relevance cutoff removes the rest
 - The fixture is tiny and hand-written.
 - "Found" checks retrieval, not whether an LLM answers correctly.
 
-Stage 11 owns the rigorous comparison against full-context and embedding-only
+The [evaluation](evaluation.md) is the rigorous comparison against full-context and embedding-only
 baselines, including answer accuracy.
 
-## Held-out results (Stage 11)
+## Held-out results
 
-On the separate Stage 11 evaluation vault:
+On the separate evaluation vault:
 - **With cosine ranking,** the optimizer used 90% fewer tokens than sending every
   note, and still contained the answer for all 40 questions.
-- **With the Stage 9 reranker,** it kept too little: the answer was missing for 28% of
+- **With the learned reranker,** it kept too little: the answer was missing for 28% of
   questions.
 
 Use `optimize_context` without a reranker until the reranker is retrained. See

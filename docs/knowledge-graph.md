@@ -1,10 +1,8 @@
-# Stage 7: Knowledge graph
+# Knowledge graph
 
-Scope follows Stage 7 in `tools/stage_runner/context/stage-plans.md`: wiki links,
-reference resolution, unresolved references, backlinks, graph updates and an
-interactive Cytoscape.js view. Semantic indexing and neural retrieval are excluded.
-Stage 7 acceptance is complete on macOS as of October 10, 2026. Windows
-remains unverified.
+Page connects notes through wiki links: reference resolution, unresolved references,
+backlinks, graph updates and an interactive Cytoscape.js view. Validated on macOS on
+October 10, 2026. Windows remains unverified.
 
 ## Wiki links and reference resolution
 

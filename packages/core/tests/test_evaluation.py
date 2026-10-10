@@ -1,4 +1,4 @@
-"""Stage 11 benchmark harness: data, readers, systems and report, offline."""
+"""Benchmark harness: data, readers, systems and report, offline."""
 import json
 import os
 import re
@@ -149,7 +149,7 @@ def test_importing_evaluation_does_not_import_torch() -> None:
 def test_committed_report_is_reproducible() -> None:
     from page_core.semantic import SentenceEncoder
 
-    committed = json.loads((ROOT / "benchmarks" / "results" / "stage11.json").read_text())
+    committed = json.loads((ROOT / "benchmarks" / "results" / "evaluation.json").read_text())
     settings = committed["settings"]
     fresh = run_benchmark(EVAL, SentenceEncoder(), Reranker.load(ROOT / "training" / "reranker" / "model.json"),
                           budget=settings["budget"], top_k=settings["top_k"], candidates=settings["candidates"])
