@@ -1,0 +1,16 @@
+{
+  "name": "page",
+  "private": true,
+  "workspaces": [
+    "apps/desktop"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w @page/desktop",
+    "build": "npm run build -w @page/desktop",
+    "typecheck": "npm run typecheck -w @page/desktop",
+    "lint": "npm run lint -w @page/desktop",
+    "test": "npm run test -w @page/desktop",
+    "tauri:dev": "npm run tauri:dev -w @page/desktop",
+    "tauri:build": "npm run tauri:build -w @page/desktop"
+  }
+}
