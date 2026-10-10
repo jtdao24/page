@@ -127,3 +127,14 @@ export interface SearchHitResponse {
   start_line: number; end_line: number; score: number;
 }
 export interface SearchResponse { vault_id: string; model: string; hits: SearchHitResponse[] }
+export interface AskSource {
+  number: number; note_id: string; relative_path: string;
+  start_line: number; end_line: number; text: string; excerpt: boolean;
+}
+export interface AskUsage {
+  context_tokens: number; budget: number; counter: string; input_tokens: number; output_tokens: number;
+}
+export interface AskResponse {
+  vault_id: string; model: string; answer: string; answered_by_model: boolean; finish_reason: string;
+  sources: AskSource[]; cited: number[]; usage: AskUsage;
+}

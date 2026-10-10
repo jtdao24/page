@@ -12,6 +12,10 @@ from typing import Any
 
 from starlette.responses import JSONResponse
 
+from page_core.llm import (
+    LLMAuthError, LLMBlockedError, LLMNotConfiguredError, LLMRateLimitError, LLMResponseError,
+    LLMUnavailableError,
+)
 from page_core.semantic import ModelUnavailableError, IndexCorruptError, EmbeddingError
 from page_core.metadata import MetadataDecodeError, MetadataError, MetadataNotFoundError, MetadataSyncError
 from page_core.vault import (
@@ -125,6 +129,14 @@ def translate(error: BaseException) -> ApiError:
                             "reconciliation_required": True,
                         })
     simple: list[tuple[type[BaseException], int, str, str]] = [
+        (LLMNotConfiguredError, 503, "llm_not_configured",
+         "Set GEMINI_API_KEY before starting Page Core to ask questions with Gemini."),
+        (LLMAuthError, 502, "llm_auth_failed", "Gemini rejected the API key; check GEMINI_API_KEY."),
+        (LLMRateLimitError, 429, "llm_rate_limited", "Gemini's rate limit or quota was reached; try again later."),
+        (LLMBlockedError, 422, "llm_blocked", "Gemini declined to answer this request."),
+        (LLMUnavailableError, 503, "llm_unavailable", "Gemini could not be reached; try again."),
+        (LLMResponseError, 502, "llm_failed",
+         "Gemini rejected the request or gave no usable answer; check GEMINI_API_KEY and PAGE_GEMINI_MODEL."),
         (ModelUnavailableError, 503, "model_unavailable", "Prepare the local embedding model before searching."),
         (IndexCorruptError, 503, "index_corrupt", "The semantic index is corrupt; rebuild it."),
         (EmbeddingError, 503, "embedding_failed", "Local embedding inference failed; try again."),

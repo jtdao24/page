@@ -13,6 +13,7 @@ pub const COMMAND_NAMES: &[&str] = &[
     "graph_read",
     "semantic_index",
     "semantic_search",
+    "ask_question",
     "note_list",
     "note_read",
     "note_create",

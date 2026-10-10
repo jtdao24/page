@@ -38,9 +38,10 @@ you can retain its draft and save it as a new note.
 
 ## Looking ahead
 
-Page's longer-term direction is an AI-native knowledge workspace with context
-selection for language models. That capability is planned. The current app focuses
-on local Markdown editing, relationships between notes, and semantic search.
+Page is becoming an AI-native knowledge workspace. Besides local Markdown editing,
+relationships between notes and semantic search, you can now ask questions about your
+notes with Gemini: Page sends only the most relevant passages, within a token budget
+you choose, and the answer cites the notes it used.
 
 ## Availability
 

@@ -114,6 +114,12 @@ questions:
 
 See [evaluation](evaluation.md) for metrics, results and limits.
 
+## Asking questions
+
+Stage 12 answers questions from your notes with Gemini and cited sources. Set
+`GEMINI_API_KEY` (and optionally `PAGE_GEMINI_MODEL`) before `npm run tauri:dev`. See
+[question answering](question-answering.md) for setup, privacy and errors.
+
 ## Python tests
 
 ```sh

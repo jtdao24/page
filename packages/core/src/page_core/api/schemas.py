@@ -249,4 +249,38 @@ class SearchResponse(_Response):
     hits: list[SearchHitResponse]
 
 
-REQUEST_MODELS += (IndexRequest, SearchRequest)
+class AskRequest(_Request):
+    question: Annotated[VaultName, Field(max_length=2000)]
+    budget: Annotated[int, Field(ge=50, le=20000)] = 1500
+
+
+class AskSource(_Response):
+    number: int
+    note_id: str
+    relative_path: str
+    start_line: int
+    end_line: int
+    text: str
+    excerpt: bool
+
+
+class AskUsage(_Response):
+    context_tokens: int
+    budget: int
+    counter: str
+    input_tokens: int
+    output_tokens: int
+
+
+class AskResponse(_Response):
+    vault_id: str
+    model: str
+    answer: str
+    answered_by_model: bool
+    finish_reason: str
+    sources: list[AskSource]
+    cited: list[int]
+    usage: AskUsage
+
+
+REQUEST_MODELS += (IndexRequest, SearchRequest, AskRequest)
