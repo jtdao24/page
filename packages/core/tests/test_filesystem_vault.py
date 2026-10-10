@@ -265,6 +265,38 @@ def test_move_never_overwrites_destination(fs_vault: FileSystemVault, vault_root
         fs_vault.move_note(note, P("b.md"))
     assert (vault_root / "a.md").read_text() == "a"
     assert (vault_root / "b.md").read_text() == "b"
+    assert fs_vault.read_note(P("a.md")) == note
+    assert fs_vault.move_note(note, P("c.md")).id == note.id
+
+
+@pytest.mark.usefixtures("hardlinks")
+@pytest.mark.parametrize(
+    ("operation", "destination"),
+    [("move", "b.md"), ("move", "archive/a.md"), ("rename", "b.md")],
+)
+def test_hard_link_to_same_file_is_an_occupied_destination(
+    fs_vault: FileSystemVault, vault_root: Path, destination: str, operation: str
+) -> None:
+    note = fs_vault.create_note(P("a.md"), "body")
+    other = vault_root / destination
+    other.parent.mkdir(exist_ok=True)
+    os.link(vault_root / "a.md", other)
+    before = snapshot(vault_root)
+
+    with pytest.raises(NoteExistsError):
+        if operation == "move":
+            fs_vault.move_note(note, P(destination))
+        else:
+            fs_vault.rename_note(note, P(destination).name)
+
+    assert snapshot(vault_root) == before
+    assert os.path.samefile(vault_root / "a.md", other)
+    assert fs_vault.read_note(P("a.md")) == note
+    assert fs_vault.read_note(P(destination)).id != note.id
+    moved = fs_vault.move_note(note, P("c.md"))
+    assert moved.id == note.id
+    assert not (vault_root / "a.md").exists()
+    assert other.read_text() == "body"
 
 
 def test_move_to_same_path_is_a_no_op(fs_vault: FileSystemVault) -> None:
@@ -279,7 +311,11 @@ def test_case_only_rename(fs_vault: FileSystemVault, vault_root: Path) -> None:
     renamed = fs_vault.rename_note(note, "gamma.md")
 
     assert renamed.id == note.id
+    assert renamed.relative_path == P("gamma.md")
+    assert renamed.content == "g"
     assert sorted(os.listdir(vault_root)) == [".page", "gamma.md"]
+    with pytest.raises(NoteNotFoundError):
+        fs_vault.read_note(P("Gamma.md"))
 
 
 def test_case_variant_cannot_duplicate_on_case_insensitive_fs(
