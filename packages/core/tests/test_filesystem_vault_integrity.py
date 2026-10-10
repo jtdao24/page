@@ -1,5 +1,7 @@
 import os
 import stat
+import subprocess
+import sys
 from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath
 from uuid import UUID
@@ -81,27 +83,31 @@ def test_failed_update_keeps_original_and_cleans_up(
         raise OSError("simulated disk failure")
 
     monkeypatch.setattr(os, failing, fail)
-    with pytest.raises(OSError, match="simulated"):
+    with pytest.raises(OSError, match="simulated disk failure"):
         fs_vault.update_note(note, "new content\n")
     monkeypatch.undo()
 
-    assert (vault_root / "important.md").read_text() == "original\n"
+    assert (vault_root / "important.md").read_bytes() == b"original\n"
     assert leftover_temporaries(vault_root) == []
+    # The vault still sees the original note, so the old snapshot stays valid.
+    assert fs_vault.read_note(P("important.md")) == note
     assert fs_vault.update_note(note, "retry\n").content == "retry\n"
 
 
+@pytest.mark.parametrize("failing", ["fsync", "replace"])
 def test_failed_create_leaves_nothing_behind(
-    fs_vault: FileSystemVault, vault_root: Path, monkeypatch: pytest.MonkeyPatch
+    fs_vault: FileSystemVault, vault_root: Path, monkeypatch: pytest.MonkeyPatch, failing: str
 ) -> None:
     def fail(*args: object, **kwargs: object) -> None:
         raise OSError("simulated disk failure")
 
-    monkeypatch.setattr(os, "fsync", fail)
-    with pytest.raises(OSError, match="simulated"):
+    monkeypatch.setattr(os, failing, fail)
+    with pytest.raises(OSError, match="simulated disk failure"):
         fs_vault.create_note(P("new.md"), "content")
     monkeypatch.undo()
 
     assert not (vault_root / "new.md").exists()
+    assert fs_vault.list_note_paths() == []
     assert leftover_temporaries(vault_root) == []
     assert fs_vault.create_note(P("new.md"), "content").content == "content"
 
@@ -137,13 +143,34 @@ def test_update_preserves_file_permissions(fs_vault: FileSystemVault, vault_root
 # --- External modifications -------------------------------------------------
 
 
-def test_update_detects_external_edit(fs_vault: FileSystemVault, vault_root: Path) -> None:
-    note = fs_vault.create_note(P("shared.md"), "v1\n")
-    (vault_root / "shared.md").write_text("v1\nadded in another editor\n")
+EXTERNAL_EDIT = (
+    "import pathlib, sys; "
+    "pathlib.Path(sys.argv[1]).write_bytes(b'v1\\nadded in another editor\\n')"
+)
+
+
+@pytest.mark.parametrize("operation", ["update", "delete"])
+def test_external_edit_by_another_process_conflicts(
+    fs_vault: FileSystemVault, vault_root: Path, operation: str
+) -> None:
+    (vault_root / "shared.md").write_bytes(b"v1\n")
+    note = fs_vault.read_note(P("shared.md"))
+    subprocess.run(
+        [sys.executable, "-c", EXTERNAL_EDIT, str(vault_root / "shared.md")], check=True
+    )
+    before = snapshot(vault_root)
 
     with pytest.raises(NoteConflictError):
-        fs_vault.update_note(note, "v1\nadded in Page\n")
-    assert (vault_root / "shared.md").read_text() == "v1\nadded in another editor\n"
+        if operation == "update":
+            fs_vault.update_note(note, "v1\nadded in Page\n")
+        else:
+            fs_vault.delete_note(note)
+
+    assert snapshot(vault_root) == before
+    assert (vault_root / "shared.md").read_bytes() == b"v1\nadded in another editor\n"
+    reread = fs_vault.read_note(P("shared.md"))
+    assert reread.id == note.id
+    assert reread.content == "v1\nadded in another editor\n"
 
 
 def test_update_after_rereading_succeeds(fs_vault: FileSystemVault, vault_root: Path) -> None:
@@ -161,15 +188,6 @@ def test_identical_rewrite_is_not_a_conflict(fs_vault: FileSystemVault, vault_ro
     (vault_root / "a.md").write_text("same")
 
     assert fs_vault.update_note(note, "new").content == "new"
-
-
-def test_delete_detects_external_edit(fs_vault: FileSystemVault, vault_root: Path) -> None:
-    note = fs_vault.create_note(P("a.md"), "v1")
-    (vault_root / "a.md").write_text("v2")
-
-    with pytest.raises(NoteConflictError):
-        fs_vault.delete_note(note)
-    assert (vault_root / "a.md").read_text() == "v2"
 
 
 def test_update_of_externally_deleted_note(fs_vault: FileSystemVault, vault_root: Path) -> None:
