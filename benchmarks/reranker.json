@@ -1,0 +1,82 @@
+{
+  "format": "page-reranker-report-v1",
+  "checkpoint_sha256": "6a04540cbfeb3a30742933a43777e70a221689a6c6e903c66f62ee683a4f7844",
+  "encoder": "sentence-transformers/all-MiniLM-L6-v2@1110a243fdf4706b3f48f1d95db1a4f5529b4d41:paragraph-v1:220:normalized-f32:384",
+  "feature_version": "rank-features-v1",
+  "candidates_per_query": 10,
+  "split": "test",
+  "baseline": {
+    "queries": 12,
+    "recall_at_1": 0.833333,
+    "recall_at_3": 0.916667,
+    "mrr": 0.888889
+  },
+  "reranker": {
+    "queries": 12,
+    "recall_at_1": 0.916667,
+    "recall_at_3": 0.916667,
+    "mrr": 0.9375
+  },
+  "per_query": [
+    {
+      "id": "q29",
+      "baseline_rank": 1,
+      "reranker_rank": 1
+    },
+    {
+      "id": "q30",
+      "baseline_rank": 2,
+      "reranker_rank": 1
+    },
+    {
+      "id": "q31",
+      "baseline_rank": 1,
+      "reranker_rank": 1
+    },
+    {
+      "id": "q32",
+      "baseline_rank": 1,
+      "reranker_rank": 1
+    },
+    {
+      "id": "q33",
+      "baseline_rank": 1,
+      "reranker_rank": 1
+    },
+    {
+      "id": "q34",
+      "baseline_rank": 1,
+      "reranker_rank": 1
+    },
+    {
+      "id": "q35",
+      "baseline_rank": 1,
+      "reranker_rank": 1
+    },
+    {
+      "id": "q36",
+      "baseline_rank": 1,
+      "reranker_rank": 1
+    },
+    {
+      "id": "q37",
+      "baseline_rank": 1,
+      "reranker_rank": 1
+    },
+    {
+      "id": "q38",
+      "baseline_rank": 1,
+      "reranker_rank": 1
+    },
+    {
+      "id": "q39",
+      "baseline_rank": 1,
+      "reranker_rank": 1
+    },
+    {
+      "id": "q40",
+      "baseline_rank": 6,
+      "reranker_rank": 4
+    }
+  ]
+}

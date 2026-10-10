@@ -1,0 +1,40 @@
+{"id": "q01", "split": "train", "query": "how much sunlight do tomato plants need", "relevant": [{"path": "garden/tomatoes.md", "contains": "eight hours of direct sun"}]}
+{"id": "q02", "split": "train", "query": "when should I water my vegetable plants", "relevant": [{"path": "garden/tomatoes.md", "contains": "Water deeply at the base"}]}
+{"id": "q03", "split": "train", "query": "removing side shoots from tomato stems", "relevant": [{"path": "garden/tomatoes.md", "contains": "Pinch off the suckers"}]}
+{"id": "q04", "split": "train", "query": "ratio of greens to browns in a compost heap", "relevant": [{"path": "garden/compost.md", "contains": "one part green to three parts brown"}]}
+{"id": "q05", "split": "train", "query": "my compost smells like ammonia", "relevant": [{"path": "garden/compost.md", "contains": "smells of ammonia"}]}
+{"id": "q06", "split": "train", "query": "how do I know compost is ready", "relevant": [{"path": "garden/compost.md", "contains": "Finished compost is dark"}]}
+{"id": "q07", "split": "train", "query": "what scraps should never go in compost", "relevant": [{"path": "garden/compost.md", "contains": "Never add meat"}]}
+{"id": "q08", "split": "train", "query": "keeping seeds for next year", "relevant": [{"path": "garden/seeds.md", "contains": "paper envelopes"}]}
+{"id": "q09", "split": "train", "query": "check whether old seeds will still germinate", "relevant": [{"path": "garden/seeds.md", "contains": "damp paper towel"}]}
+{"id": "q10", "split": "train", "query": "feeding a sourdough starter", "relevant": [{"path": "kitchen/sourdough.md", "contains": "equal weights of flour and water"}]}
+{"id": "q11", "split": "train", "query": "stretch and fold technique for bread dough", "relevant": [{"path": "kitchen/sourdough.md", "contains": "Stretch and fold"}]}
+{"id": "q12", "split": "train", "query": "baking bread in a dutch oven", "relevant": [{"path": "kitchen/sourdough.md", "contains": "Dutch oven"}]}
+{"id": "q13", "split": "train", "query": "egg to flour ratio for homemade noodles", "relevant": [{"path": "kitchen/pasta.md", "contains": "one egg for every hundred grams"}]}
+{"id": "q14", "split": "train", "query": "how long to cook fresh pasta", "relevant": [{"path": "kitchen/pasta.md", "contains": "two to three minutes"}]}
+{"id": "q15", "split": "train", "query": "commit or roll back a group of statements", "relevant": [{"path": "databases/transactions.md", "contains": "either all commit or all roll back"}]}
+{"id": "q16", "split": "train", "query": "what happens when two transactions deadlock", "relevant": [{"path": "databases/transactions.md", "contains": "deadlock"}]}
+{"id": "q17", "split": "train", "query": "why a database query avoids a full table scan", "relevant": [{"path": "databases/indexes.md", "contains": "without scanning the whole table"}]}
+{"id": "q18", "split": "train", "query": "downsides of adding too many indexes", "relevant": [{"path": "databases/indexes.md", "contains": "slows down inserts and updates"}]}
+{"id": "q19", "split": "train", "query": "refractor versus reflector telescope", "relevant": [{"path": "astronomy/telescopes.md", "contains": "Refractors use lenses"}]}
+{"id": "q20", "split": "train", "query": "why aperture matters more than magnification", "relevant": [{"path": "astronomy/telescopes.md", "contains": "Aperture, the diameter"}]}
+{"id": "q21", "split": "train", "query": "seeing the moons of jupiter", "relevant": [{"path": "astronomy/planets.md", "contains": "four bright moons"}]}
+{"id": "q22", "split": "train", "query": "when is mars closest to earth", "relevant": [{"path": "astronomy/planets.md", "contains": "near opposition"}]}
+{"id": "q23", "split": "train", "query": "how to tell a planet from a star", "relevant": [{"path": "astronomy/planets.md", "contains": "Planets shine steadily"}]}
+{"id": "q24", "split": "train", "query": "sharing setup code between tests", "relevant": [{"path": "code/testing.md", "contains": "Use fixtures"}]}
+{"id": "q25", "split": "train", "query": "problems with mocking everything", "relevant": [{"path": "code/testing.md", "contains": "Over-mocking"}]}
+{"id": "q26", "split": "train", "query": "avoiding crowds at the fox shrine", "relevant": [{"path": "travel/kyoto.md", "contains": "Fushimi Inari early"}]}
+{"id": "q27", "split": "train", "query": "do restaurants in kyoto take credit cards", "relevant": [{"path": "travel/kyoto.md", "contains": "cash only"}]}
+{"id": "q28", "split": "train", "query": "getting around the city by bus or subway", "relevant": [{"path": "travel/kyoto.md", "contains": "day bus pass"}]}
+{"id": "q29", "split": "test", "query": "best time of year to plant tomato seedlings outside", "relevant": [{"path": "garden/tomatoes.md", "contains": "six weeks before the last frost"}]}
+{"id": "q30", "split": "test", "query": "adding air to a compost heap", "relevant": [{"path": "garden/compost.md", "contains": "Turn the pile every week"}]}
+{"id": "q31", "split": "test", "query": "picking beans for seed", "relevant": [{"path": "garden/seeds.md", "contains": "bean pods dry completely"}]}
+{"id": "q32", "split": "test", "query": "overnight cold proof for a loaf", "relevant": [{"path": "kitchen/sourdough.md", "contains": "Proof the shaped loaf in the fridge"}]}
+{"id": "q33", "split": "test", "query": "resting pasta dough before rolling", "relevant": [{"path": "kitchen/pasta.md", "contains": "Rest the dough wrapped"}]}
+{"id": "q34", "split": "test", "query": "choosing an isolation level", "relevant": [{"path": "databases/transactions.md", "contains": "Isolation levels"}]}
+{"id": "q35", "split": "test", "query": "index on two columns", "relevant": [{"path": "databases/indexes.md", "contains": "composite index"}]}
+{"id": "q36", "split": "test", "query": "image shimmering at the eyepiece", "relevant": [{"path": "astronomy/telescopes.md", "contains": "cool outside for half an hour"}]}
+{"id": "q37", "split": "test", "query": "seeing the rings of saturn", "relevant": [{"path": "astronomy/planets.md", "contains": "Saturn's rings"}]}
+{"id": "q38", "split": "test", "query": "writing clear test assertions", "relevant": [{"path": "code/testing.md", "contains": "assert on specific values"}]}
+{"id": "q39", "split": "test", "query": "viewing autumn leaves in kyoto", "relevant": [{"path": "travel/kyoto.md", "contains": "maple leaves"}]}
+{"id": "q40", "split": "test", "query": "what to compost from baking day", "relevant": [{"path": "garden/compost.md", "contains": "Kitchen scraps come from"}]}
