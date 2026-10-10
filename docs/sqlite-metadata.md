@@ -1,7 +1,7 @@
-# Stage 4: SQLite metadata persistence
+# SQLite metadata persistence
 
-`page_core.metadata` builds on the Stage 2 domain models and Stage 3 filesystem
-vault. Markdown files remain the sole source of note content. This stage adds
+`page_core.metadata` builds on the domain models and the filesystem
+vault. Markdown files remain the sole source of note content. This layer adds
 no Markdown parsing, link extraction, chunking, embeddings, vector indexing,
 API, or desktop integration.
 
@@ -9,8 +9,8 @@ API, or desktop integration.
 
 ```
 <vault>/
-  .page/vault.json                  existing Stage 3 manifest
-  .page/metadata/notes.sqlite3      generated Stage 4 metadata
+  .page/vault.json                  vault manifest
+  .page/metadata/notes.sqlite3      generated metadata
   **/*.md                          user-owned source files
 ```
 
@@ -87,17 +87,17 @@ with PersistentVault.open(Path("/absolute/path/to/vault")) as vault:
     assert renamed.created_at == note.created_at
 ```
 
-`PersistentVault.create(root, name)` uses Stage 3 manifest/adoption rules.
+`PersistentVault.create(root, name)` uses the filesystem vault's manifest/adoption rules.
 Create/open automatically reconcile existing files. The adapter exposes the
 existing read/create/update/move/rename/delete method shapes and delegates file
 mutations to `FileSystemVault`. Raw UTF-8, line endings, atomic saves, occupied-name
-checks, and content conflict checks retain Stage 3 behavior. Attaching persistence
+checks, and content conflict checks keep the filesystem vault's behavior. Attaching persistence
 to an existing filesystem instance preserves already-issued UUIDs for unregistered
 notes. Explicit creation always receives a new UUID, including at a retired path.
 
 `FileSystemVault` remains in-memory by default. Its identity allocation/restore
 hooks perform no I/O and validate mappings before replacing state. The optional
-listing error callback lets Stage 4 reject incomplete traversal; default Stage 3
+listing error callback lets the adapter reject incomplete traversal; the default
 listing behavior is unchanged. Persistent adapter snapshots are checked by their
 registered vault/UUID/path and source content; a persistent UUID never bypasses
 the existing content conflict checks.
@@ -114,7 +114,7 @@ Call `vault.reconcile()` after changes outside Page. It hashes raw bytes without
 parsing Markdown, then publishes a complete metadata snapshot transactionally.
 Traversal/read errors or detectable concurrent file changes abort reconciliation;
 previous notes are not silently marked missing after a failed scan. Invalid UTF-8
-files can have metadata, but reading them still raises Stage 3's unreadable-note
+files can have metadata, but reading them still raises the vault's unreadable-note
 error. `ReconcileResult` reports added, modified, renamed, missing, and unchanged
 counts. Unchanged records are not rewritten.
 
@@ -130,7 +130,7 @@ counts. Unchanged records are not rewritten.
 - Missing files become tombstones; repeated scans keep the first missing time.
   A file recreated after its predecessor was marked missing gets a new ID.
 - Delete/recreate and path swaps entirely between scans can be indistinguishable
-  from edits. Existing paths are authoritative; Stage 4 does not guess from inode
+  from edits. Existing paths are authoritative; Page does not guess from inode
   reuse or implement filesystem watching.
 
 Pure metadata deletion leaves source files alone; later reconciliation registers
@@ -149,7 +149,7 @@ metadata; source Markdown cannot reconstruct historical identity.
 
 ## Privacy and platform limits
 
-Stage 4 restricts `.page` and its metadata directory to `0700`, and the database
+Page restricts `.page` and its metadata directory to `0700`, and the database
 and any existing SQLite journal/WAL/shared-memory files to `0600`. New SQLite
 auxiliaries inherit the private database mode. Ownership, regular file type,
 and permissions are checked; symlinks and hard-linked cache files are rejected
@@ -158,16 +158,16 @@ replacement during transactions is rejected. Note permissions are unchanged.
 File checks during active connections use stat only, preserving SQLite's POSIX
 locks; permission changes require closing/reopening to tighten them safely.
 The vault root must be owned by this user and not writable by others. Path checks
-retain Stage 3's assumption that no hostile process with the same user's authority
+keep the filesystem vault's assumption that no hostile process with the same user's authority
 is swapping directories.
 
 Owner-only enforcement currently supports POSIX and is validated on macOS.
 Windows `chmod` does not enforce owner-only ACLs, so this adapter fails closed
-there pending implemented and tested Windows ACL support. Existing Stage 2/3
-behavior is unchanged; no Windows metadata behavior is claimed as verified.
+there pending implemented and tested Windows ACL support. The domain models and
+filesystem vault are unchanged; no Windows metadata behavior is claimed as verified.
 
 
-## Stage 8 derived vector cache
+## Derived vector cache
 
 Migration 3 adds `semantic_vectors` to the same private database, storing canonical
 chunk/note IDs, the model/chunker fingerprint, and normalized vector bytes.

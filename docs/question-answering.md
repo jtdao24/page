@@ -1,4 +1,4 @@
-# Stage 12: asking questions about your notes
+# Asking questions about your notes
 
 Page can answer questions from your notes using a language model, with numbered
 citations back to the passages it used. Gemini is the supported provider; Page Core
@@ -7,10 +7,10 @@ itself depends only on a small provider-neutral interface.
 ## How a question is answered
 
 1. **Retrieve.** Page Core brings the semantic index up to date with your saved notes
-   and finds the 10 most similar passages (Stage 8).
-2. **Optimize.** Stage 10's optimizer packs the most relevant of them into numbered,
+   and finds the 10 most similar passages ([semantic search](semantic-search.md)).
+2. **Optimize.** The [context optimizer](context-optimization.md) packs the most relevant of them into numbered,
    source-attributed context that fits your budget. It ranks by embedding similarity
-   without the Stage 9 reranker, which [evaluation](evaluation.md) showed does not
+   without the learned reranker, which [evaluation](evaluation.md) showed does not
    generalize.
 3. **Answer.** The model receives only that context and the question. It is told to
    answer only from the sources, cite them as `[n]`, and say when the notes don't

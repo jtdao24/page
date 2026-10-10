@@ -87,7 +87,7 @@ for source attribution, incremental indexing, API contracts and limitations.
 
 ## Neural reranker
 
-Stage 9's learned reranker reorders semantic search candidates. With the model
+The learned reranker reorders semantic search candidates. With the model
 prepared, retrain it and re-measure it on held-out queries:
 
 ```sh
@@ -100,30 +100,30 @@ dataset and current results.
 
 ## Context optimization
 
-Stage 10's `page_core.context.optimize_context` packs ranked passages into
+`page_core.context.optimize_context` packs ranked passages into
 source-attributed context that fits a token budget, dropping repeats and trimming
 oversized passages to exact excerpts. See [context optimization](context-optimization.md).
 
 ## Benchmark
 
-Stage 11 compares full context, embedding top-k and the Page optimizer on held-out
+The benchmark compares full context, embedding top-k and the Page optimizer on held-out
 questions:
 
 ```sh
-.venv/bin/python -m page_core.evaluation run   # writes benchmarks/results/stage11.*
+.venv/bin/python -m page_core.evaluation run   # writes benchmarks/results/evaluation.*
 ```
 
 See [evaluation](evaluation.md) for metrics, results and limits.
 
 ## Asking questions
 
-Stage 12 answers questions from your notes with Gemini and cited sources. Set
+Page answers questions from your notes with Gemini and cited sources. Set
 `GEMINI_API_KEY` (and optionally `PAGE_GEMINI_MODEL`) before `npm run tauri:dev`. See
 [question answering](question-answering.md) for setup, privacy and errors.
 
 ## MCP server
 
-Stage 13 serves a vault's search and optimized context to MCP clients:
+Page's MCP server serves a vault's search and optimized context to MCP clients:
 
 ```sh
 .venv/bin/python -m page_core.mcp_server --vault /path/to/vault
@@ -189,7 +189,7 @@ dependencies. Set `PAGE_PYTHON` to one absolute interpreter path to override it;
 relative paths, shell arguments and PATH fallback are refused. No dependency
 installation occurs at application startup.
 
-Stage 6 dependencies and matching lockfiles are operator-prepared; see
+Desktop dependencies and matching lockfiles are pinned; see
 [docs/desktop-integration.md](docs/desktop-integration.md) for their exact versions.
 Release builds run a bundled Python runtime instead. To build the installable app,
 see [packaging](packaging.md):

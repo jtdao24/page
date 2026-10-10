@@ -1,6 +1,6 @@
-"""Learned reranking of semantic search candidates (Stage 9).
+"""Learned reranking of semantic search candidates.
 
-A small multilayer perceptron reorders Stage 8's cosine-ranked passages using
+A small multilayer perceptron reorders semantic search's cosine-ranked passages using
 the baseline score plus lexical, passage-shape and knowledge-graph features.
 Training uses PyTorch; inference is plain Python on JSON weights, so loading a
 checkpoint never executes code and reranking never imports PyTorch.
@@ -69,7 +69,7 @@ def extract_features(query: str, hits: Sequence[SearchHit],
                      graph: GraphSnapshot) -> list[tuple[float, ...]]:
     """One feature row per candidate, in the given baseline order.
 
-    ``hits`` must be Stage 8 results: sorted by descending cosine score. Pure
+    ``hits`` must be semantic search results: sorted by descending cosine score. Pure
     function of its inputs; see FEATURE_NAMES for the meaning of each column.
     """
     if not isinstance(query, str):

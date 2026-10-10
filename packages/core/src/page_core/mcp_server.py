@@ -1,4 +1,4 @@
-"""MCP server exposing one vault's knowledge and context engine (Stage 13).
+"""MCP server exposing one vault's knowledge and context engine.
 
 ``python -m page_core.mcp_server --vault PATH`` serves read-only tools over
 stdio to MCP clients such as Claude Desktop or Claude Code. Notes are never
