@@ -62,7 +62,7 @@ class PersistentVault:
             raise ValueError("files and metadata must describe the same vault")
         self.files = files
         self.metadata = metadata
-        self._restore_ids(preserve_unregistered=True)
+        self._restore_ids()
 
     @classmethod
     def create(cls, root: Path, name: str):
@@ -87,12 +87,14 @@ class PersistentVault:
     def vault(self):
         return self.files.vault
 
-    def _restore_ids(self, *, preserve_unregistered: bool = False) -> None:
-        # Attaching persistence must keep already-issued Stage 3 UUIDs for
-        # notes not yet registered. Known retired IDs are never reused.
+    def _restore_ids(self) -> None:
+        # Keep already-issued Stage 3 UUIDs for notes not yet registered, on
+        # every refresh, not only when attaching. A registered path takes its
+        # stored ID, and known or retired IDs are never reused.
+        registered = {record.relative_path: record.id for record in self.metadata.list_notes()}
         identities = {path: identifier for path, identifier in self.files._ids.items()
-                      if preserve_unregistered and self.metadata.get(identifier) is None}
-        identities.update({record.relative_path: record.id for record in self.metadata.list_notes()})
+                      if path not in registered and self.metadata.get(identifier) is None}
+        identities.update(registered)
         self.files.restore_note_identities(identities)
 
     def list_note_paths(self) -> list[PurePosixPath]:

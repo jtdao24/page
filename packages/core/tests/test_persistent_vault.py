@@ -43,6 +43,16 @@ def test_attaching_metadata_preserves_an_already_issued_stage_three_id(fs_vault)
             assert vault.update_note(original, "updated").id == original.id
 
 
+def test_reading_one_note_keeps_other_already_issued_ids(fs_vault):
+    first = fs_vault.create_note(PurePosixPath("a.md"), "first")
+    second = fs_vault.create_note(PurePosixPath("b.md"), "second")
+    with MetadataRepository(fs_vault.vault) as metadata:
+        with PersistentVault(fs_vault, metadata) as vault:
+            assert vault.read_note(first.relative_path).id == first.id
+            assert vault.read_note(second.relative_path).id == second.id
+            assert vault.update_note(second, "updated").id == second.id
+
+
 def test_create_update_move_delete_and_reopen(persistent):
     root = persistent.vault.root_path
     first = persistent.create_note(PurePosixPath("folder/a.md"), "original\r\n")
