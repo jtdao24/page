@@ -141,7 +141,7 @@ nav { display: grid; gap: 6px; }
 .indexing-strip progress { flex: 1; height: 4px; accent-color: #738c5c; }
 .inline-error { color: #995c43; background: #f4e9df; padding: 12px; font-size: 11px; border-radius: 5px; line-height: 1.7; overflow-wrap: anywhere; }
 .inline-error button { color: inherit; text-decoration: underline; border: 0; background: none; font-size: inherit; }
-.modal { width: min(470px, calc(100vw - 32px)); margin: auto; padding: 28px; border: 1px solid #dce1ce; border-radius: 12px; color: #3f5438; background: #fafbf4; box-shadow: 0 20px 80px #29362235; }
+.modal { max-height: calc(100svh - 32px); overflow-y: auto; width: min(470px, calc(100vw - 32px)); margin: auto; padding: 28px; border: 1px solid #dce1ce; border-radius: 12px; color: #3f5438; background: #fafbf4; box-shadow: 0 20px 80px #29362235; }
 .modal::backdrop { background: #26302055; backdrop-filter: blur(4px); }
 .modal-heading { display: flex; align-items: center; justify-content: space-between; gap: 18px; }
 .modal-heading h2 { font: 27px/1.2 Georgia, serif; letter-spacing: -.6px; margin: 0; }

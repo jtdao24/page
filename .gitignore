@@ -45,6 +45,9 @@ desktop.ini
 .cache/
 tmp/
 
+# Generated Sites publication checkout (maintained in its own source repository)
+/sites/page-landing/
+
 # Local environment and secrets
 .env
 .env.*

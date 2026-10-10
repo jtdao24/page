@@ -135,3 +135,15 @@ text filters, recent additions, and a selected-note excerpt. Before connecting a
 vault, it shows a labeled sample library. The question composer saves an unsent
 draft locally; Gemini integration is planned and the send control is disabled.
 Vault connection and indexing controls are available in Vault settings.
+
+The Page landing page is available at `http://localhost:1420/landing.html`, with
+bold typography, an original book-and-paper hero, and a sample bookshelf. The
+dashboard remains at `/`. See [docs/landing-page.md](docs/landing-page.md) for
+source files, build behavior, and the private Sites publishing workflow.
+
+Account interfaces are bundled in the Tauri 2 frontend: `/login`, `/signup`, and
+`/forgot-password`, plus Profile & account settings in the workspace sidebar.
+Online authentication is not configured; all account requests remain unavailable,
+and local vault access never requires sign-in. See
+[docs/authentication-frontend.md](docs/authentication-frontend.md) for the provider
+interface, validation, navigation, and testing details.

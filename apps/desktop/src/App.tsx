@@ -3,8 +3,15 @@ import type { CSSProperties, ReactNode } from "react";
 import { bookAppearance, collectionOf, filterNotes, PREVIEW_NOTES } from "./library";
 import type { ContextNote } from "./library";
 import { useCore } from "./useCore";
+import { AccountSettings } from "./auth/AccountSettings";
+import { useAuth } from "./auth/AuthProvider";
+import { AuthContent, authPageCopy } from "./auth/AuthPage";
+import { authStatusLabel } from "./auth/service";
+import { resolveAuthRoute } from "./auth/routes";
+import type { AuthRoute } from "./auth/routes";
+import "./auth/auth.css";
 
-type IconName = "books" | "clock" | "search" | "plus" | "arrow" | "spark" | "settings" | "close" | "leaf" | "chevron";
+type IconName = "books" | "clock" | "search" | "plus" | "arrow" | "spark" | "settings" | "close" | "leaf" | "chevron" | "profile";
 function Icon({ name, size = 20 }: { name: IconName; size?: number }) {
   const paths: Record<IconName, ReactNode> = {
     books: <><path d="M4 4h4v16H4zM10 4h4v16h-4zM16 5l4-1 3 15-4 1z" /><path d="M4 8h4m2 8h4" /></>,
@@ -17,15 +24,16 @@ function Icon({ name, size = 20 }: { name: IconName; size?: number }) {
     close: <path d="m6 6 12 12M18 6 6 18" />,
     leaf: <><path d="M19 4C8 3 3 8 6 15s14 4 13-11Z" /><path d="M5 20 15 9" /></>,
     chevron: <path d="m9 6 6 6-6 6" />,
+    profile: <><circle cx="12" cy="8" r="4" /><path d="M4 21v-2a8 8 0 0 1 16 0v2" /></>,
   };
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor"
     strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]}</svg>;
 }
 
-function Modal({ title, children, onClose }: { title: string; children: ReactNode; onClose: () => void }) {
+function Modal({ title, children, onClose, className = "" }: { title: string; children: ReactNode; onClose: () => void; className?: string }) {
   const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => { ref.current?.showModal(); }, []);
-  return <dialog ref={ref} className="modal" aria-labelledby="modal-title" onCancel={onClose}
+  return <dialog ref={ref} className={`modal ${className}`} aria-labelledby="modal-title" onCancel={onClose}
     onClick={(event) => { if (event.target === event.currentTarget) {
       const bounds = event.currentTarget.getBoundingClientRect();
       if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) onClose();
@@ -58,12 +66,14 @@ function readDraft() {
 
 function App() {
   const core = useCore();
+  const auth = useAuth();
   const [view, setView] = useState<"library" | "recent">("library");
   const [query, setQuery] = useState("");
   const [collection, setCollection] = useState("All collections");
   const [shelfPage, setShelfPage] = useState(0);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [modal, setModal] = useState<"connect" | "add" | null>(null);
+  const [modal, setModal] = useState<"connect" | "add" | "account" | AuthRoute | null>(null);
+  const authRoute = resolveAuthRoute(modal ?? "");
   const [token, setToken] = useState("");
   const [draft, setDraft] = useState(readDraft);
   const [draftSaved, setDraftSaved] = useState(true);
@@ -100,6 +110,8 @@ function App() {
       </nav>
       <div className="sidebar-note"><Icon name="leaf" size={24} /><p>Good ideas deserve<br />a place to grow.</p><span>One page at a time.</span></div>
       <div className="sidebar-footer">
+        <button className="nav-item profile-button" aria-label="Profile and account settings" onClick={() => setModal("account")}><Icon name="profile" /><span>Profile & account</span></button>
+        <p className="profile-status">{authStatusLabel(auth.state)}</p>
         <button className="nav-item" aria-label="Vault settings" onClick={() => setModal("connect")}><Icon name="settings" /><span>Vault settings</span></button>
         <div className="connection-status"><span className={`status-dot${core.error ? " status-dot--error" : !preview ? " status-dot--live" : ""}`} />
           {core.error ? "Connection interrupted" : core.status?.state === "running" ? "Adding to your shelves…" : preview ? "Preview workspace" : "Connected to your vault"}</div>
@@ -167,7 +179,9 @@ function App() {
       </div>
     </main>
 
-    {modal === "connect" && <Modal title="Your vault" onClose={() => setModal(null)}>
+    {(modal === "connect" || modal === "account") && <Modal title="Workspace settings" onClose={() => setModal(null)}>
+      <nav className="settings-tabs" aria-label="Settings sections"><button type="button" aria-pressed={modal === "connect"} onClick={() => setModal("connect")}>Vault</button><button type="button" aria-pressed={modal === "account"} onClick={() => setModal("account")}>Account</button></nav>
+      {modal === "account" ? <AccountSettings onNavigate={setModal} /> : <>
       <p className="modal-description">Connect your Markdown vault to bring your own books to these shelves.</p>
       <form className="connection-form" onSubmit={(event) => { event.preventDefault(); core.connect(token); }}>
         <label htmlFor="session-token">Core session token</label><input id="session-token" type="password" autoComplete="off" value={token} placeholder="Paste your local service’s token" onChange={(event) => setToken(event.target.value)} />
@@ -182,6 +196,12 @@ function App() {
           <button className="text-button" onClick={() => { core.disconnect(); setToken(""); }}>Disconnect</button></div>
         {core.status.error && <p className="inline-error" role="alert">{core.status.error}</p>}
       </div>}
+      </>}
+    </Modal>}
+    {authRoute && <Modal key={authRoute} title={authPageCopy[authRoute].title} className="auth-dialog" onClose={() => setModal(null)}>
+      <p className="auth-subtitle">{authPageCopy[authRoute].subtitle}</p>
+      <AuthContent route={authRoute} onNavigate={setModal} onContinue={() => setModal(null)} />
+      <div className="auth-switch"><button className="text-button" onClick={() => setModal(null)}>Continue to local workspace →</button><br /><button className="text-button" onClick={() => setModal("account")}>Return to account settings</button></div>
     </Modal>}
     {modal === "add" && <Modal title="Make room for a new idea" onClose={() => setModal(null)}>
       <span className="add-illustration"><Icon name="books" size={40} /><Icon name="plus" size={20} /></span>
