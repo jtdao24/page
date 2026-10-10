@@ -21,6 +21,7 @@ from uuid import UUID
 
 from page_core.domain import Note, Vault
 from page_core.semantic import FINGERPRINT, Encoder, IndexReport, SearchHit, SemanticIndex, SentenceEncoder
+from page_core.context import ContextPackage, optimize_context
 from page_core.graph import GraphSnapshot, build_graph
 from page_core.metadata import (
     InvalidRenameError, MetadataSyncError, NoteMetadata, PersistentVault, ReconcileResult,
@@ -302,6 +303,26 @@ class LocalVaultService:
                 query, notes, {note.id: revision_of_note(note) for note in notes}, limit)
         except ValueError as exc:
             raise InvalidSearchError("invalid search input") from exc
+
+    def question_context(self, vault_id: UUID, question: str, budget: int,
+                         candidates: int = 10) -> ContextPackage:
+        """Stage 10 context for a question, ranked by Stage 8 cosine similarity.
+
+        Stage 11 found the Stage 9 reranker does not yet generalize, so it is not used.
+        """
+        session, notes = self._semantic_snapshot(vault_id)
+        if not isinstance(question, str) or not question.strip() or len(question) > 2000:
+            raise InvalidSearchError("invalid question")
+        graph = build_graph(vault_id, notes)
+        if not notes:
+            session.storage.metadata.replace_vectors(FINGERPRINT, [])
+            return optimize_context(question, (), graph, budget=budget)
+        try:
+            hits = SemanticIndex(session.storage.metadata, self._semantic_encoder()).search(
+                question, notes, {note.id: revision_of_note(note) for note in notes}, candidates)
+        except ValueError as exc:
+            raise InvalidSearchError("invalid question") from exc
+        return optimize_context(question, hits, graph, budget=budget)
 
     def get_graph(self, vault_id: UUID) -> GraphSnapshot:
         session = self._note_session(vault_id)

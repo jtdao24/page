@@ -9,8 +9,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use tauri::{AppHandle, Emitter, State, Webview};
 
 use crate::api::{
-    GraphResponse, IndexResponse, NoteResponse, NoteSummaryResponse, ReconcileResponse,
-    SearchResponse, VaultResponse,
+    AskResponse, GraphResponse, IndexResponse, NoteResponse, NoteSummaryResponse,
+    ReconcileResponse, SearchResponse, VaultResponse,
 };
 use crate::backend::{BackendManager, BackendStatus};
 use crate::error::DesktopError;
@@ -176,6 +176,19 @@ pub async fn semantic_search(
     ensure_main(&webview)?;
     let backend = Arc::clone(&state.backend);
     blocking(move || backend.client()?.search_vault(&vault_id, &query, limit)).await
+}
+
+#[tauri::command(rename_all = "snake_case")]
+pub async fn ask_question(
+    webview: Webview,
+    state: State<'_, AppState>,
+    vault_id: String,
+    question: String,
+    budget: usize,
+) -> Result<AskResponse, DesktopError> {
+    ensure_main(&webview)?;
+    let backend = Arc::clone(&state.backend);
+    blocking(move || backend.client()?.ask_question(&vault_id, &question, budget)).await
 }
 
 #[tauri::command(rename_all = "snake_case")]

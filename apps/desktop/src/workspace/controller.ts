@@ -725,6 +725,11 @@ export class WorkspaceController {
     return this.api.semanticSearch(vaultId, query, limit);
   }
 
+  /** Grounded question answering; the Ask panel owns response lifetimes. */
+  askVault(vaultId: string, question: string, budget: number) {
+    return this.api.askQuestion(vaultId, question, budget);
+  }
+
   indexVault(vaultId: string, rebuild = false) {
     return this.api.semanticIndex(vaultId, rebuild);
   }
