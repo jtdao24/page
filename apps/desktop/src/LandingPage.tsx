@@ -28,7 +28,6 @@ export default function LandingPage({ appHref = "/", macDownloadUrl, windowsDown
       <a className="page-wordmark" href="#top" aria-label="Page home">Page<span className="page-fold" aria-hidden="true" /></a>
       <nav aria-label="Landing page navigation">
         <a className="landing-nav-link" href="#mission">the mission</a><a className="landing-nav-link" href="#how-it-works">how it works</a>
-        <a className="landing-auth-link" href="/login/">Log In</a><a className="landing-auth-link landing-signup" href="/signup/">Sign Up</a>
         <a className="landing-open" href={appHref}>Open App <Arrow diagonal /></a>
         <a className="landing-outline" href="#download">Download <DownloadIcon /></a>
       </nav>
