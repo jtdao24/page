@@ -15,7 +15,8 @@ from pathlib import PurePosixPath
 DEFAULT_MAX_CHARS = 1200
 
 _HEADING = re.compile(r"^ {0,3}#{1,6}[ \t]+(.+?)[ \t#]*$")
-_FENCE = re.compile(r"^ {0,3}(`{3,}|~{3,})")
+# CommonMark fences: a backtick opener's info string may not contain backticks.
+_FENCE_OPEN = re.compile(r"^ {0,3}(?:(`{3,})[^`]*|(~{3,}).*)$")
 
 
 @dataclass(frozen=True, slots=True)
@@ -120,14 +121,14 @@ def _blocks(content: str) -> list[_Block]:
     blocks: list[_Block] = []
     heading: str | None = None
     block: _Block | None = None
-    fence: str | None = None
+    fence: re.Pattern[str] | None = None
     for position, line in lines[_front_matter_end(lines):]:
         end = position + len(line)
         bare = line.rstrip("\r\n")
         if fence is not None:
             assert block is not None
             block.end = end
-            if bare.strip().startswith(fence):
+            if fence.match(bare):
                 fence = None
             continue
         heading_match = _HEADING.match(bare)
@@ -142,9 +143,9 @@ def _blocks(content: str) -> list[_Block]:
                 blocks.append(block)
                 block = None
             continue
-        fence_match = _FENCE.match(bare)
+        fence_match = _FENCE_OPEN.match(bare)
         if fence_match:
-            fence = fence_match.group(1)[0] * 3
+            fence = _closing_fence(fence_match.group(1) or fence_match.group(2))
         if block:
             block.end = end
         else:
@@ -152,6 +153,15 @@ def _blocks(content: str) -> list[_Block]:
     if block:
         blocks.append(block)
     return blocks
+
+
+def _closing_fence(opener: str) -> re.Pattern[str]:
+    """Match a line that closes a fence opened by ``opener``.
+
+    The closer uses the same character, is at least as long as the opener,
+    and has nothing but whitespace after it.
+    """
+    return re.compile(rf"^ {{0,3}}{re.escape(opener[0])}{{{len(opener)},}}[ \t]*$")
 
 
 def _split_long(content: str, start: int, end: int, max_chars: int) -> list[tuple[int, int]]:

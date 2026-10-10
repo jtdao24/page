@@ -103,3 +103,35 @@ def test_embedding_text_adds_title_and_missing_heading() -> None:
 
     assert embedding_text(path, with_heading) == "Digital Logic\n\n## Maps\n\nKarnaugh."
     assert embedding_text(path, continued) == "Digital Logic\n\nMaps\n\nMore about maps."
+
+
+def test_longer_fence_is_not_closed_by_a_shorter_one() -> None:
+    content = "````md\n```\n\n# Not a heading\n\n```\n````\n\n# Real\n\nAfter.\n"
+
+    chunks = chunk_markdown(content)
+
+    assert [chunk.heading for chunk in chunks] == [None, "Real"]
+    assert chunks[0].text == content.split("\n\n# Real")[0]
+
+
+def test_fence_line_with_trailing_text_does_not_close() -> None:
+    content = "```\ncode\n```text\n\n# Still code\n```\n\n# Real\n"
+
+    chunks = chunk_markdown(content)
+
+    assert [chunk.heading for chunk in chunks] == [None, "Real"]
+    assert "# Still code" in chunks[0].text
+
+
+def test_fence_closes_only_with_the_same_character() -> None:
+    content = "~~~\n```\n\n# Still code\n~~~~\n\n# Real\n"
+
+    chunks = chunk_markdown(content)
+
+    assert [chunk.heading for chunk in chunks] == [None, "Real"]
+
+
+def test_longer_closing_fence_with_trailing_spaces_closes() -> None:
+    content = "```\ncode\n`````  \n\n# Real\n"
+
+    assert [chunk.heading for chunk in chunk_markdown(content)] == [None, "Real"]

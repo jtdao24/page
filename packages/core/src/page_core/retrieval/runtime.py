@@ -7,6 +7,7 @@ desktop backend or an agent integration runs; it has no FastAPI dependency.
 """
 
 import logging
+import math
 import threading
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -21,6 +22,18 @@ from page_core.retrieval.semantic import SemanticSearchResult, SemanticSearchSer
 from page_core.vault import FileSystemVault, NoteNotFoundError, VaultError
 
 logger = logging.getLogger(__name__)
+
+
+def validate_sync_interval(seconds: object) -> float:
+    """Return ``seconds`` if it is a finite number >= 0, else raise ``ValueError``.
+
+    ``0`` means sync only at startup and on request.
+    """
+    if isinstance(seconds, bool) or not isinstance(seconds, int | float):
+        raise ValueError(f"sync interval must be a number of seconds, got {seconds!r}")
+    if not math.isfinite(seconds) or seconds < 0:
+        raise ValueError(f"sync interval must be a finite number >= 0, got {seconds!r}")
+    return float(seconds)
 
 
 class RuntimeState(StrEnum):
@@ -70,7 +83,7 @@ class SearchRuntime:
         self._sync_vault = FileSystemVault.open(vault_root)
         self._vault_lock = threading.Lock()
         self._embedder_factory = embedder_factory
-        self._sync_interval = sync_interval
+        self._sync_interval = validate_sync_interval(sync_interval)
         self._state = RuntimeState.LOADING
         self._detail: str | None = None
         self._searchable = False

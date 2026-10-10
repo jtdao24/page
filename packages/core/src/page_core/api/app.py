@@ -30,7 +30,11 @@ from page_core.embeddings.encoder import (
     SentenceTransformerEmbedder,
 )
 from page_core.embeddings.index import METRIC, IndexIncompatibleError, SyncReport
-from page_core.retrieval.runtime import SearchRuntime, SearchUnavailableError
+from page_core.retrieval.runtime import (
+    SearchRuntime,
+    SearchUnavailableError,
+    validate_sync_interval,
+)
 from page_core.retrieval.semantic import QueryValidationError
 from page_core.vault import NoteNotFoundError, UnreadableNoteError, VaultError
 
@@ -53,6 +57,9 @@ class Settings:
     embedding_model: str = DEFAULT_MODEL
     sync_interval: float = 30.0
 
+    def __post_init__(self) -> None:
+        validate_sync_interval(self.sync_interval)
+
     @classmethod
     def from_env(cls) -> "Settings":
         vault = os.environ.get("PAGE_VAULT_PATH")
@@ -61,8 +68,17 @@ class Settings:
         return cls(
             vault_path=Path(vault).expanduser(),
             embedding_model=os.environ.get("PAGE_EMBEDDING_MODEL", DEFAULT_MODEL),
-            sync_interval=float(os.environ.get("PAGE_INDEX_SYNC_INTERVAL", "30")),
+            sync_interval=parse_sync_interval(os.environ.get("PAGE_INDEX_SYNC_INTERVAL", "30")),
         )
+
+
+def parse_sync_interval(value: str) -> float:
+    """Parse a sync interval from text, rejecting anything but a finite number >= 0."""
+    try:
+        seconds = float(value)
+    except ValueError as exc:
+        raise ValueError(f"sync interval must be a number of seconds, got {value!r}") from exc
+    return validate_sync_interval(seconds)
 
 
 def _error(status: int, code: str, message: str) -> HTTPException:
@@ -168,7 +184,7 @@ def create_app(
                     score=match.score,
                     excerpt=match.excerpt,
                     chunk=ChunkLocation(
-                        id=match.chunk_id,
+                        id=str(match.chunk_id),
                         ordinal=match.chunk_ordinal,
                         start_byte=match.start_byte,
                         end_byte=match.end_byte,

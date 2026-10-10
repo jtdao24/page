@@ -6,8 +6,8 @@ export interface SemanticSearchRequest {
 }
 
 export interface ChunkLocation {
-  /** Vector ID of the chunk in the index. */
-  id: number;
+  /** Stable UUID of the chunk; kept across edits to other parts of the note. */
+  id: string;
   ordinal: number;
   /** The chunk is the note's UTF-8 bytes [start_byte, end_byte). */
   start_byte: number;

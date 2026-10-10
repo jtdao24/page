@@ -36,8 +36,8 @@ class SemanticSearchRequest(BaseModel):
 
 
 class ChunkLocation(BaseModel):
-    id: int
-    """Vector ID of the chunk in the index."""
+    id: str
+    """Stable UUID of the chunk; kept across edits to other parts of the note."""
     ordinal: int
     """Position of the chunk within the note, from 0."""
     start_byte: int

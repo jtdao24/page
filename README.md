@@ -73,10 +73,11 @@ python -m pip install -r packages/core/requirements-dev.txt -e packages/core
 
 `packages/core/requirements-dev.txt` pins the exact versions of the `dev` dependency
 group and the runtime dependencies declared in `packages/core/pyproject.toml`. To run
-the API with real embeddings, also install the extras (this pulls in PyTorch):
+the API with real embeddings, install the pinned API and embedding dependencies instead
+(this pulls in PyTorch):
 
 ```sh
-python -m pip install -e "packages/core[api,embeddings]"
+python -m pip install -r packages/core/requirements-app.txt -e "packages/core[api,embeddings]"
 ```
 
 ## Python tests
@@ -141,9 +142,11 @@ with `npm run tauri -w @page/desktop -- icon`. Only the desktop icons listed in
    [docs/filesystem-vault.md](docs/filesystem-vault.md). Note IDs are kept in memory
    only until Stage 4.
 
-Semantic retrieval (built from the "Phase 2, Stage 5" brief, whose numbering differs from
-this list): `page_core.embeddings` chunks notes and keeps a persistent FAISS + SQLite
+Ahead of plan, not yet a numbered stage here: semantic retrieval, planned as Stage 8.
+It was written before Stages 4–7 and should be merged only once they are approved.
+`page_core.embeddings` chunks notes and keeps a persistent FAISS + SQLite
 index, `page_core.retrieval` answers natural-language queries with note-level results,
 `page_core.api` serves them over HTTP, and the desktop app has a search panel and note
 view. It is specified in [docs/semantic-retrieval.md](docs/semantic-retrieval.md).
-Persistent note IDs (Stage 4) and launching the API from Tauri (Stage 6) are still to do.
+Persistent note IDs (Stage 4), the full API (Stage 5), launching the API from Tauri
+(Stage 6) and links and graph (Stage 7) are still to do.

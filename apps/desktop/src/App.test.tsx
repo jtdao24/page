@@ -17,7 +17,7 @@ function hit(path: string, score: number, excerpt: string): SemanticSearchHit {
     title: path.replace(/\.md$/, ""),
     score,
     excerpt,
-    chunk: { id: 1, ordinal: 1, start_byte: start, end_byte: new TextEncoder().encode(content).length - 1, heading: "Logic" },
+    chunk: { id: "00000000-0000-4000-8000-000000000001", ordinal: 1, start_byte: start, end_byte: new TextEncoder().encode(content).length - 1, heading: "Logic" },
     matched_chunks: 2,
   };
 }

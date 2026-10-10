@@ -45,7 +45,8 @@ class NoteMatch:
     title: str
     score: float
     excerpt: str
-    chunk_id: int
+    chunk_id: UUID
+    """Stable ID of the best-matching chunk; see page_core.embeddings.index."""
     chunk_ordinal: int
     start_byte: int
     end_byte: int
@@ -140,7 +141,7 @@ class SemanticSearchService:
                 title=hit.path.stem,
                 score=hit.score,
                 excerpt=_excerpt(hit.text),
-                chunk_id=hit.vector_id,
+                chunk_id=hit.chunk_id,
                 chunk_ordinal=hit.ordinal,
                 start_byte=hit.start_byte,
                 end_byte=hit.end_byte,

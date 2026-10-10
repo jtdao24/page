@@ -7,9 +7,16 @@ from pathlib import Path
 
 import uvicorn
 
-from page_core.api.app import DEFAULT_HOST, DEFAULT_PORT, Settings, create_app
+from page_core.api.app import DEFAULT_HOST, DEFAULT_PORT, Settings, create_app, parse_sync_interval
 from page_core.embeddings.encoder import DEFAULT_MODEL
 from page_core.vault import FileSystemVault, VaultNotFoundError
+
+
+def _sync_interval(value: str) -> float:
+    try:
+        return parse_sync_interval(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(str(exc)) from exc
 
 
 def main() -> None:
@@ -32,8 +39,8 @@ def main() -> None:
     )
     parser.add_argument(
         "--sync-interval",
-        type=float,
-        default=float(os.environ.get("PAGE_INDEX_SYNC_INTERVAL", "30")),
+        type=_sync_interval,
+        default=os.environ.get("PAGE_INDEX_SYNC_INTERVAL", "30"),
         help="seconds between index syncs; 0 syncs only at startup and on request",
     )
     parser.add_argument("--port", type=int, default=int(os.environ.get("PAGE_API_PORT", DEFAULT_PORT)))

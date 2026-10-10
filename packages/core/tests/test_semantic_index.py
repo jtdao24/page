@@ -5,7 +5,7 @@ import numpy as np
 import pytest
 
 from embedding_fakes import KeywordEmbedder
-from page_core.embeddings import IndexIncompatibleError, SemanticIndex
+from page_core.embeddings import IndexIncompatibleError, IndexStorageError, SemanticIndex
 from page_core.embeddings.index import DB_FILE, FAISS_FILE
 from page_core.vault import FileSystemVault
 
@@ -223,3 +223,118 @@ def test_empty_vault_gives_an_empty_index(
 
     assert index.sync(fs_vault).added == 0
     assert index.search(_query(embedder, "anything"), 5) == []
+
+
+# --- Storage safety and recovery --------------------------------------------
+
+
+def test_symlinked_index_folder_is_refused(
+    fs_vault: FileSystemVault, embedder: KeywordEmbedder, tmp_path: Path, symlinks: None
+) -> None:
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    os.symlink(outside, fs_vault.vault.root_path / ".page" / "index", target_is_directory=True)
+
+    with pytest.raises(IndexStorageError):
+        SemanticIndex.for_vault(fs_vault.vault.root_path, embedder)
+    assert list(outside.iterdir()) == []
+
+
+def test_symlinked_database_file_is_refused(
+    fs_vault: FileSystemVault, embedder: KeywordEmbedder, tmp_path: Path, symlinks: None
+) -> None:
+    outside = tmp_path / "outside.sqlite"
+    outside.write_bytes(b"")
+    folder = fs_vault.vault.root_path / ".page" / "index"
+    folder.mkdir()
+    os.symlink(outside, folder / DB_FILE)
+
+    with pytest.raises(IndexStorageError):
+        SemanticIndex.for_vault(fs_vault.vault.root_path, embedder)
+    assert outside.read_bytes() == b""
+
+
+@pytest.mark.parametrize("name", [DB_FILE, FAISS_FILE])
+def test_index_entry_that_is_not_a_file_is_refused(
+    fs_vault: FileSystemVault, embedder: KeywordEmbedder, name: str
+) -> None:
+    SemanticIndex.for_vault(fs_vault.vault.root_path, embedder).close()
+    entry = fs_vault.vault.root_path / ".page" / "index" / name
+    entry.unlink()
+    entry.mkdir()
+
+    with pytest.raises(IndexStorageError):
+        SemanticIndex.for_vault(fs_vault.vault.root_path, embedder)
+    assert entry.is_dir()
+
+
+def test_corrupt_database_is_discarded_and_rebuilt(
+    notes: FileSystemVault, embedder: KeywordEmbedder
+) -> None:
+    first = SemanticIndex.for_vault(notes.vault.root_path, embedder)
+    first.sync(notes)
+    first.close()
+    (notes.vault.root_path / ".page" / "index" / DB_FILE).write_bytes(b"not a database" * 100)
+
+    index = SemanticIndex.for_vault(notes.vault.root_path, embedder)
+
+    assert index.reset_reason and "database was unreadable" in index.reset_reason
+    assert not index.loaded_from_disk
+    assert index.sync(notes).added == 3
+    assert index.search(_query(embedder, "yeast"), 1)[0].path == P("baking.md")
+
+
+# --- Chunk identity ------------------------------------------------------------
+
+
+def _chunk_ids(index: SemanticIndex, embedder: KeywordEmbedder, path: str) -> dict[str, object]:
+    hits = index.search(_query(embedder, "logic bread planet garden"), 100)
+    return {hit.heading: hit.chunk_id for hit in hits if hit.path == P(path)}
+
+
+def test_chunk_ids_survive_edits_to_other_chunks_and_restarts(
+    fs_vault: FileSystemVault, embedder: KeywordEmbedder
+) -> None:
+    _write(fs_vault, "mixed.md", "# A\n\nLogic gates.\n\n# B\n\nBread dough.\n\n# C\n\nPlanet orbit.\n")
+    index = SemanticIndex.for_vault(fs_vault.vault.root_path, embedder)
+    index.sync(fs_vault)
+    before = _chunk_ids(index, embedder, "mixed.md")
+    embedder.calls.clear()
+
+    _write(fs_vault, "mixed.md", "# A\n\nLogic gates.\n\n# B\n\nGarden soil.\n\n# C\n\nPlanet orbit.\n")
+    _bump_mtime(fs_vault, "mixed.md")
+    assert index.sync(fs_vault).updated == 1
+    # Only the changed chunk was embedded.
+    assert embedder.embedded_texts() == ["mixed\n\n# B\n\nGarden soil."]
+
+    after = _chunk_ids(index, embedder, "mixed.md")
+    assert after["A"] == before["A"]
+    assert after["C"] == before["C"]
+    assert after["B"] != before["B"]
+    hit = next(h for h in index.search(_query(embedder, "planet"), 10) if h.heading == "C")
+    content = (fs_vault.vault.root_path / "mixed.md").read_bytes()
+    assert content[hit.start_byte : hit.end_byte].decode() == hit.text
+
+    index.close()
+    reopened = SemanticIndex.for_vault(fs_vault.vault.root_path, KeywordEmbedder())
+    assert _chunk_ids(reopened, embedder, "mixed.md") == after
+
+
+def test_moved_chunks_keep_ids_and_new_offsets(
+    fs_vault: FileSystemVault, embedder: KeywordEmbedder
+) -> None:
+    _write(fs_vault, "note.md", "# A\n\nLogic.\n\n# B\n\nBread.\n")
+    index = SemanticIndex.for_vault(fs_vault.vault.root_path, embedder)
+    index.sync(fs_vault)
+    before = _chunk_ids(index, embedder, "note.md")
+
+    _write(fs_vault, "note.md", "# Intro\n\nPlanet.\n\n# B\n\nBread.\n\n# A\n\nLogic.\n")
+    _bump_mtime(fs_vault, "note.md")
+    index.sync(fs_vault)
+
+    hits = {h.heading: h for h in index.search(_query(embedder, "logic bread planet"), 10)}
+    assert hits["A"].chunk_id == before["A"] and hits["B"].chunk_id == before["B"]
+    assert (hits["Intro"].ordinal, hits["B"].ordinal, hits["A"].ordinal) == (0, 1, 2)
+    content = (fs_vault.vault.root_path / "note.md").read_bytes()
+    for hit in hits.values():
+        assert content[hit.start_byte : hit.end_byte].decode() == hit.text
