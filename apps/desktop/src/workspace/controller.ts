@@ -707,6 +707,14 @@ export class WorkspaceController {
   }
 
   /** Graph reads share the protected bridge; the graph view owns response lifetimes. */
+  searchVault(vaultId: string, query: string, limit = 10) {
+    return this.api.semanticSearch(vaultId, query, limit);
+  }
+
+  indexVault(vaultId: string, rebuild = false) {
+    return this.api.semanticIndex(vaultId, rebuild);
+  }
+
   readGraph(vaultId: string) {
     return this.api.graphRead(vaultId);
   }

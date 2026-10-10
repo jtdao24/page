@@ -23,12 +23,14 @@ from starlette.responses import JSONResponse, Response
 from starlette.routing import Match
 
 import page_core
+from page_core.semantic import FINGERPRINT
 from page_core.domain import Note
 from page_core.metadata import NoteMetadata, ReconcileResult
 
 from .errors import ApiError, error_response, field_error, translate, validation_error
 from .schemas import (
     GraphResponse, GraphNodeResponse, GraphLinkResponse,
+    IndexRequest, IndexResponse, SearchRequest, SearchResponse, SearchHitResponse,
     REQUEST_MODELS, CreateNoteRequest, CreateVaultRequest, ErrorResponse, HealthResponse,
     MoveNoteRequest, NoteResponse, NoteSummaryResponse, OpenVaultRequest, ReconcileRequest,
     ReconcileResponse, UpdateNoteRequest, VaultResponse, parse_note_path, parse_root, parse_uuid,
@@ -289,6 +291,28 @@ def create_app(*, session_token: str | None = None) -> FastAPI:
         renames = {parse_uuid(key): parse_note_path(value) for key, value in body.known_renames.items()}
         result = await _run(request, lambda service: service.reconcile(identifier, renames))
         return _json(_reconcile_response(result))
+
+    @app.post(f"{PREFIX}/vaults/{{vault_id}}/index", response_model=IndexResponse,
+              responses=_errors(404, 409, 415, 422, 503), openapi_extra=_json_body(IndexRequest))
+    async def index_vault(request: Request, vault_id: str) -> Response:
+        identifier = _path_uuid("vault_id", vault_id)
+        body = await _body(request, IndexRequest)
+        result = await _run(request, lambda service: service.index_vault(identifier, body.rebuild))
+        return _json(IndexResponse(vault_id=str(identifier), model=FINGERPRINT,
+            notes=result.notes, chunks=result.chunks, generated=result.generated,
+            reused=result.reused, removed=result.removed))
+
+    @app.post(f"{PREFIX}/vaults/{{vault_id}}/search", response_model=SearchResponse,
+              responses=_errors(404, 409, 415, 422, 503), openapi_extra=_json_body(SearchRequest))
+    async def search_vault(request: Request, vault_id: str) -> Response:
+        identifier = _path_uuid("vault_id", vault_id)
+        body = await _body(request, SearchRequest)
+        hits = await _run(request, lambda service: service.search_vault(identifier, body.query, body.limit))
+        return _json(SearchResponse(vault_id=str(identifier), model=FINGERPRINT,
+            hits=[SearchHitResponse(chunk_id=str(hit.chunk.id), note_id=str(hit.chunk.note_id),
+                relative_path=str(hit.relative_path), revision=hit.revision, ordinal=hit.chunk.ordinal,
+                text=hit.chunk.text, start_byte=hit.chunk.start_byte, end_byte=hit.chunk.end_byte,
+                start_line=hit.start_line, end_line=hit.end_line, score=hit.score) for hit in hits]))
 
     @app.get(f"{PREFIX}/vaults/{{vault_id}}/graph", response_model=GraphResponse,
              responses=_errors(404, 409, 422, 503))

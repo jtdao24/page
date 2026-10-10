@@ -9,7 +9,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use tauri::{AppHandle, Emitter, State, Webview};
 
 use crate::api::{
-    GraphResponse, NoteResponse, NoteSummaryResponse, ReconcileResponse, VaultResponse,
+    GraphResponse, IndexResponse, NoteResponse, NoteSummaryResponse, ReconcileResponse,
+    SearchResponse, VaultResponse,
 };
 use crate::backend::{BackendManager, BackendStatus};
 use crate::error::DesktopError;
@@ -150,6 +151,31 @@ pub async fn vault_reconcile(
     ensure_main(&webview)?;
     let backend = Arc::clone(&state.backend);
     blocking(move || backend.client()?.reconcile(&vault_id, &known_renames)).await
+}
+
+#[tauri::command(rename_all = "snake_case")]
+pub async fn semantic_index(
+    webview: Webview,
+    state: State<'_, AppState>,
+    vault_id: String,
+    rebuild: bool,
+) -> Result<IndexResponse, DesktopError> {
+    ensure_main(&webview)?;
+    let backend = Arc::clone(&state.backend);
+    blocking(move || backend.client()?.index_vault(&vault_id, rebuild)).await
+}
+
+#[tauri::command(rename_all = "snake_case")]
+pub async fn semantic_search(
+    webview: Webview,
+    state: State<'_, AppState>,
+    vault_id: String,
+    query: String,
+    limit: usize,
+) -> Result<SearchResponse, DesktopError> {
+    ensure_main(&webview)?;
+    let backend = Arc::clone(&state.backend);
+    blocking(move || backend.client()?.search_vault(&vault_id, &query, limit)).await
 }
 
 #[tauri::command(rename_all = "snake_case")]

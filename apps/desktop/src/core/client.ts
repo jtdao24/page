@@ -1,5 +1,5 @@
 import type {
-  GraphResponse,
+  GraphResponse, IndexResponse, SearchResponse,
   BackendStatus,
   DesktopPreferences,
   NoteResponse,
@@ -20,6 +20,8 @@ export interface PageClient {
   vaultGet(vaultId: string): Promise<VaultResponse>;
   vaultClose(vaultId: string): Promise<void>;
   vaultReconcile(vaultId: string, knownRenames: Record<string, string>): Promise<ReconcileResponse>;
+  semanticIndex(vaultId: string, rebuild: boolean): Promise<IndexResponse>;
+  semanticSearch(vaultId: string, query: string, limit: number): Promise<SearchResponse>;
   graphRead(vaultId: string): Promise<GraphResponse>;
   noteList(vaultId: string): Promise<NoteSummaryResponse[]>;
   noteRead(vaultId: string, noteId: string): Promise<NoteResponse>;
@@ -65,6 +67,8 @@ export function createPageClient(invoke: InvokeFn, listen: ListenFn): PageClient
     vaultClose: (vaultId) => call("vault_close", { vault_id: vaultId }),
     vaultReconcile: (vaultId, knownRenames) =>
       call("vault_reconcile", { vault_id: vaultId, known_renames: knownRenames }),
+    semanticIndex: (vaultId, rebuild) => call("semantic_index", { vault_id: vaultId, rebuild }),
+    semanticSearch: (vaultId, query, limit) => call("semantic_search", { vault_id: vaultId, query, limit }),
     graphRead: (vaultId) => call("graph_read", { vault_id: vaultId }),
     noteList: (vaultId) => call("note_list", { vault_id: vaultId }),
     noteRead: (vaultId, noteId) => call("note_read", { vault_id: vaultId, note_id: noteId }),

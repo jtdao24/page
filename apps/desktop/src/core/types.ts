@@ -115,3 +115,15 @@ export interface GraphResponse {
   nodes: GraphNodeResponse[];
   links: GraphLinkResponse[];
 }
+
+
+export interface IndexResponse {
+  vault_id: string; model: string; notes: number; chunks: number;
+  generated: number; reused: number; removed: number;
+}
+export interface SearchHitResponse {
+  chunk_id: string; note_id: string; relative_path: string; revision: string;
+  ordinal: number; text: string; start_byte: number; end_byte: number;
+  start_line: number; end_line: number; score: number;
+}
+export interface SearchResponse { vault_id: string; model: string; hits: SearchHitResponse[] }

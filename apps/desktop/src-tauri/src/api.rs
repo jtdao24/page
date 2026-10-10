@@ -158,6 +158,63 @@ struct MoveNoteRequest<'a> {
     relative_path: &'a str,
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct IndexResponse {
+    pub vault_id: String,
+    pub model: String,
+    pub notes: usize,
+    pub chunks: usize,
+    pub generated: usize,
+    pub reused: usize,
+    pub removed: usize,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SearchHitResponse {
+    pub chunk_id: String,
+    pub note_id: String,
+    pub relative_path: String,
+    pub revision: String,
+    pub ordinal: usize,
+    pub text: String,
+    pub start_byte: usize,
+    pub end_byte: usize,
+    pub start_line: usize,
+    pub end_line: usize,
+    pub score: f64,
+}
+
+impl fmt::Debug for SearchHitResponse {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("SearchHitResponse")
+            .field("chunk_id", &self.chunk_id)
+            .field("note_id", &self.note_id)
+            .field("score", &self.score)
+            .finish_non_exhaustive()
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SearchResponse {
+    pub vault_id: String,
+    pub model: String,
+    pub hits: Vec<SearchHitResponse>,
+}
+
+#[derive(Serialize)]
+struct IndexRequest {
+    rebuild: bool,
+}
+
+#[derive(Serialize)]
+struct SearchRequest<'a> {
+    query: &'a str,
+    limit: usize,
+}
+
 struct Reply {
     etags: Vec<HeaderValue>,
     body: Vec<u8>,
@@ -353,6 +410,77 @@ impl CoreApiClient {
             }
         }
         Ok(notes)
+    }
+
+    pub fn index_vault(
+        &self,
+        vault_id: &str,
+        rebuild: bool,
+    ) -> Result<IndexResponse, DesktopError> {
+        let route = format!("/vaults/{}/index", uuid(vault_id)?);
+        // Derived indexing is repeatable and never mutates Markdown. A timeout
+        // may leave a completed cache, but it cannot create a note uncertainty.
+        let reply = self.send(
+            Method::POST,
+            &route,
+            Some(json(&IndexRequest { rebuild })?),
+            None,
+            Some(Duration::from_secs(300)),
+            Effect::Read,
+            200,
+        )?;
+        let response: IndexResponse = decode(&reply.body, Effect::Read)?;
+        if response.vault_id != vault_id
+            || response.model.is_empty()
+            || response.generated.checked_add(response.reused) != Some(response.chunks)
+        {
+            return Err(invalid_response(Effect::Read));
+        }
+        Ok(response)
+    }
+
+    pub fn search_vault(
+        &self,
+        vault_id: &str,
+        query: &str,
+        limit: usize,
+    ) -> Result<SearchResponse, DesktopError> {
+        let route = format!("/vaults/{}/search", uuid(vault_id)?);
+        let reply = self.send(
+            Method::POST,
+            &route,
+            Some(json(&SearchRequest { query, limit })?),
+            None,
+            Some(Duration::from_secs(300)),
+            Effect::Read,
+            200,
+        )?;
+        let response: SearchResponse = decode(&reply.body, Effect::Read)?;
+        let ids: BTreeSet<&str> = response
+            .hits
+            .iter()
+            .map(|hit| hit.chunk_id.as_str())
+            .collect();
+        if response.vault_id != vault_id
+            || response.model.is_empty()
+            || response.hits.len() > limit
+            || ids.len() != response.hits.len()
+            || response.hits.iter().any(|hit| {
+                !is_canonical_uuid(&hit.chunk_id)
+                    || !is_canonical_uuid(&hit.note_id)
+                    || !is_revision(&hit.revision)
+                    || hit.relative_path.is_empty()
+                    || hit.start_byte >= hit.end_byte
+                    || hit.end_byte - hit.start_byte != hit.text.len()
+                    || hit.start_line == 0
+                    || hit.end_line < hit.start_line
+                    || !hit.score.is_finite()
+                    || !(-1.0..=1.0).contains(&hit.score)
+            })
+        {
+            return Err(invalid_response(Effect::Read));
+        }
+        Ok(response)
     }
 
     pub fn read_graph(&self, vault_id: &str) -> Result<GraphResponse, DesktopError> {
@@ -857,6 +985,73 @@ mod tests {
         assert!(CoreApiClient::new(8765, &format!("{}!", &TOKEN[..42])).is_err());
         let client = CoreApiClient::new(8765, TOKEN).unwrap();
         assert!(!format!("{client:?}").contains(TOKEN));
+    }
+
+    #[test]
+    fn semantic_commands_validate_sources_and_use_fixed_routes() {
+        let valid = json!({"vault_id": VAULT, "model": "pinned", "hits": [{
+            "chunk_id": NOTE, "note_id": NOTE, "relative_path": "a.md", "revision": revision(),
+            "ordinal": 0, "text": "secret note text", "start_byte": 0, "end_byte": 16,
+            "start_line": 1, "end_line": 1, "score": 0.9
+        }]});
+        let mut foreign = valid.clone();
+        foreign["vault_id"] = json!(NOTE);
+        let mut invalid_range = valid.clone();
+        invalid_range["hits"][0]["end_byte"] = json!(1);
+        let mut invalid_score = valid.clone();
+        invalid_score["hits"][0]["score"] = json!(2);
+        let mut invalid_id = valid.clone();
+        invalid_id["hits"][0]["note_id"] = json!("bad");
+        let mut invalid_revision = valid.clone();
+        invalid_revision["hits"][0]["revision"] = json!("bad");
+        let (results, requests) = with_server(
+            vec![
+                valid,
+                foreign,
+                invalid_range,
+                invalid_score,
+                invalid_id,
+                invalid_revision,
+            ]
+            .iter()
+            .map(|body| json_response("200 OK", body))
+            .collect(),
+            |client| {
+                (0..6)
+                    .map(|_| client.search_vault(VAULT, "meaning", 10))
+                    .collect::<Vec<_>>()
+            },
+        );
+        assert_eq!(results[0].as_ref().unwrap().hits[0].note_id, NOTE);
+        assert!(!format!("{:?}", results[0]).contains("secret note text"));
+        for result in &results[1..] {
+            assert_eq!(result.as_ref().unwrap_err().code, "invalid_response");
+        }
+        for request in requests {
+            assert_common(&request, "POST", &format!("/api/v1/vaults/{VAULT}/search"));
+            assert_eq!(request.json(), json!({"query": "meaning", "limit": 10}));
+        }
+        let report = json!({"vault_id": VAULT, "model": "pinned", "notes": 1, "chunks": 2,
+            "generated": 1, "reused": 1, "removed": 0});
+        let mut invalid = report.clone();
+        invalid["generated"] = json!(3);
+        let (results, requests) = with_server(
+            vec![report, invalid]
+                .iter()
+                .map(|body| json_response("200 OK", body))
+                .collect(),
+            |client| {
+                (0..2)
+                    .map(|_| client.index_vault(VAULT, true))
+                    .collect::<Vec<_>>()
+            },
+        );
+        assert_eq!(results[0].as_ref().unwrap().chunks, 2);
+        assert_eq!(results[1].as_ref().unwrap_err().code, "invalid_response");
+        for request in requests {
+            assert_common(&request, "POST", &format!("/api/v1/vaults/{VAULT}/index"));
+            assert_eq!(request.json(), json!({"rebuild":true}));
+        }
     }
 
     #[test]

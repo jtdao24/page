@@ -208,3 +208,45 @@ class GraphResponse(BaseModel):
     vault_id: str
     nodes: list[GraphNodeResponse]
     links: list[GraphLinkResponse]
+
+
+class IndexRequest(_Request):
+    rebuild: bool = False
+
+
+class SearchRequest(_Request):
+    query: Annotated[VaultName, Field(max_length=2000)]
+    limit: Annotated[int, Field(ge=1, le=50)] = 10
+
+
+class IndexResponse(_Response):
+    vault_id: str
+    model: str
+    notes: int
+    chunks: int
+    generated: int
+    reused: int
+    removed: int
+
+
+class SearchHitResponse(_Response):
+    chunk_id: str
+    note_id: str
+    relative_path: str
+    revision: str
+    ordinal: int
+    text: str
+    start_byte: int
+    end_byte: int
+    start_line: int
+    end_line: int
+    score: float
+
+
+class SearchResponse(_Response):
+    vault_id: str
+    model: str
+    hits: list[SearchHitResponse]
+
+
+REQUEST_MODELS += (IndexRequest, SearchRequest)
