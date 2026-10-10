@@ -50,7 +50,17 @@ class _Storage:
 async def _submit[T](executor: ThreadPoolExecutor, job: Callable[[], T]) -> T:
     # Shielded: a disconnecting client never cancels submitted storage work,
     # and nothing is retried.
-    return await asyncio.shield(asyncio.wrap_future(executor.submit(job)))
+    future = asyncio.wrap_future(executor.submit(job))
+    future.add_done_callback(_observe)
+    return await asyncio.shield(future)
+
+
+def _observe(future: "asyncio.Future[object]") -> None:
+    # If the waiting request was cancelled, nobody reads this future's result.
+    # Retrieve its exception so asyncio never logs the unsanitized error text;
+    # requests that are still waiting report errors through the API as usual.
+    if not future.cancelled():
+        future.exception()
 
 
 @asynccontextmanager

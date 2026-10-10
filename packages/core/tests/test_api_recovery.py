@@ -344,6 +344,7 @@ def test_unrelated_corrupt_record_blocks_operations_before_mutation(client: Test
     requests = [
         ("GET", notes_url(vault), None, {}),
         ("GET", notes_url(vault, healthy["id"]), None, {}),
+        ("POST", notes_url(vault), {"relative_path": "new.md", "content": "new"}, {}),
         ("PUT", notes_url(vault, healthy["id"]), {"content": "changed"}, if_match(healthy["revision"])),
         ("POST", f"{notes_url(vault, healthy['id'])}/move", {"relative_path": "moved.md"},
          if_match(healthy["revision"])),

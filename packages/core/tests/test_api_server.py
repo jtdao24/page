@@ -1,3 +1,5 @@
+import asyncio
+import gc
 import http.client
 import json
 import os
@@ -6,11 +8,15 @@ import signal
 import socket
 import subprocess
 import sys
+import threading
 import time
 from collections.abc import Iterator
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
 import pytest
+
+from page_core.api.app import _submit
 
 pytestmark = pytest.mark.skipif(os.name != "posix", reason="signal-based shutdown is exercised on POSIX")
 
@@ -113,3 +119,27 @@ def test_occupied_port_fails_without_fallback() -> None:
     assert process.returncode == 1
     assert stdout == ""
     assert f"127.0.0.1:{port}" in stderr
+
+
+def test_cancelled_storage_job_failure_is_never_logged_by_asyncio() -> None:
+    reported: list[dict[str, object]] = []
+    release = threading.Event()
+
+    def job() -> None:
+        release.wait(5)
+        raise RuntimeError("secret note text")
+
+    async def scenario() -> None:
+        asyncio.get_running_loop().set_exception_handler(lambda loop, context: reported.append(context))
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            waiting = asyncio.ensure_future(_submit(executor, job))
+            await asyncio.sleep(0.05)
+            waiting.cancel()
+            release.set()
+            await asyncio.sleep(0.2)
+        gc.collect()
+        await asyncio.sleep(0)
+
+    asyncio.run(scenario())
+
+    assert reported == []

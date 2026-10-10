@@ -265,6 +265,9 @@ class LocalVaultService:
 
     def create_note(self, vault_id: UUID, path: PurePosixPath, content: str) -> Note:
         session = self._note_session(vault_id)
+        # Decode every stored record first, like the other mutations do through
+        # _current, so corrupt metadata is reported before any file is written.
+        session.storage.metadata.list_notes()
         return self._mutate(session, lambda: session.storage.create_note(path, content))
 
     def update_note(self, vault_id: UUID, note_id: UUID, revision: str, content: str) -> Note:
