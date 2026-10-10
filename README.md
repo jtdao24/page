@@ -43,6 +43,9 @@ relationships between notes and semantic search, you can now ask questions about
 notes with Gemini: Page sends only the most relevant passages, within a token budget
 you choose, and the answer cites the notes it used.
 
+AI agents such as Claude Code can use the same context engine through Page's MCP
+server, which finds and budgets the relevant passages from your notes, with sources.
+
 ## Availability
 
 The current desktop workflow is validated on macOS. Packaged downloads are not

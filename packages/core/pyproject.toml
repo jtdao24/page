@@ -13,6 +13,7 @@ dependencies = [
     "uvicorn>=0.54,<0.55",
     "sentence-transformers>=5.7,<6",
     "faiss-cpu>=1.15,<2",
+    "mcp>=2.3,<3",
 ]
 
 [dependency-groups]

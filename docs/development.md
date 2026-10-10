@@ -10,8 +10,8 @@ Several interfaces share one engine:
 - **Page Desktop** (`apps/desktop`): Tauri 2 shell with a React + TypeScript frontend.
 - **Page Core** (`packages/core`): Python package for knowledge processing, retrieval
   and context selection. It runs on its own, without the desktop app.
-- **Page Integrations** (`integrations/`): planned adapters, such as MCP, that expose
-  Page Core to external tools.
+- **Page Integrations**: an MCP server (`page_core.mcp_server`) exposes Page Core to AI
+  agents; `integrations/` is reserved for future editor integrations.
 
 Notes stay as plain Markdown files that the user owns. The engine will not depend on any
 particular LLM provider.
@@ -20,7 +20,7 @@ particular LLM provider.
 
 | Area     | Tools                                                |
 | -------- | ---------------------------------------------------- |
-| Core     | Python 3.12, FastAPI, Sentence Transformers, FAISS, PyTorch, pytest |
+| Core     | Python 3.12, FastAPI, Sentence Transformers, FAISS, PyTorch, MCP SDK, pytest |
 | Desktop  | Tauri 2 (Rust), React 19, TypeScript 6 (strict), Vite 8, Tailwind CSS 4 |
 | Tooling  | npm workspaces, ESLint, Vitest, rustfmt              |
 
@@ -29,7 +29,7 @@ particular LLM provider.
 ```
 apps/desktop/         Desktop app (React frontend in src/, Tauri shell in src-tauri/)
 packages/core/        page-core Python package (src layout, import name page_core)
-integrations/mcp/     Reserved for the MCP integration
+integrations/mcp/     Pointer to the MCP server in page-core
 training/             Reserved for model training code
 benchmarks/           Reserved for evaluation and benchmarks
 docs/                 Project documentation (domain models, filesystem vault, SQLite metadata, local API)
@@ -119,6 +119,16 @@ See [evaluation](evaluation.md) for metrics, results and limits.
 Stage 12 answers questions from your notes with Gemini and cited sources. Set
 `GEMINI_API_KEY` (and optionally `PAGE_GEMINI_MODEL`) before `npm run tauri:dev`. See
 [question answering](question-answering.md) for setup, privacy and errors.
+
+## MCP server
+
+Stage 13 serves a vault's search and optimized context to MCP clients:
+
+```sh
+.venv/bin/python -m page_core.mcp_server --vault /path/to/vault
+```
+
+See [MCP integration](mcp.md) for tools and client setup.
 
 ## Python tests
 
