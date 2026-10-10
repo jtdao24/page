@@ -8,7 +8,7 @@
 .graph-controls button:hover { background: var(--workspace-hover); }
 .graph-controls output { min-width: 37px; text-align: center; font-size: 10px; color: var(--workspace-muted); }
 .graph-controls .graph-fit { padding: 0 8px; margin-left: 6px; font-size: 10px; }
-.graph-viewport { height: clamp(390px, 62vh, 660px); position: relative; overflow: hidden; touch-action: none; cursor: grab; background: radial-gradient(ellipse at center, color-mix(in srgb, var(--workspace-sage) 25%, transparent), transparent 65%), radial-gradient(circle, color-mix(in srgb, var(--workspace-edge) 25%, transparent) 1px, transparent 1px); background-size: auto, 22px 22px; }
+.graph-viewport { height: clamp(390px, 62vh, 660px); position: relative; overflow: hidden; touch-action: none; cursor: grab; background: radial-gradient(ellipse at center, color-mix(in srgb, var(--workspace-selection) 25%, transparent), transparent 65%), radial-gradient(circle, color-mix(in srgb, var(--workspace-edge) 25%, transparent) 1px, transparent 1px); background-size: auto, 22px 22px; }
 .graph-viewport:active { cursor: grabbing; }
 .graph-world { position: absolute; left: 50%; top: 50%; transform-origin: center; }
 .graph-connections { position: absolute; inset: 0; pointer-events: none; overflow: visible; }
@@ -24,7 +24,7 @@
 .graph-canvas-label { position: absolute; bottom: 14px; right: 16px; pointer-events: none; font-size: 8px; letter-spacing: 1.5px; color: var(--workspace-muted); }
 .graph-legend { display: flex; align-items: center; flex-wrap: wrap; gap: 5px; padding: 11px 14px 0; border-top: 1px solid var(--workspace-border); }
 .graph-legend button { display: inline-flex; align-items: center; gap: 6px; border: 1px solid transparent; border-radius: 4px; background: transparent; color: var(--workspace-muted); padding: 5px 7px; font-size: 10px; }
-.graph-legend button[aria-pressed="true"] { border-color: var(--workspace-border); background: var(--workspace-sage); color: var(--workspace-accent); }
+.graph-legend button[aria-pressed="true"] { border-color: var(--workspace-border); background: var(--workspace-selection); color: var(--workspace-accent); }
 .graph-legend button > span { width: 6px; height: 6px; border-radius: 50%; }
 .graph-help { margin: 8px 20px 13px; color: var(--workspace-muted); font-size: 10px; line-height: 1.6; }
 .graph-empty { display: flex; align-items: center; justify-content: center; flex-direction: column; height: 100%; padding: 30px; text-align: center; }

@@ -9,10 +9,10 @@ preview is preserved in `GraphWorkspace.tsx`, with its original styles isolated
 in `graph-index.css` and `workspace.css`. Its ingestion service remains separate
 from the Stage 6 backend. The landing export serves this preview at `/app/`.
 
-The workspace uses a parchment and tan palette with forest green selected tabs,
-sage navigation highlights, and warm ink for text. Shared colors live in the
-`--workspace-*` tokens in `workspace.css`; graph collections use a separate
-earth-tone palette in `graph.ts`.
+The workspace uses paper surfaces with blue selected tabs, pale blue navigation
+highlights, and navy ink for text. Shared colors live in `palette.css`, with
+`--workspace-*` aliases in `workspace.css`; graph collections use a separate
+blue palette in `graph.ts`.
 
 Graph, sidebar toggle, search, add context, profile, and vault settings buttons
 sit in a compact row at the top of the sidebar, above the vault selector and

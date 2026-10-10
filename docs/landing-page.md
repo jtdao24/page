@@ -1,6 +1,7 @@
 # Page download website
 
-The landing page reuses the app's pale beige, tan, sage, and forest green palette.
+The landing page reuses the app's warm ivory, pale blue, and navy palette, defined
+in `apps/desktop/src/palette.css` and shared across the frontend entry points.
 Large sans-serif headlines, open spacing, a book-and-paper hero, and pill buttons
 continue the visual direction inspired by notacareerfair.com. The copy, imagery,
 and interactive graph are Page's own.
@@ -35,9 +36,11 @@ with `PAGE_MAC_APP=/absolute/path/Page.app npm run landing:export`. It checks th
 bundle's executable architecture, archives the complete app with `ditto` (preserving
 macOS bundle metadata), and writes:
 
-- `downloads/Page-macos-arm64.zip`
+- `downloads/Page-macos-arm64-<build-id>.zip` (the build ID comes from the archive's SHA-256)
 - `downloads/manifest.json`: archive size, SHA-256, generation time, and platform.
 
+Each different archive gets its own download URL to avoid reusing a cached
+older build. The export updates the landing button and manifest to that archive.
 Rebuild the desktop app before exporting when its frontend has changed. Exporting
 uses the existing bundle; it does not compile Rust or install dependencies. Build
 output and downloads are ignored by Git.

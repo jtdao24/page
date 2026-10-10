@@ -1,7 +1,7 @@
 import { collectionOf } from "./library";
 import type { ContextNote } from "./library";
 
-const COLORS = ["#526d4c", "#7f8c56", "#a78648", "#a36b4c", "#557b72", "#897359"];
+const COLORS = ["#365f88", "#567ca2", "#7293b1", "#426c85", "#6a819a", "#4d6587"];
 export function collectionColor(name: string) {
   const hash = Array.from(name).reduce((value, character) => (value * 31 + character.charCodeAt(0)) >>> 0, 0);
   return COLORS[hash % COLORS.length];

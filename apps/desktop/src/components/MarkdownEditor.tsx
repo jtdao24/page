@@ -7,13 +7,13 @@ import { useEffect, useRef } from "react";
 import type { LineSeparator } from "../workspace/text";
 
 const syntaxColors: Record<string, string> = {
-  "#404740": "#a8a8a8", "#708": "#c4a7e7", "#219": "#b39af6",
-  "#164": "#a3be8c", "#a11": "#ebbcba", "#e40": "#f6c177",
-  "#00f": "#8fbcbb", "#30a": "#c4a7e7", "#085": "#a3be8c",
-  "#167": "#9ccfd8", "#256": "#8fbcbb", "#00c": "#9ccfd8",
+  "#404740": "#53677a", "#708": "#355d83", "#219": "#294f75",
+  "#164": "#426f73", "#a11": "#805443", "#e40": "#8b632f",
+  "#00f": "#3d688a", "#30a": "#355d83", "#085": "#426f73",
+  "#167": "#446b80", "#256": "#3d688a", "#00c": "#446b80",
 };
-const darkHighlightStyle = HighlightStyle.define(defaultHighlightStyle.specs.map((spec) => ({
-  ...spec, ...(typeof spec.color === "string" ? { color: syntaxColors[spec.color] ?? "#d4d4d4" } : {}),
+const bookHighlightStyle = HighlightStyle.define(defaultHighlightStyle.specs.map((spec) => ({
+  ...spec, ...(typeof spec.color === "string" ? { color: syntaxColors[spec.color] ?? "#223a50" } : {}),
 })));
 
 export interface MarkdownEditorProps {
@@ -84,9 +84,9 @@ export function MarkdownEditor({ documentKey, initialContent, separator, readOnl
       drawSelection(),
       highlightActiveLine(),
       EditorView.lineWrapping,
-      EditorView.darkTheme.of(true),
+      EditorView.darkTheme.of(false),
       markdown(),
-      syntaxHighlighting(darkHighlightStyle, { fallback: true }),
+      syntaxHighlighting(bookHighlightStyle, { fallback: true }),
       keymap.of([...defaultKeymap, ...historyKeymap]),
       configuration.current.of([
         EditorView.contentAttributes.of({ "aria-label": options.label }),

@@ -1,5 +1,5 @@
 // Export the landing page as a standalone static website. No hosting service required.
-import { cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
@@ -21,13 +21,16 @@ mkdirSync(path.join(output, "app"), { recursive: true });
 cpSync(path.join(build, "graph.html"), path.join(output, "app/index.html"));
 const downloads = path.join(output, "downloads");
 mkdirSync(downloads, { recursive: true });
-const filename = "Page-macos-arm64.zip";
-const archive = path.join(downloads, filename);
-execFileSync("ditto", ["-c", "-k", "--sequesterRsrc", "--keepParent", app, archive]);
-const bytes = readFileSync(archive);
+const temporaryArchive = path.join(downloads, ".Page-macos-arm64.zip");
+execFileSync("ditto", ["-c", "-k", "--sequesterRsrc", "--keepParent", app, temporaryArchive]);
+const bytes = readFileSync(temporaryArchive);
+const sha256 = createHash("sha256").update(bytes).digest("hex");
+const buildId = sha256.slice(0, 12);
+const filename = `Page-macos-arm64-${buildId}.zip`;
+renameSync(temporaryArchive, path.join(downloads, filename));
 writeFileSync(path.join(downloads, "manifest.json"), JSON.stringify({
-  filename, platform: "macOS", architecture: "arm64", channel: "development",
-  bytes: bytes.length, sha256: createHash("sha256").update(bytes).digest("hex"),
+  filename, build_id: buildId, platform: "macOS", architecture: "arm64", channel: "development",
+  bytes: bytes.length, sha256,
   created_at: new Date().toISOString(), core_bundled: false,
 }, null, 2) + "\n");
 const landing = readFileSync(path.join(build, "landing.html"), "utf8")

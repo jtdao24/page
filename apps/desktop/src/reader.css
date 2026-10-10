@@ -4,7 +4,7 @@
 .entry-header h1 { margin: 0; color: var(--workspace-ink); font-size: 24px; line-height: 1.35; font-weight: 600; letter-spacing: -.5px; overflow-wrap: anywhere; }
 .entry-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
 .entry-actions button { padding: 7px 9px; border: 1px solid var(--workspace-border); border-radius: 4px; color: var(--workspace-accent); background: var(--workspace-surface); font-size: 10px; }
-.entry-actions button:hover, .entry-actions button[aria-pressed="true"] { background: var(--workspace-sage); }
+.entry-actions button:hover, .entry-actions button[aria-pressed="true"] { background: var(--workspace-selection); }
 .entry-provenance { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; padding: 14px 0 19px; border-bottom: 1px solid var(--workspace-border); font-size: 10px; color: var(--workspace-muted); }
 .entry-provenance > span { overflow-wrap: anywhere; }
 .entry-document-layout { display: grid; grid-template-columns: minmax(0, 1fr) 180px; gap: 36px; padding-top: 28px; }
@@ -13,7 +13,7 @@
 .entry-outline > h2 { font-size: 11px; font-weight: 500; color: var(--workspace-accent); margin: 0 0 13px; }
 .entry-outline nav { display: grid; gap: 3px; }
 .entry-outline button { border: 0; background: transparent; color: var(--workspace-muted); text-align: left; font-size: 11px; padding: 6px 4px; line-height: 1.5; border-radius: 3px; overflow-wrap: anywhere; }
-.entry-outline button:hover { background: var(--workspace-sage); }
+.entry-outline button:hover { background: var(--workspace-selection); }
 .entry-outline button.is-subsection { padding-left: 12px; }
 .entry-outline nav > span { font-size: 10px; color: var(--workspace-muted); }
 .reader-markdown { font: 17px/1.85 Georgia, "Times New Roman", serif; color: var(--workspace-text); overflow-wrap: anywhere; }

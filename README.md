@@ -16,7 +16,7 @@ the files remain the source of truth.
 
 - **Browse your vault.** Navigate nested folders and switch between open vaults.
 - **Write in Markdown.** Edit with syntax highlighting, undo and redo, and a dark
-  interface with subtle violet accents.
+   paper-toned interface with navy and muted blue accents.
 - **Save when you're ready.** Save explicitly with the button or Cmd+S. Page asks
   what to do with an unsaved draft before you leave it.
 - **Organize your notes.** Create notes, rename them, move them between folders,
@@ -49,7 +49,7 @@ For setup instructions, see [Developing Page](docs/development.md).
 
 This branch also retains Page's download website and experimental graph workspace.
 Run `npm run dev` and visit `/landing.html` for the landing page or `/graph.html`
-for the beige-and-green graph, reading tabs, and split panes. The default `/` and
+for the blue-and-paper graph, reading tabs, and split panes. The default `/` and
 Tauri window use the Stage 6 editing workspace described above. The graph preview's
 optional ingestion service remains separate from the Stage 6 core process.
 

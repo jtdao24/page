@@ -8,7 +8,7 @@ visual layout on October 10, 2026. Backend integration is verified on macOS 26.6
 there with `storage_unavailable`. Python distribution belongs to Stage 14.
 
 The workspace uses an Obsidian-inspired dark palette, compact Files sidebar,
-collapsible navigation ribbon, a single document tab and violet editor accents.
+collapsible navigation ribbon, a single document tab and blue editor accents.
 Hiding Files preserves the current editor, selection, undo history and draft.
 
 ## Boundaries and commands
