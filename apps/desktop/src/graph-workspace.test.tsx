@@ -4,7 +4,8 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 import { entryGraph } from "./graph";
-import { collectionOf, PREVIEW_NOTES } from "./library";
+import { collectionOf, folderOf, PREVIEW_NOTES } from "./library";
+import type { ContextNote } from "./library";
 import { noteHeadings } from "./noteReader";
 
 const core = vi.hoisted(() => ({ session: null as string | null, notes: null as typeof PREVIEW_NOTES | null,
@@ -17,6 +18,10 @@ beforeEach(() => {
 });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); localStorage.clear(); });
 const panel = (title: string) => within(screen.getByRole("tabpanel", { name: title }));
+async function readFromSidebar(note: ContextNote, user: ReturnType<typeof userEvent.setup>) {
+  await user.selectOptions(screen.getByRole("combobox", { name: "Switch folder" }), folderOf(note));
+  await user.click(screen.getByRole("button", { name: `Read ${note.title}` }));
+}
 const dragData = () => ({ effectAllowed: "none", dropEffect: "none", setData: vi.fn() });
 function dropInPane(title: string, side: "left" | "right") {
   const dataTransfer = dragData();
@@ -31,7 +36,7 @@ describe("split workspace", () => {
   it.each(["left", "right"] as const)("drags an entry to the %s side while keeping the graph visible", async (side) => {
     const user = userEvent.setup(); render(<App />);
     const note = PREVIEW_NOTES[0];
-    await user.click(screen.getByRole("button", { name: `Read ${note.title}` }));
+    await readFromSidebar(note, user);
     const originalPanel = screen.getByRole("tabpanel", { name: note.title });
     originalPanel.scrollTop = 120;
     await user.click(panel(note.title).getByRole("button", { name: "Markdown source" }));
@@ -47,8 +52,8 @@ describe("split workspace", () => {
   it("switches independently, opens new entries in the focused pane and reuses entries across panes", async () => {
     const user = userEvent.setup(); render(<App />);
     const [a, b, c] = PREVIEW_NOTES;
-    await user.click(screen.getByRole("button", { name: `Read ${a.title}` }));
-    await user.click(screen.getByRole("button", { name: `Read ${b.title}` }));
+    await readFromSidebar(a, user);
+    await readFromSidebar(b, user);
     dropInPane(b.title, "right");
     await user.click(screen.getByRole("tab", { name: "Graph" }));
     expect(panel(b.title).getByText(b.excerpt)).toBeTruthy();
@@ -57,20 +62,20 @@ describe("split workspace", () => {
     const right = within(screen.getByRole("tablist", { name: "Right pane tabs" }));
     expect(left.getByRole("tab", { name: c.title })).toBeTruthy();
     await user.click(screen.getByRole("tab", { name: b.title }));
-    await user.click(screen.getByRole("button", { name: `Read ${a.title}` }));
+    await readFromSidebar(a, user);
     expect(left.getByRole("tab", { name: a.title }).getAttribute("aria-selected")).toBe("true");
     expect(right.getByRole("tab", { name: b.title }).getAttribute("aria-selected")).toBe("true");
     expect(screen.getAllByRole("tab")).toHaveLength(4);
     await user.click(screen.getByRole("tab", { name: b.title }));
     // Opening a new entry from the sidebar targets the selected right pane.
-    await user.click(screen.getByRole("button", { name: `Read ${PREVIEW_NOTES[3].title}` }));
+    await readFromSidebar(PREVIEW_NOTES[3], user);
     expect(right.getByRole("tab", { name: PREVIEW_NOTES[3].title })).toBeTruthy();
   });
   it("moves tabs via a tab strip and collapses a pane when its last tab moves back", async () => {
     const user = userEvent.setup(); render(<App />);
     const [a, b] = PREVIEW_NOTES;
-    await user.click(screen.getByRole("button", { name: `Read ${a.title}` }));
-    await user.click(screen.getByRole("button", { name: `Read ${b.title}` }));
+    await readFromSidebar(a, user);
+    await readFromSidebar(b, user);
     dropInPane(b.title, "right");
     const dataTransfer = dragData();
     fireEvent.dragStart(screen.getByRole("tab", { name: a.title }), { dataTransfer });
@@ -85,12 +90,12 @@ describe("split workspace", () => {
   it("collapses either empty pane on close and never closes the graph", async () => {
     const user = userEvent.setup(); render(<App />);
     const note = PREVIEW_NOTES[0];
-    await user.click(screen.getByRole("button", { name: `Read ${note.title}` }));
+    await readFromSidebar(note, user);
     dropInPane(note.title, "left");
     await user.click(screen.getByRole("button", { name: `Close ${note.title} tab` }));
     expect(screen.getByRole("tablist", { name: "Workspace tabs" })).toBeTruthy();
     expect(screen.getAllByRole("tab")).toHaveLength(1);
-    await user.click(screen.getByRole("button", { name: `Read ${note.title}` }));
+    await readFromSidebar(note, user);
     dropInPane(note.title, "right");
     await user.click(screen.getByRole("button", { name: `Close ${note.title} tab` }));
     expect(screen.getByRole("tablist", { name: "Workspace tabs" })).toBeTruthy();
@@ -100,8 +105,8 @@ describe("split workspace", () => {
     const user = userEvent.setup(); render(<App />);
     expect((screen.getByRole("button", { name: "Split active tab to right" }) as HTMLButtonElement).disabled).toBe(true);
     const [a, b] = PREVIEW_NOTES;
-    await user.click(screen.getByRole("button", { name: `Read ${a.title}` }));
-    await user.click(screen.getByRole("button", { name: `Read ${b.title}` }));
+    await readFromSidebar(a, user);
+    await readFromSidebar(b, user);
     screen.getByRole("button", { name: "Split active tab to right" }).focus();
     await user.keyboard("{Enter}");
     await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("tab", { name: b.title })));
@@ -117,7 +122,7 @@ describe("split workspace", () => {
   it("cancels drags and ignores external or old-session drops", async () => {
     const user = userEvent.setup(); const app = render(<App />);
     const note = PREVIEW_NOTES[0];
-    await user.click(screen.getByRole("button", { name: `Read ${note.title}` }));
+    await readFromSidebar(note, user);
     const tab = screen.getByRole("tab", { name: note.title });
     const dataTransfer = dragData();
     fireEvent.dragStart(tab, { dataTransfer });
@@ -137,7 +142,7 @@ describe("split workspace", () => {
     let finish: (response: Response) => void = () => {};
     const fetch = vi.spyOn(globalThis, "fetch").mockImplementation(() => new Promise<Response>((resolve) => { finish = resolve; }));
     const user = userEvent.setup(); render(<App />);
-    await user.click(screen.getByRole("button", { name: `Read ${note.title}` }));
+    await readFromSidebar(note, user);
     dropInPane(note.title, "right");
     expect(fetch.mock.calls[0][1]?.signal?.aborted).toBe(false);
     await act(async () => finish(new Response(JSON.stringify({ note: { ...note, content: "# Full entry\n\nStill the same request." } }))));
@@ -151,7 +156,7 @@ describe("split workspace", () => {
     await user.type(screen.getByRole("searchbox"), "creative");
     await user.click(screen.getByRole("button", { name: "Zoom in" }));
     const canvas = screen.getByRole("group", { name: "Graph canvas" });
-    await user.click(screen.getByRole("button", { name: `Read ${PREVIEW_NOTES[0].title}` }));
+    await readFromSidebar(PREVIEW_NOTES[0], user);
     dropInPane("Graph", "right");
     expect(screen.getByRole("group", { name: "Graph canvas" })).toBe(canvas);
     expect((screen.getByRole("searchbox") as HTMLInputElement).value).toBe("creative");
@@ -228,7 +233,7 @@ describe("workspace tabs", () => {
     await user.type(screen.getByRole("searchbox"), "creative");
     await user.click(screen.getByRole("button", { name: "Open Creative connections" }));
     await user.click(screen.getByRole("button", { name: "Markdown source" }));
-    await user.click(screen.getByRole("button", { name: `Read ${PREVIEW_NOTES[0].title}` }));
+    await readFromSidebar(PREVIEW_NOTES[0], user);
     await user.click(screen.getByRole("tab", { name: "Creative connections" }));
     expect(panel("Creative connections").getByLabelText("Markdown source").textContent).toContain("# Creative connections");
     await user.click(screen.getByRole("tab", { name: "Graph" }));
@@ -239,8 +244,8 @@ describe("workspace tabs", () => {
     const user = userEvent.setup();
     render(<App />);
     const [a, b] = PREVIEW_NOTES;
-    await user.click(screen.getByRole("button", { name: `Read ${a.title}` }));
-    await user.click(screen.getByRole("button", { name: `Read ${b.title}` }));
+    await readFromSidebar(a, user);
+    await readFromSidebar(b, user);
     await user.click(screen.getByRole("button", { name: `Close ${a.title} tab` }));
     expect(screen.getByRole("tab", { name: b.title }).getAttribute("aria-selected")).toBe("true");
     await user.click(screen.getByRole("button", { name: `Close ${b.title} tab` }));
@@ -255,7 +260,7 @@ describe("workspace tabs", () => {
     screen.getByRole("button", { name: `Open ${a.title}` }).focus();
     await user.keyboard("{Enter}");
     await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("tab", { name: a.title })));
-    await user.click(screen.getByRole("button", { name: `Read ${b.title}` }));
+    await readFromSidebar(b, user);
     const graph = screen.getByRole("tab", { name: "Graph" });
     await user.click(graph);
     await user.keyboard("{End}");
@@ -345,8 +350,8 @@ describe("full note content in tabs", () => {
       return new Response(JSON.stringify({ note: { ...note, content: "# Same\n\n## Section\n\nA footnote[^1].\n\n[^1]: A reference." } }));
     });
     const user = userEvent.setup(); render(<App />);
-    await user.click(screen.getByRole("button", { name: `Read ${a.title}` })); await screen.findByRole("heading", { name: "Section" });
-    await user.click(screen.getByRole("button", { name: `Read ${b.title}` })); await screen.findByRole("heading", { name: "Section" });
+    await readFromSidebar(a, user); await screen.findByRole("heading", { name: "Section" });
+    await readFromSidebar(b, user); await screen.findByRole("heading", { name: "Section" });
     const ids = Array.from(document.querySelectorAll("[id]")).map((element) => element.id);
     expect(new Set(ids).size).toBe(ids.length);
     const scroll = vi.spyOn(HTMLElement.prototype, "scrollIntoView").mockImplementation(() => {});
@@ -359,6 +364,76 @@ describe("full note content in tabs", () => {
     expect(noteHeadings("Title\n=====\n\n```md\n# Not a heading\n```\n\n## Same\n\n## Same")).toEqual([
       { id: "page-section-1", title: "Title", level: 1 }, { id: "page-section-8", title: "Same", level: 2 }, { id: "page-section-10", title: "Same", level: 2 },
     ]);
+  });
+});
+
+describe("sidebar folders", () => {
+  it("switches the file list without changing graph filters or an open reader", async () => {
+    const user = userEvent.setup(); render(<App />);
+    const sidebar = within(screen.getByRole("complementary", { name: "Vault navigation" }));
+    const switcher = sidebar.getByRole("combobox", { name: "Switch folder" });
+    expect((switcher as HTMLSelectElement).value).toBe("Ideas");
+    expect(sidebar.getAllByRole("button", { name: /^Read / })).toHaveLength(3);
+    await user.type(screen.getByRole("searchbox"), "creative");
+    await user.selectOptions(switcher, "Projects");
+    expect(sidebar.getAllByRole("button", { name: /^Read / })).toHaveLength(2);
+    expect(sidebar.queryByRole("button", { name: `Read ${PREVIEW_NOTES[0].title}` })).toBeNull();
+    expect(screen.getAllByRole("button", { name: /^Open / })).toHaveLength(1);
+    const note = PREVIEW_NOTES[1];
+    await user.click(sidebar.getByRole("button", { name: `Read ${note.title}` }));
+    await user.click(panel(note.title).getByRole("button", { name: "Markdown source" }));
+    const original = screen.getByRole("tabpanel", { name: note.title });
+    await user.selectOptions(switcher, "Ideas");
+    expect(screen.getByRole("tabpanel", { name: note.title })).toBe(original);
+    expect(panel(note.title).getByLabelText("Markdown source")).toBeTruthy();
+    await user.click(screen.getByRole("tab", { name: "Graph" }));
+    expect((screen.getByRole("searchbox") as HTMLInputElement).value).toBe("creative");
+  });
+  it("distinguishes the vault root, a Notes folder, and nested folders with direct files only", async () => {
+    core.notes = [
+      { ...PREVIEW_NOTES[0], path: "Welcome.md", title: "Welcome" },
+      { ...PREVIEW_NOTES[1], path: "Notes/Other.md", title: "Other" },
+      { ...PREVIEW_NOTES[2], path: "Projects/Research/Field notes.md", title: "Field notes" },
+    ];
+    const user = userEvent.setup(); render(<App />);
+    const sidebar = within(screen.getByRole("complementary", { name: "Vault navigation" }));
+    const switcher = sidebar.getByRole("combobox", { name: "Switch folder" });
+    expect((switcher as HTMLSelectElement).value).toBe("");
+    expect(sidebar.getAllByRole("button", { name: /^Read / })).toHaveLength(1);
+    expect(sidebar.getByRole("button", { name: "Read Welcome" }).textContent).toBe("Welcome.md");
+    expect(within(switcher).getAllByRole("option").map((option) => option.getAttribute("value"))).toEqual(["", "Notes", "Projects", "Projects/Research"]);
+    await user.selectOptions(switcher, "Notes");
+    expect(sidebar.getByRole("button", { name: "Read Other" })).toBeTruthy();
+    expect(sidebar.queryByRole("button", { name: "Read Welcome" })).toBeNull();
+    await user.selectOptions(switcher, "Projects");
+    expect(sidebar.getByText(/No Markdown files in this folder/)).toBeTruthy();
+    expect(sidebar.queryByRole("button", { name: "Read Field notes" })).toBeNull();
+    await user.selectOptions(switcher, "Projects/Research");
+    expect(sidebar.getByRole("button", { name: "Read Field notes" }).textContent).toBe("Field notes.md");
+  });
+  it("falls back when a folder disappears and resets the folder for a new vault", async () => {
+    core.notes = [PREVIEW_NOTES[0], PREVIEW_NOTES[1]]; core.session = "same-vault";
+    const user = userEvent.setup(); const app = render(<App />);
+    const switcher = () => screen.getByRole("combobox", { name: "Switch folder" }) as HTMLSelectElement;
+    await user.selectOptions(switcher(), "Projects");
+    core.notes = [PREVIEW_NOTES[0]]; app.rerender(<App />);
+    expect(switcher().value).toBe("Ideas");
+    expect(screen.getByRole("button", { name: `Read ${PREVIEW_NOTES[0].title}` })).toBeTruthy();
+    core.notes = [PREVIEW_NOTES[0], PREVIEW_NOTES[1]]; app.rerender(<App />);
+    await user.selectOptions(switcher(), "Projects");
+    core.session = "new-vault"; app.rerender(<App />);
+    expect(switcher().value).toBe("Ideas");
+    core.notes = []; app.rerender(<App />);
+    expect(switcher().value).toBe("");
+    expect(screen.getByText("Your Markdown files will appear here.")).toBeTruthy();
+  });
+  it("follows a graph entry to its folder without duplicating the entry tab", async () => {
+    const user = userEvent.setup(); render(<App />);
+    const note = PREVIEW_NOTES[1];
+    await user.click(screen.getByRole("button", { name: `Open ${note.title}` }));
+    expect((screen.getByRole("combobox", { name: "Switch folder" }) as HTMLSelectElement).value).toBe("Projects");
+    await user.click(screen.getByRole("button", { name: `Read ${note.title}` }));
+    expect(screen.getAllByRole("tab")).toHaveLength(2);
   });
 });
 
@@ -379,7 +454,7 @@ describe("compact navigation", () => {
     fireEvent.keyDown(window, { key: "\\", metaKey: true });
     expect(screen.getByRole("button", { name: "Expand sidebar" })).toBeTruthy();
     fireEvent.keyDown(window, { key: "\\", ctrlKey: true });
-    await user.click(screen.getByRole("button", { name: `Read ${PREVIEW_NOTES[0].title}` }));
+    await readFromSidebar(PREVIEW_NOTES[0], user);
     await user.click(screen.getByRole("button", { name: "Focus library search" }));
     await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("searchbox")));
     expect(screen.getByRole("tab", { name: "Graph" }).getAttribute("aria-selected")).toBe("true");

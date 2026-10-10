@@ -143,11 +143,12 @@ relationships, neural reranking and packaged core-process lifecycle are not impl
 
 The main dashboard displays indexed notes as an interactive node graph, with
 text filters, collection colors, pan/zoom, and recent entries. Graph connections
-show shared collections. A compact icon ribbon and collapsible vault sidebar
-provide file navigation. Each entry opens in its own closable app tab with full
+show shared collections. Workspace controls sit at the top of the collapsible
+vault sidebar, below a separate Page brand row. Each entry opens in its own closable app tab with full
 Markdown, contents, source view, and file provenance. Before connecting a
 vault, it shows a labeled sample library. See
 [docs/graph-workspace.md](docs/graph-workspace.md) for graph/tab behavior and limits.
+The sidebar shows files from one selected folder, with a folder switcher at the bottom.
 The question composer saves an unsent
 draft locally; Gemini integration is planned and the send control is disabled.
 Vault connection and indexing controls are available in Vault settings.
@@ -158,7 +159,7 @@ dashboard remains at `/`. See [docs/landing-page.md](docs/landing-page.md) for
 source files, build behavior, and the private Sites publishing workflow.
 
 Account interfaces are bundled in the Tauri 2 frontend: `/login`, `/signup`, and
-`/forgot-password`, plus Profile & account settings in the workspace sidebar.
+`/forgot-password`, plus Profile & account settings in the sidebar toolbar.
 Online authentication is not configured; all account requests remain unavailable,
 and local vault access never requires sign-in. See
 [docs/authentication-frontend.md](docs/authentication-frontend.md) for the provider

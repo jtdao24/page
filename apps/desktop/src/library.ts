@@ -22,6 +22,20 @@ export function collectionOf(note: ContextNote): string {
   return note.path.includes("/") ? note.path.split("/")[0] : "Notes";
 }
 
+export function folderOf(note: ContextNote): string {
+  const separator = note.path.lastIndexOf("/");
+  return separator < 0 ? "" : note.path.slice(0, separator);
+}
+
+export function foldersOf(notes: ContextNote[]): string[] {
+  const folders = new Set([""]);
+  for (const note of notes) {
+    const parts = folderOf(note).split("/").filter(Boolean);
+    for (let depth = 1; depth <= parts.length; depth++) folders.add(parts.slice(0, depth).join("/"));
+  }
+  return [...folders].sort();
+}
+
 export function filterNotes(notes: ContextNote[], query: string, collection: string, recent: boolean) {
   const search = query.trim().toLocaleLowerCase();
   const matching = notes.filter((note) => (collection === "All collections" || collectionOf(note) === collection)

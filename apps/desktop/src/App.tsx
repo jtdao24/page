@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { DragEvent, ReactNode } from "react";
-import { collectionOf, filterNotes, PREVIEW_NOTES } from "./library";
+import { collectionOf, filterNotes, folderOf, foldersOf, PREVIEW_NOTES } from "./library";
 import { EntryGraph } from "./EntryGraph";
 import { EntryPane } from "./EntryPane";
 import type { ContextNote } from "./library";
@@ -65,12 +65,17 @@ function readSidebarPreference() {
   return typeof window !== "undefined" && window.innerWidth <= 680;
 }
 
+function folderLabel(path: string) {
+  return path ? path.split("/").join(" › ") : "Vault root";
+}
+
 function App() {
   const core = useCore();
   const auth = useAuth();
   const [view, setView] = useState<"library" | "recent">("library");
   const [query, setQuery] = useState("");
   const [collection, setCollection] = useState("All collections");
+  const [folderSelection, setFolderSelection] = useState<{ scope: string; path: string }>({ scope: "", path: "" });
   const [tabState, setTabState] = useState<{ scope: string; layout: WorkspaceTabs }>({ scope: "", layout: initialTabs() });
   const draggedTab = useRef<{ scope: string; id: string } | null>(null);
   const [dragScope, setDragScope] = useState<string | null>(null);
@@ -152,6 +157,11 @@ function App() {
   const collections = [...noteCollections.keys()].sort();
   const activeCollection = collections.includes(collection) ? collection : "All collections";
   const visible = filterNotes(notes, query, activeCollection, view === "recent");
+  const folders = foldersOf(notes);
+  const populatedFolders = [...new Set(notes.map(folderOf))].sort();
+  const defaultFolder = populatedFolders[0] ?? "";
+  const selectedFolder = folderSelection.scope === scope && folders.includes(folderSelection.path) ? folderSelection.path : defaultFolder;
+  const folderFiles = notes.filter((note) => folderOf(note) === selectedFolder).sort((a, b) => a.path.localeCompare(b.path));
 
   const updateDraft = (value: string) => {
     setDraft(value);
@@ -162,24 +172,25 @@ function App() {
 
   const openEntry = (note: ContextNote) => {
     setLastOpenedId(note.id);
+    setFolderSelection({ scope, path: folderOf(note) });
     changeLayout((state) => openTab(state, note));
     setTimeout(() => document.getElementById(tabId(note.id))?.focus(), 0);
   };
 
   return <div className={`workspace${sidebarCollapsed ? " workspace--sidebar-collapsed" : ""}`}>
-    <nav className="workspace-ribbon" aria-label="Workspace tools">
-      <button className="ribbon-button ribbon-home" aria-label="Go to graph" title="Page graph" onClick={() => showGraph()}><Icon name="graph" size={21} /></button>
-      <button className={`ribbon-button${!sidebarCollapsed ? " is-active" : ""}`} aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-        aria-expanded={!sidebarCollapsed} aria-controls="vault-sidebar" title="Toggle sidebar (⌘/Ctrl + \)" onClick={toggleSidebar}><Icon name="panel" size={19} /></button>
-      <button className="ribbon-button" aria-label="Focus library search" title="Search your library" onClick={() => { showGraph(view); setTimeout(() => searchInput.current?.focus(), 0); }}><Icon name="search" size={19} /></button>
-      <button className="ribbon-button" aria-label="Add Markdown context" title="Add context" onClick={() => setModal("add")}><Icon name="plus" size={19} /></button>
-      <div className="ribbon-spacer" />
-      <button className="ribbon-button" aria-label="Profile and account settings" title={`Profile · ${authStatusLabel(auth.state)}`} onClick={() => setModal("account")}><Icon name="profile" size={19} /></button>
-      <button className="ribbon-button" aria-label="Vault settings" title="Vault settings" onClick={() => setModal("connect")}><Icon name="settings" size={19} /></button>
+    <header className="workspace-brandbar">
+      <a className="brand" href="#library" onClick={() => showGraph()}><h1>Page</h1></a>
+    </header>
+    <nav className="workspace-tools" aria-label="Workspace tools">
+      <button className="workspace-tool" aria-label="Go to graph" title="Page graph" onClick={() => showGraph()}><Icon name="graph" size={19} /></button>
+      <button className={`workspace-tool${!sidebarCollapsed ? " is-active" : ""}`} aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+        aria-expanded={!sidebarCollapsed} aria-controls="vault-sidebar" title="Toggle sidebar (⌘/Ctrl + \)" onClick={toggleSidebar}><Icon name="panel" size={18} /></button>
+      <button className="workspace-tool" aria-label="Focus library search" title="Search your library" onClick={() => { showGraph(view); setTimeout(() => searchInput.current?.focus(), 0); }}><Icon name="search" size={18} /></button>
+      <button className="workspace-tool" aria-label="Add Markdown context" title="Add context" onClick={() => setModal("add")}><Icon name="plus" size={18} /></button>
+      <button className="workspace-tool" aria-label="Profile and account settings" title={`Profile · ${authStatusLabel(auth.state)}`} onClick={() => setModal("account")}><Icon name="profile" size={18} /></button>
+      <button className="workspace-tool" aria-label="Vault settings" title="Vault settings" onClick={() => setModal("connect")}><Icon name="settings" size={18} /></button>
     </nav>
     <aside className="sidebar" id="vault-sidebar" aria-label="Vault navigation" hidden={sidebarCollapsed}>
-      <div className="sidebar-heading"><a className="brand" href="#library" onClick={() => showGraph()}><h1>Page</h1></a>
-        <span className="sidebar-mode">{preview ? "Preview" : "Local"}</span></div>
       <button className="sidebar-vault" onClick={() => setModal("connect")} title="Open vault settings"><Icon name="folder" size={15} /><span>{core.status?.vault ?? "Personal vault"}</span><Icon name="chevron" size={12} /></button>
       <nav className="sidebar-views" aria-label="Library views">
         <button aria-label="Your graph" aria-current={activeId === "graph" && view === "library" ? "page" : undefined} className={`nav-item${activeId === "graph" && view === "library" ? " active" : ""}`} onClick={() => showGraph()}>
@@ -187,19 +198,24 @@ function App() {
         <button aria-label="Recent entries" aria-current={activeId === "graph" && view === "recent" ? "page" : undefined} className={`nav-item${activeId === "graph" && view === "recent" ? " active" : ""}`} onClick={() => showGraph("recent")}>
           <Icon name="clock" size={16} /><span>Recent entries</span></button>
       </nav>
-      <div className="vault-files"><div className="vault-files-heading"><span>Files</span><span>{notes.length}</span></div>
-        {collections.map((name) => <details className="vault-folder" key={name} open>
-          <summary><Icon name="chevron" size={12} /><Icon name="folder" size={15} /><span>{name}</span>
-            <span className="folder-count">{noteCollections.get(name)?.length}</span></summary>
-          {noteCollections.get(name)?.map((note) => <button className={`vault-note${lastOpenedId === note.id ? " is-selected" : ""}`} key={note.id}
-            aria-label={`Read ${note.title}`} title={note.path} onClick={() => openEntry(note)}><Icon name="file" size={13} /><span>{note.title}</span></button>)}
-        </details>)}
-        {!notes.length && <p className="vault-empty">Your Markdown files will appear here.</p>}
+      <div className="vault-files" key={`${scope}:${selectedFolder}`}><div className="vault-files-heading"><span title={selectedFolder || "Vault root"}>{folderLabel(selectedFolder)}</span><span>{folderFiles.length}</span></div>
+        {folderFiles.map((note) => <button className={`vault-note${lastOpenedId === note.id ? " is-selected" : ""}`} key={note.id}
+          aria-label={`Read ${note.title}`} title={`${note.title} · ${note.path}`} onClick={() => openEntry(note)}><Icon name="file" size={13} /><span>{note.path.slice(note.path.lastIndexOf("/") + 1)}</span></button>)}
+        {!folderFiles.length && <p className="vault-empty">{notes.length ? "No Markdown files in this folder. Choose another folder below." : "Your Markdown files will appear here."}</p>}
       </div>
       <div className="sidebar-footer">
         <div className="connection-status"><span className={`status-dot${core.error ? " status-dot--error" : !preview ? " status-dot--live" : ""}`} />
           {core.error ? "Connection interrupted" : core.status?.state === "running" ? "Updating your network…" : preview ? "Preview workspace" : "Connected to your vault"}</div>
         <p className="profile-status">{authStatusLabel(auth.state)}</p>
+        <div className="folder-switcher">
+          <label htmlFor="sidebar-folder">Folder</label>
+          <div className="folder-switcher-field"><Icon name="folder" size={15} />
+            <select id="sidebar-folder" aria-label="Switch folder" title={selectedFolder || "Vault root"} value={selectedFolder}
+              onChange={(event) => setFolderSelection({ scope, path: event.target.value })}>
+              {folders.map((path) => <option key={path} value={path}>{folderLabel(path)}</option>)}
+            </select>
+          </div>
+        </div>
       </div>
     </aside>
 

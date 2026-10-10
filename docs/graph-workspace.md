@@ -1,13 +1,31 @@
 # Entry graph and workspace tabs
 
 The Tauri 2 workspace displays each indexed Markdown note as a node keyed by its
-existing UUID. The compact icon ribbon, collapsible file sidebar, local account
+existing UUID. The compact sidebar controls, collapsible file sidebar, local account
 controls, indexing controls, and question draft remain available.
 
 The workspace uses a parchment and tan palette with forest green selected tabs,
 sage navigation highlights, and warm ink for text. Shared colors live in the
 `--workspace-*` tokens in `workspace.css`; graph collections use a separate
 earth-tone palette in `graph.ts`.
+
+Graph, sidebar toggle, search, add context, profile, and vault settings buttons
+sit in a compact row at the top of the sidebar, above the vault selector and
+below a separate Page brand row. The controls stay available when the file
+sidebar is collapsed; the brand has no Preview badge.
+
+The sidebar lists only files directly inside the selected folder, sorted by
+path, instead of rendering the entire directory tree. The folder switcher is
+at the bottom, below connection/account status. Choices include the vault root
+and complete nested folder paths inferred from indexed notes; empty folders
+without indexed descendants cannot be discovered through the current context
+endpoint. Selecting an ancestor with only subfolders shows an empty file list.
+The initial selection uses the first populated folder (root first). A missing
+folder falls back to an available populated folder after indexing updates.
+
+Folder selection is scoped to the active connection and kept in memory.
+Switching folders leaves open tabs and graph filters unchanged. Opening a graph
+entry selects its containing folder so the sidebar can highlight its file.
 
 ## Graph
 
@@ -100,5 +118,8 @@ closing, source-state retention, full-note loading, safe rendering, errors/empty
 notes, canceled and late reads, connection changes, cross-tab heading/footnote
 navigation, question drafts, compact sidebar controls, left/right splitting,
 independent pane selection, tab transfer, empty-pane collapse, canceled/invalid
-drags, keyboard splitting, and preservation of pending reads. Native rendered layout
-and touch/pan behavior still require visual verification in Tauri.
+drags, keyboard splitting, and preservation of pending reads.
+
+Folder coverage includes selection, root/nested path separation, missing folders,
+empty vaults, connection changes, tab/source retention, and graph navigation.
+Native rendered layout and touch/pan behavior still require visual verification in Tauri.
