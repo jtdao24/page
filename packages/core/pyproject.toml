@@ -7,13 +7,10 @@ name = "page-core"
 dynamic = ["version"]
 description = "Local-first knowledge and context engine for Page."
 requires-python = ">=3.12,<3.13"
-dependencies = [
-  "fastapi>=0.115,<1",
-  "uvicorn[standard]>=0.34,<1",
-]
+dependencies = []
 
 [dependency-groups]
-dev = ["pytest>=9.1", "httpx>=0.28"]
+dev = ["pytest>=9.1"]
 
 [tool.hatch.version]
 path = "src/page_core/__init__.py"
