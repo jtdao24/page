@@ -75,7 +75,7 @@ class FileSystemVault:
     Use ``create`` or ``open``. Note IDs are assigned when a note is first
     read through this instance and are kept only in memory: they survive
     renames and moves made through this instance, but not a restart unless the
-    optional Stage 4 ingestion registry restores them.
+    optional metadata or ingestion registry restores them.
     Instances are not thread-safe.
     """
 
@@ -147,10 +147,11 @@ class FileSystemVault:
         return self._vault
 
     def note_identity(self, path: PurePosixPath, *, restore: UUID | None = None) -> UUID:
-        """Allocate or restore an identity from the optional ingestion registry.
+        """Allocate or restore an identity without reading note content.
 
-        Does not read or modify Markdown. Restoring persisted identities should
-        happen before retaining note snapshots from this instance.
+        Metadata and ingestion can persist UUIDs even for invalid UTF-8 notes.
+        Restoring persisted identities should happen before retaining snapshots.
+        This method performs no I/O.
         """
         relative = _require_managed_path(path)
         if restore is not None:
@@ -158,7 +159,10 @@ class FileSystemVault:
                 raise TypeError("restore must be UUID")
             self._ids[relative] = restore
         elif relative not in self._ids:
-            self._ids[relative] = self._new_id()
+            identifier = self._new_id()
+            if not isinstance(identifier, UUID):
+                raise TypeError("note identity must be UUID")
+            self._ids[relative] = identifier
         return self._ids[relative]
 
     def restore_note_identities(self, identities: dict[PurePosixPath, UUID]) -> None:
@@ -168,23 +172,25 @@ class FileSystemVault:
         not inherit stale identities. Validate before replacing any state.
         """
         restored = {}
-        for path, note_id in identities.items():
+        for path, identifier in identities.items():
             relative = _require_managed_path(path)
-            if not isinstance(note_id, UUID):
+            if not isinstance(identifier, UUID):
                 raise TypeError("note identity must be UUID")
-            restored[relative] = note_id
+            restored[relative] = identifier
         if len(set(restored.values())) != len(restored):
             raise ValueError("note identities must be unique")
         self._ids = restored
 
-    def list_note_paths(self) -> list[PurePosixPath]:
+    def list_note_paths(
+        self, *, on_error: Callable[[OSError], None] | None = None
+    ) -> list[PurePosixPath]:
         """Return every managed note path, sorted. Does not read note contents.
 
         Hidden entries, symlinks, and files whose names break the note path
         rules are skipped.
         """
         paths: list[PurePosixPath] = []
-        for dirpath, dirnames, filenames in os.walk(self._root):
+        for dirpath, dirnames, filenames in os.walk(self._root, onerror=on_error):
             directory = Path(dirpath)
             dirnames[:] = [
                 name

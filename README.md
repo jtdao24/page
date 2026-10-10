@@ -110,7 +110,7 @@ with `npm run tauri -w @page/desktop -- icon`. Only the desktop icons listed in
 
 ## Status
 
-**Stage 4 of 14: Markdown ingestion and semantic indexing.** Completed so far:
+**Stage 4 metadata persistence, with desktop and semantic indexing work.** Completed so far:
 
 1. Repository foundation: layout, tooling, a desktop shell that displays "Page", and an
    installable `page-core` package.
@@ -120,15 +120,26 @@ with `npm run tauri -w @page/desktop -- icon`. Only the desktop icons listed in
 3. Filesystem vault: `page_core.vault` creates and opens vaults and safely lists,
    reads, creates, updates, moves and deletes Markdown notes, specified in
    [docs/filesystem-vault.md](docs/filesystem-vault.md). Note IDs are kept in memory
-   only unless the Stage 4 registry is opened.
-
-4. Ingestion: secure Markdown scanning, heading-aware tokenizer-budgeted chunks,
+   only when using the standalone Stage 3 interface.
+4. SQLite metadata: `page_core.metadata` adds versioned migrations, persistent
+   note IDs and creation timestamps, transactional CRUD, and reconciliation
+   through an opt-in filesystem adapter. Notes remain the source of truth;
+   this adapter does not parse Markdown or perform vector indexing.
+   See [docs/sqlite-metadata.md](docs/sqlite-metadata.md) for usage and limitations.
+5. Optional ingestion and semantic indexing: secure Markdown scanning,
+   heading-aware tokenizer-budgeted chunks,
    MiniLM embeddings, persistent SQLite metadata/vector caches, recoverable FAISS
    indexing, background progress, and an authenticated local desktop bridge.
    See [docs/ingestion.md](docs/ingestion.md) for setup, API and recovery behavior.
 
-The desktop connects to an explicitly launched local core service. A knowledge graph,
-neural reranking and packaged core-process lifecycle are not implemented yet.
+Private Stage 4 metadata permissions are currently enforced on POSIX and tested on
+macOS. Windows metadata support fails closed pending verified ACL enforcement;
+the existing Stage 2/3 interfaces retain their behavior. The optional ingestion
+service maintains its own index cache; it is started separately from the metadata
+adapter.
+
+The desktop connects to an explicitly launched local core service. Backend knowledge-graph
+relationships, neural reranking and packaged core-process lifecycle are not implemented yet.
 
 The main dashboard displays indexed notes as an interactive node graph, with
 text filters, collection colors, pan/zoom, and recent entries. Graph connections
