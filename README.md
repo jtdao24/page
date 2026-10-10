@@ -34,7 +34,7 @@ packages/core/        page-core Python package (src layout, import name page_cor
 integrations/mcp/     Reserved for the MCP integration
 training/             Reserved for model training code
 benchmarks/           Reserved for evaluation and benchmarks
-docs/                 Project documentation
+docs/                 Project documentation (domain-models.md)
 ```
 
 ## Prerequisites
@@ -110,7 +110,13 @@ with `npm run tauri -w @page/desktop -- icon`. Only the desktop icons listed in
 
 ## Status
 
-**Stage 1 of 14: repository foundation.** This stage contains only the repository
-layout, tooling, an empty desktop shell that displays "Page", and an installable
-`page-core` package with no functionality yet. None of the features described above are
-implemented.
+**Stage 2 of 14: core domain models.** Completed so far:
+
+1. Repository foundation: layout, tooling, a desktop shell that displays "Page", and an
+   installable `page-core` package.
+2. Core domain models: immutable, validated `Vault`, `Note`, `Link`, `Chunk` and
+   `ContextResult` types in `page_core.domain`, specified in
+   [docs/domain-models.md](docs/domain-models.md).
+
+The domain models only describe data. No vault, retrieval or AI features are
+implemented yet.
