@@ -48,6 +48,7 @@ class ChunkLocation(BaseModel):
 
 class SemanticSearchHit(BaseModel):
     note_id: str
+    """Persistent note ID; stable across restarts and across renames that keep the content."""
     path: str
     title: str
     score: float
@@ -67,7 +68,8 @@ class SemanticSearchResponse(BaseModel):
 
 
 class NoteResponse(BaseModel):
-    id: str
+    id: str | None
+    """The note's persistent ID in the search index; null until the note is indexed."""
     path: str
     title: str
     content: str
@@ -77,6 +79,7 @@ class NoteResponse(BaseModel):
 class SyncReportBody(BaseModel):
     added: int
     updated: int
+    moved: int
     removed: int
     unchanged: int
     failed: list[str]

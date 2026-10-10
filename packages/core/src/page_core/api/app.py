@@ -2,16 +2,22 @@
 
 Route handlers are plain ``def`` functions, so FastAPI runs them in its
 threadpool and embedding, FAISS and file I/O never block the event loop.
+
+Access control: the server listens on loopback only, accepts only loopback
+``Host`` headers (against DNS rebinding), and requires every request to carry
+the per-launch API token as ``Authorization: Bearer <token>``.
 """
 
 import os
+import secrets
 from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
 
 from page_core.api.schemas import (
     ChunkLocation,
@@ -41,6 +47,11 @@ from page_core.vault import NoteNotFoundError, UnreadableNoteError, VaultError
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8765
 
+# Loopback names the server answers to; anything else is refused.
+ALLOWED_HOSTS = ["127.0.0.1", "localhost"]
+# Shortest accepted API token. Generated tokens are 43 characters (32 random bytes).
+MIN_TOKEN_LENGTH = 32
+
 # The Vite dev server and the Tauri webview origins on macOS and Windows.
 ALLOWED_ORIGINS = [
     "http://localhost:1420",
@@ -51,14 +62,32 @@ ALLOWED_ORIGINS = [
 ]
 
 
+def new_api_token() -> str:
+    """An unguessable per-launch API token."""
+    return secrets.token_urlsafe(32)
+
+
+def validate_api_token(token: object) -> str:
+    if not isinstance(token, str):
+        raise ValueError(f"API token must be a string, got {type(token).__name__}")
+    if len(token) < MIN_TOKEN_LENGTH or not token.isascii() or not token.isprintable() or " " in token:
+        raise ValueError(
+            f"API token must be at least {MIN_TOKEN_LENGTH} printable ASCII characters without spaces"
+        )
+    return token
+
+
 @dataclass(frozen=True, slots=True)
 class Settings:
     vault_path: Path
     embedding_model: str = DEFAULT_MODEL
     sync_interval: float = 30.0
+    api_token: str = field(default_factory=new_api_token, repr=False)
+    """Required on every request. Generated per launch unless supplied."""
 
     def __post_init__(self) -> None:
         validate_sync_interval(self.sync_interval)
+        validate_api_token(self.api_token)
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -69,6 +98,7 @@ class Settings:
             vault_path=Path(vault).expanduser(),
             embedding_model=os.environ.get("PAGE_EMBEDDING_MODEL", DEFAULT_MODEL),
             sync_interval=parse_sync_interval(os.environ.get("PAGE_INDEX_SYNC_INTERVAL", "30")),
+            api_token=os.environ.get("PAGE_API_TOKEN") or new_api_token(),
         )
 
 
@@ -105,12 +135,37 @@ def create_app(
         finally:
             runtime.stop()
 
-    app = FastAPI(title="Page Core", version="0.1.0", lifespan=lifespan)
+    expected_token = settings.api_token.encode("ascii")
+
+    def require_token(request: Request) -> None:
+        scheme, _, credentials = request.headers.get("authorization", "").partition(" ")
+        if scheme.lower() != "bearer" or not secrets.compare_digest(
+            credentials.strip().encode("utf-8"), expected_token
+        ):
+            raise HTTPException(
+                status_code=401,
+                detail={"code": "unauthorized", "message": "a valid API token is required"},
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+    # Interactive docs and the schema endpoint are disabled: every route requires the token.
+    app = FastAPI(
+        title="Page Core",
+        version="0.1.0",
+        lifespan=lifespan,
+        dependencies=[Depends(require_token)],
+        docs_url=None,
+        redoc_url=None,
+        openapi_url=None,
+    )
+    app.add_middleware(TrustedHostMiddleware, allowed_hosts=ALLOWED_HOSTS)
+    # Added last, so it runs first: browser preflights carry no token and are
+    # answered here, and error responses still get CORS headers.
     app.add_middleware(
         CORSMiddleware,
         allow_origins=ALLOWED_ORIGINS,
         allow_methods=["GET", "POST"],
-        allow_headers=["Content-Type"],
+        allow_headers=["Authorization", "Content-Type"],
     )
 
     def runtime_of(request: Request) -> SearchRuntime:
@@ -202,8 +257,9 @@ def create_app(
         responses={400: {"model": ErrorResponse}, 404: {"model": ErrorResponse}},
     )
     def read_note(path: str, request: Request) -> NoteResponse:
+        runtime = runtime_of(request)
         try:
-            note = runtime_of(request).read_note(PurePosixPath(path))
+            note = runtime.read_note(PurePosixPath(path))
         except NoteNotFoundError as exc:
             raise _error(404, "note_not_found", str(exc)) from exc
         except UnreadableNoteError as exc:
@@ -211,7 +267,7 @@ def create_app(
         except (VaultError, ValueError, TypeError) as exc:
             raise _error(400, "invalid_path", str(exc)) from exc
         return NoteResponse(
-            id=str(note.id),
+            id=str(note_id) if (note_id := runtime.note_id_for(note.relative_path)) else None,
             path=str(note.relative_path),
             title=note.relative_path.stem,
             content=note.content,
@@ -225,6 +281,7 @@ def _report_body(report: SyncReport) -> SyncReportBody:
     return SyncReportBody(
         added=report.added,
         updated=report.updated,
+        moved=report.moved,
         removed=report.removed,
         unchanged=report.unchanged,
         failed=list(report.failed),

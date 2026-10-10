@@ -18,6 +18,12 @@ def _write(vault: FileSystemVault, path: str, content: str) -> None:
 
 
 def _service(vault: FileSystemVault, embedder: KeywordEmbedder) -> SemanticSearchService:
+    return _service_and_index(vault, embedder)[0]
+
+
+def _service_and_index(
+    vault: FileSystemVault, embedder: KeywordEmbedder
+) -> tuple[SemanticSearchService, SemanticIndex]:
     index = SemanticIndex.for_vault(vault.vault.root_path, embedder, max_chunk_chars=80)
     index.sync(vault)
 
@@ -27,7 +33,7 @@ def _service(vault: FileSystemVault, embedder: KeywordEmbedder) -> SemanticSearc
         except VaultError:
             return None
 
-    return SemanticSearchService(index, embedder, read)
+    return SemanticSearchService(index, embedder, read), index
 
 
 @pytest.fixture
@@ -84,7 +90,8 @@ def test_mismatched_query_embedder_is_refused(vault: FileSystemVault, embedder: 
 def test_matches_paraphrase_and_groups_chunks_per_note(
     vault: FileSystemVault, embedder: KeywordEmbedder
 ) -> None:
-    result = _service(vault, embedder).search("how do I simplify a digital logic circuit?", 10)
+    service, index = _service_and_index(vault, embedder)
+    result = service.search("how do I simplify a digital logic circuit?", 10)
 
     paths = [match.path for match in result.matches]
     assert paths[:2] == [P("logic.md"), P("notes/circuits.md")]
@@ -92,7 +99,7 @@ def test_matches_paraphrase_and_groups_chunks_per_note(
     logic = result.matches[0]
     assert logic.matched_chunks == 3
     assert logic.title == "logic"
-    assert logic.note_id == vault.read_note(P("logic.md")).id
+    assert logic.note_id == index.note_id_for(P("logic.md"))
     scores = [match.score for match in result.matches]
     assert scores == sorted(scores, reverse=True)
     assert -1.0 <= scores[-1] <= scores[0] <= 1.0 + 1e-6

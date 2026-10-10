@@ -3,7 +3,8 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-li
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
-import type { NoteResponse, SemanticSearchHit, SemanticSearchResponse } from "./api/types";
+import { setApiToken } from "./api/client";
+import type { IndexStatusResponse, NoteResponse, SemanticSearchHit, SemanticSearchResponse } from "./api/types";
 import { byteRangeToCharRange } from "./byteRange";
 import SemanticSearchPanel from "./components/SemanticSearchPanel";
 
@@ -38,18 +39,50 @@ function search(query: string) {
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
+  sessionStorage.clear();
+  setApiToken(null);
 });
 
+const TOKEN = "test-token-0123456789abcdefghijklmnopqrstuvwxyz";
+
+const status: IndexStatusResponse = {
+  state: "ready",
+  searchable: true,
+  detail: null,
+  vault_name: "Notes",
+  model: "test",
+  dimension: 8,
+  metric: "cosine",
+  notes: 2,
+  chunks: 3,
+  last_sync_at: null,
+  last_sync: null,
+};
+
+function authorization(init?: RequestInit): string | undefined {
+  return (init?.headers as Record<string, string> | undefined)?.Authorization;
+}
+
+async function connect(token = TOKEN) {
+  fireEvent.change(screen.getByLabelText("API token"), { target: { value: token } });
+  fireEvent.submit(screen.getByRole("form", { name: "Connect to Page Core" }));
+}
+
 describe("App", () => {
-  it("renders the Page heading and search box", () => {
+  it("renders the Page heading and asks for the API token first", () => {
     const html = renderToStaticMarkup(<App />);
     expect(html).toContain(">Page</h1>");
-    expect(html).toContain("Search notes by meaning");
+    expect(html).toContain("API token");
+    expect(html).not.toContain("Search notes by meaning");
   });
 
-  it("searches, shows ranked note results, and opens the clicked note at its passage", async () => {
+  it("connects, searches with the token, and opens the clicked note at its passage", async () => {
     const note: NoteResponse = { id: "id-logic.md", path: "logic.md", title: "logic", content, updated_at: "2026-10-09T00:00:00Z" };
     const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      expect(authorization(init)).toBe(`Bearer ${TOKEN}`);
+      if (url.endsWith("/api/index/status")) {
+        return json(status);
+      }
       if (url.endsWith("/api/search/semantic")) {
         expect(JSON.parse(String(init?.body))).toEqual({ query: "simplify a circuit", limit: 10 });
         return json(searchResponse("simplify a circuit", [hit("logic.md", 0.71, "# Logic"), hit("gates.md", 0.42, "Gates")]));
@@ -60,6 +93,9 @@ describe("App", () => {
     vi.stubGlobal("fetch", fetchMock);
     render(<App />);
 
+    await connect(`  ${TOKEN} `);
+    await screen.findByLabelText("Search notes by meaning");
+    expect(sessionStorage.getItem("page.apiToken")).toBe(TOKEN);
     search("  simplify a circuit ");
     const list = await screen.findByRole("list", { name: "Search results" });
     const items = within(list).getAllByRole("button");
@@ -74,7 +110,40 @@ describe("App", () => {
     expect(article.querySelector("mark")?.textContent).toBe("# Logic\n\nUse a Karnaugh map.");
   });
 
+  it("rejects a wrong token without leaving the connect screen", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => json({ detail: { code: "unauthorized", message: "a valid API token is required" } }, 401)),
+    );
+    render(<App />);
+
+    await connect("wrong");
+
+    expect((await screen.findByRole("alert")).textContent).toContain("not accepted");
+    expect(screen.queryByLabelText("Search notes by meaning")).toBeNull();
+    expect(sessionStorage.getItem("page.apiToken")).toBeNull();
+  });
+
+  it("returns to the connect screen when the API stops accepting the token", async () => {
+    sessionStorage.setItem("page.apiToken", TOKEN);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_url: string, init?: RequestInit) => {
+        expect(authorization(init)).toBe(`Bearer ${TOKEN}`);
+        return json({ detail: { code: "unauthorized", message: "a valid API token is required" } }, 401);
+      }),
+    );
+    render(<App />);
+
+    search("logic");
+
+    expect(await screen.findByText(/did not accept the saved token/)).toBeTruthy();
+    expect(screen.getByLabelText("API token")).toBeTruthy();
+    expect(sessionStorage.getItem("page.apiToken")).toBeNull();
+  });
+
   it("shows a load error when the note can no longer be opened", async () => {
+    sessionStorage.setItem("page.apiToken", TOKEN);
     vi.stubGlobal(
       "fetch",
       vi.fn(async (url: string) =>
@@ -87,6 +156,16 @@ describe("App", () => {
     search("q");
     fireEvent.click(await screen.findByRole("button", { name: /gone/ }));
     expect((await screen.findByRole("alert")).textContent).toContain("gone.md does not exist");
+  });
+
+  it("disconnects and forgets the token", async () => {
+    sessionStorage.setItem("page.apiToken", TOKEN);
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Disconnect" }));
+
+    expect(screen.getByLabelText("API token")).toBeTruthy();
+    expect(sessionStorage.getItem("page.apiToken")).toBeNull();
   });
 });
 
@@ -160,5 +239,19 @@ describe("byteRangeToCharRange", () => {
   it("maps UTF-8 byte offsets to string offsets", () => {
     expect(byteRangeToCharRange("é☕a🎉b", 2, 6)).toEqual([1, 3]);
     expect(byteRangeToCharRange("é☕a🎉b", 6, 10)).toEqual([3, 5]);
+  });
+});
+
+describe("SemanticSearchPanel access", () => {
+  it("reports a rejected token to its owner", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(json({ detail: { code: "unauthorized", message: "a valid API token is required" } }, 401)),
+    );
+    const onUnauthorized = vi.fn();
+    render(<SemanticSearchPanel onOpen={() => undefined} onUnauthorized={onUnauthorized} />);
+    search("logic");
+    await screen.findByRole("alert");
+    expect(onUnauthorized).toHaveBeenCalledOnce();
   });
 });

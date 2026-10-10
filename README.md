@@ -112,8 +112,13 @@ python -m page_core.api --vault ~/Documents/Page --init "My Notes"
 
 `--init` creates the vault manifest if the folder isn't a Page vault yet; existing
 Markdown files are adopted untouched. The first start downloads the embedding model and
-indexes every note, and later starts reuse the index in `<vault>/.page/index/`. See
-[docs/semantic-retrieval.md](docs/semantic-retrieval.md) for the endpoints and settings.
+indexes every note, and later starts reuse the index in `<vault>/.page/index/`.
+
+Each launch prints an API token. Every request must carry it, so paste it into the
+desktop app when the app asks. To supply your own token instead (at least 32
+characters), set `PAGE_API_TOKEN` before starting the API. See
+[docs/semantic-retrieval.md](docs/semantic-retrieval.md) for the endpoints, settings and
+access control.
 
 ## Running the desktop app
 
@@ -142,11 +147,13 @@ with `npm run tauri -w @page/desktop -- icon`. Only the desktop icons listed in
    [docs/filesystem-vault.md](docs/filesystem-vault.md). Note IDs are kept in memory
    only until Stage 4.
 
-Ahead of plan, not yet a numbered stage here: semantic retrieval, planned as Stage 8.
-It was written before Stages 4–7 and should be merged only once they are approved.
-`page_core.embeddings` chunks notes and keeps a persistent FAISS + SQLite
-index, `page_core.retrieval` answers natural-language queries with note-level results,
-`page_core.api` serves them over HTTP, and the desktop app has a search panel and note
-view. It is specified in [docs/semantic-retrieval.md](docs/semantic-retrieval.md).
-Persistent note IDs (Stage 4), the full API (Stage 5), launching the API from Tauri
-(Stage 6) and links and graph (Stage 7) are still to do.
+Stage 5, semantic retrieval:
+- `page_core.embeddings` chunks notes and keeps a persistent FAISS + SQLite index with
+  stable note and chunk IDs.
+- `page_core.retrieval` answers natural-language queries with note-level results.
+- `page_core.api` serves them over a token-protected local HTTP API.
+- The desktop app has a search panel and a note view.
+
+It is specified in [docs/semantic-retrieval.md](docs/semantic-retrieval.md). Its
+prerequisite, Stage 4 (Markdown ingestion and semantic indexing), is being built
+separately. Until that lands, this stage includes the minimum indexing it needs.

@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import StrEnum
 from pathlib import Path, PurePosixPath
+from uuid import UUID
 
 from page_core.domain import Note
 from page_core.embeddings.encoder import Embedder
@@ -148,6 +149,11 @@ class SearchRuntime:
         if result.stale_paths:
             self.request_sync()
         return result
+
+    def note_id_for(self, path: PurePosixPath) -> UUID | None:
+        """The note's persistent index ID, or None if it is not indexed (yet)."""
+        index = self._index
+        return index.note_id_for(path) if index is not None else None
 
     def read_note(self, path: PurePosixPath) -> Note:
         with self._vault_lock:

@@ -2,7 +2,7 @@ from pathlib import PurePosixPath
 
 import pytest
 
-from page_core.embeddings.chunking import TextChunk, chunk_markdown, embedding_text
+from page_core.embeddings.chunking import TextChunk, chunk_markdown, embedding_text, heading_text
 
 
 def _bytes(content: str, chunk: TextChunk) -> str:
@@ -135,3 +135,39 @@ def test_longer_closing_fence_with_trailing_spaces_closes() -> None:
     content = "```\ncode\n`````  \n\n# Real\n"
 
     assert [chunk.heading for chunk in chunk_markdown(content)] == [None, "Real"]
+
+
+@pytest.mark.parametrize(
+    ("line", "expected"),
+    [
+        ("# C#", "C#"),
+        ("# value###", "value###"),
+        ("# value ###", "value"),
+        ("## value ##   ", "value"),
+        ("# a # b", "a # b"),
+        ("# foo#bar ##", "foo#bar"),
+        ("## ###", ""),
+        ("#", ""),
+        ("   ### indented", "indented"),
+        ("#5 bolts", None),
+        ("####### seven", None),
+        ("    # code block", None),
+    ],
+)
+def test_heading_text_follows_commonmark(line: str, expected: str | None) -> None:
+    assert heading_text(line) == expected
+
+
+def test_heading_with_trailing_hash_keeps_its_label() -> None:
+    content = "# C#\n\nGenerics.\n\n# value###\n\nText.\n\n# value ###\n\nMore.\n"
+
+    assert [chunk.heading for chunk in chunk_markdown(content)] == ["C#", "value###", "value"]
+
+
+def test_continuation_chunk_context_uses_the_full_heading() -> None:
+    content = "# C#\n\n" + "word " * 50 + "\n\n" + "tail " * 50 + "\n"
+
+    chunks = chunk_markdown(content, max_chars=260)
+
+    assert chunks[-1].heading == "C#"
+    assert embedding_text(PurePosixPath("Langs.md"), chunks[-1]).startswith("Langs\n\nC#\n\n")

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { ApiError, semanticSearch } from "../api/client";
+import { ApiError, isUnauthorized, semanticSearch } from "../api/client";
 import type { SemanticSearchHit } from "../api/types";
 
 type SearchState =
@@ -10,11 +10,18 @@ type SearchState =
 
 interface SemanticSearchPanelProps {
   onOpen: (hit: SemanticSearchHit) => void;
+  /** Called when Page Core rejects the API token, for example after it restarted. */
+  onUnauthorized?: () => void;
   activePath?: string | null;
   limit?: number;
 }
 
-export default function SemanticSearchPanel({ onOpen, activePath = null, limit = 10 }: SemanticSearchPanelProps) {
+export default function SemanticSearchPanel({
+  onOpen,
+  onUnauthorized,
+  activePath = null,
+  limit = 10,
+}: SemanticSearchPanelProps) {
   const [query, setQuery] = useState("");
   const [state, setState] = useState<SearchState>({ kind: "idle" });
   // Only the latest search may update the results.
@@ -42,6 +49,9 @@ export default function SemanticSearchPanel({ onOpen, activePath = null, limit =
     } catch (error) {
       if (id !== latest.current || (error instanceof DOMException && error.name === "AbortError")) {
         return;
+      }
+      if (isUnauthorized(error)) {
+        onUnauthorized?.();
       }
       const message = error instanceof ApiError ? error.message : "Search failed unexpectedly.";
       setState({ kind: "error", message });

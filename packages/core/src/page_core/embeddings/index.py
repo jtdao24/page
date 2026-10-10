@@ -1,14 +1,18 @@
 """Persistent vector index of note chunks.
 
-Vectors live in a FAISS ``IndexIDMap2(IndexFlatIP)``; chunk and note metadata
+Vectors live in a FAISS ``IndexIDMap2(IndexFlatIP)``; note and chunk metadata
 live in SQLite. Both are stored under ``<vault>/.page/index/`` and are derived
 data: if they are missing, corrupt, inconsistent, or were built with another
 model, the index resets itself and the next ``sync`` rebuilds it from the
 Markdown files. See docs/semantic-retrieval.md.
 
-Each chunk has two identifiers. ``chunk_id`` is a UUID that callers may keep;
-it survives edits elsewhere in the note and restarts. ``vector_id`` is the
-FAISS label and stays internal to this module.
+Identifiers:
+
+- ``note_id``: a UUID per indexed note, persisted here. It survives restarts,
+  edits, and renames or moves that keep the note's content.
+- ``chunk_id``: a UUID per chunk. It survives edits elsewhere in the note,
+  moves within the note, renames of the note, and restarts.
+- ``vector_id``: the FAISS label. Internal to this module.
 """
 
 import hashlib
@@ -17,6 +21,7 @@ import os
 import sqlite3
 import stat
 import threading
+import time
 from collections import defaultdict, deque
 from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
@@ -41,8 +46,9 @@ FAISS_FILE = "chunks.faiss"
 DB_FILE = "chunks.sqlite"
 _DB_SIDECARS = ("-journal", "-wal", "-shm")
 METRIC = "cosine"
-_FORMAT = "2"
+_FORMAT = "3"
 _EMBED_BATCH_NOTES = 32
+_RACY_WINDOW_NS = 2_000_000_000
 
 _O_BINARY = getattr(os, "O_BINARY", 0)
 _O_NOFOLLOW = getattr(os, "O_NOFOLLOW", 0)
@@ -59,10 +65,11 @@ class IndexIncompatibleError(SemanticIndexError):
 
 
 class IndexStorageError(SemanticIndexError):
-    """The index folder or one of its files is a symlink or not a regular entry.
+    """An index folder or file is a symlink, a hard link, or the wrong kind of entry.
 
-    The index never follows links out of the vault, and it does not delete
-    entries it did not create, so this needs the user's attention.
+    The index never writes through links that could lead outside the vault,
+    and it does not delete entries it did not create, so this needs the
+    user's attention.
     """
 
 
@@ -71,6 +78,7 @@ class ChunkHit:
     """A chunk returned by a vector search, with its similarity to the query."""
 
     chunk_id: UUID
+    note_id: UUID
     path: PurePosixPath
     ordinal: int
     start_byte: int
@@ -94,6 +102,7 @@ class IndexStats:
 class SyncReport:
     added: int
     updated: int
+    moved: int
     removed: int
     unchanged: int
     failed: tuple[str, ...]
@@ -104,21 +113,51 @@ class _NoteState:
     sha256: str
     size: int
     mtime_ns: int
+    """-1 when the stored time cannot be trusted; the file is then hashed again."""
+    device: int
+    inode: int
+
+    def matches(self, info: os.stat_result) -> bool:
+        """True if the file is certainly unchanged since this state was recorded."""
+        return (
+            self.mtime_ns >= 0
+            and (self.size, self.mtime_ns, self.device, self.inode)
+            == (info.st_size, info.st_mtime_ns, info.st_dev, info.st_ino)
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class _Known:
+    note_id: str
+    path: str
+    state: _NoteState
+
+
+@dataclass(frozen=True, slots=True)
+class _Change:
+    """A note whose chunks must be brought in line with ``content``."""
+
+    note_id: str
+    path: str
+    state: _NoteState
+    content: str
+    retitled: bool
+    """The note's path changed, so every chunk's embedding text changed."""
 
 
 @dataclass(frozen=True, slots=True)
 class _Plan:
-    """How to bring one note's stored chunks in line with its new content."""
-
+    note_id: str
     path: str
     state: _NoteState
     keep: list[tuple[int, TextChunk]]
-    """Stored chunks whose text and heading are unchanged: (vector_id, new position)."""
-    add: list[TextChunk]
+    """Stored chunks reused as they are: (vector_id, new position)."""
+    add: list[tuple[TextChunk, str]]
+    """Chunks to insert with a fresh vector: (chunk, chunk_id), the ID reused if possible."""
     vectors: np.ndarray
     """Embeddings for ``add``, row for row."""
     drop: list[int]
-    """Vector IDs of stored chunks that no longer exist."""
+    """Vector IDs of stored chunk rows to delete."""
 
 
 class SemanticIndex:
@@ -167,6 +206,14 @@ class SemanticIndex:
             (notes,) = self._conn.execute("SELECT COUNT(*) FROM notes").fetchone()
             return IndexStats(notes, self._index.ntotal, self.model_id, self.dimension, METRIC)
 
+    def note_id_for(self, path: PurePosixPath) -> UUID | None:
+        """The persistent ID of the note indexed at ``path``, if any."""
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT note_id FROM notes WHERE path = ?", (str(path),)
+            ).fetchone()
+        return UUID(row[0]) if row else None
+
     def search(self, query_vector: np.ndarray, k: int) -> list[ChunkHit]:
         """Return up to ``k`` chunks by descending cosine similarity.
 
@@ -187,6 +234,7 @@ class SemanticIndex:
         hits = [
             ChunkHit(
                 chunk_id=UUID(chunk_id),
+                note_id=UUID(note_id),
                 path=PurePosixPath(path),
                 ordinal=ordinal,
                 start_byte=start_byte,
@@ -196,7 +244,8 @@ class SemanticIndex:
                 score=found[vector_id],
                 vector_id=vector_id,
             )
-            for vector_id, chunk_id, path, ordinal, start_byte, end_byte, heading, text in rows
+            for vector_id, chunk_id, note_id, path, ordinal, start_byte, end_byte, heading, text
+            in rows
         ]
         hits.sort(key=lambda hit: (-hit.score, hit.vector_id))
         return hits
@@ -206,20 +255,24 @@ class SemanticIndex:
     def sync(self, vault: FileSystemVault) -> SyncReport:
         """Bring the index in line with the vault's notes.
 
-        Only notes whose size or modification time changed are read, and only
-        notes whose content hash changed are re-chunked. Within a changed note,
-        chunks whose text and heading are unchanged keep their ID and vector;
-        only new chunks are embedded. Notes that no longer exist or can no
-        longer be read are removed. ``vault`` must not be used by other threads
-        during the call.
+        - Only notes whose size or modification time changed are read, and only
+          notes whose content hash changed are re-chunked.
+        - Within a changed note, chunks whose text and heading are unchanged keep
+          their ID and vector; only new chunks are embedded.
+        - A new path whose content exactly matches a note that disappeared is a
+          rename or move: the note keeps its ID and its chunks keep theirs.
+        - Notes that no longer exist or can no longer be read are removed.
+
+        ``vault`` must not be used by other threads during the call.
         """
         with self._sync_lock:
             root = vault.vault.root_path
-            known = self._note_states()
+            known = self._known()
             paths = vault.list_note_paths()
             current = {str(path) for path in paths}
-            removed = [path for path in known if path not in current]
-            pending: list[tuple[str, _NoteState, str]] = []
+            missing = {path: entry for path, entry in known.items() if path not in current}
+            # Paths whose content changed (old entry) or that are new (None).
+            changed: list[tuple[str, _Known | None, _NoteState, str]] = []
             touched: list[tuple[str, _NoteState]] = []
             failed: list[str] = []
             unchanged = 0
@@ -230,39 +283,47 @@ class SemanticIndex:
                     info = os.lstat(root.joinpath(*path.parts))
                 except FileNotFoundError:
                     if old:
-                        removed.append(key)
+                        missing[key] = old
                     continue
-                if old and old.size == info.st_size and old.mtime_ns == info.st_mtime_ns:
+                if old and old.state.matches(info):
                     unchanged += 1
                     continue
                 try:
                     note = vault.read_note(path)
                 except NoteNotFoundError:
                     if old:
-                        removed.append(key)
+                        missing[key] = old
                     continue
                 except VaultError as exc:
                     logger.warning("skipping %s: %s", key, exc)
                     failed.append(key)
                     if old:
-                        removed.append(key)
+                        missing[key] = old
                     continue
-                data = note.content.encode("utf-8")
-                state = _NoteState(hashlib.sha256(data).hexdigest(), len(data), info.st_mtime_ns)
-                if old and old.sha256 == state.sha256:
-                    touched.append((key, state))
+                state = _state(note.content, info)
+                if old is not None and old.state.sha256 == state.sha256:
+                    touched.append((old.note_id, state))
                     unchanged += 1
-                    continue
-                pending.append((key, state, note.content))
+                else:
+                    changed.append((key, old, state, note.content))
 
-            for batch in _batched(pending, _EMBED_BATCH_NOTES):
+            changes, moved, removed = _assign_identities(changed, missing)
+            known_ids = {entry.note_id for entry in known.values()}
+            added = sum(1 for change in changes if change.note_id not in known_ids)
+            updated = len(changes) - added - moved
+
+            # Removals go first and renamed notes give up their old paths, so every
+            # path is free before any batch claims it.
+            self._apply([], removed)
+            self._park([change.note_id for change in changes if change.retitled])
+            for batch in _batched(changes, _EMBED_BATCH_NOTES):
                 self._apply(self._plan(batch), [])
-            self._apply([], removed, touched)
+            self._apply([], [], touched)
             self._save()
-            updated = sum(1 for key, _, _ in pending if key in known)
             return SyncReport(
-                added=len(pending) - updated,
+                added=added,
                 updated=updated,
+                moved=moved,
                 removed=len(removed),
                 unchanged=unchanged,
                 failed=tuple(failed),
@@ -275,16 +336,21 @@ class SemanticIndex:
         not recorded, so the next ``sync`` re-reads the file and compares its
         hash instead of trusting the stored state.
         """
+        path = str(note.relative_path)
         data = note.content.encode("utf-8")
-        state = _NoteState(hashlib.sha256(data).hexdigest(), len(data), -1)
+        state = _NoteState(hashlib.sha256(data).hexdigest(), len(data), -1, 0, 0)
         with self._sync_lock:
-            self._apply(self._plan([(str(note.relative_path), state, note.content)]), [])
+            entry = self._known().get(path)
+            note_id = entry.note_id if entry else str(uuid4())
+            self._apply(self._plan([_Change(note_id, path, state, note.content, False)]), [])
             self._save()
 
     def remove_note(self, path: PurePosixPath) -> None:
         with self._sync_lock:
-            self._apply([], [str(path)])
-            self._save()
+            entry = self._known().get(str(path))
+            if entry is not None:
+                self._apply([], [entry.note_id])
+                self._save()
 
     def close(self) -> None:
         with self._lock:
@@ -293,20 +359,31 @@ class SemanticIndex:
     # --- Storage ------------------------------------------------------------
 
     def _open_database(self) -> tuple[sqlite3.Connection, dict[str, str]]:
-        """Connect to the metadata database, replacing it if it is corrupt."""
+        """Connect to the metadata database, replacing it if it is corrupt.
+
+        The database and its sidecar files are checked before connecting, and
+        the database file is checked again afterwards to make sure SQLite
+        opened the same file that passed the checks.
+        """
+        database = self._dir / DB_FILE
         for attempt in range(2):
-            for suffix in ("", *_DB_SIDECARS):
-                _require_regular_or_missing(self._dir / f"{DB_FILE}{suffix}")
-            conn = sqlite3.connect(
-                self._dir / DB_FILE, check_same_thread=False, isolation_level=None
-            )
+            for suffix in _DB_SIDECARS:
+                _require_safe_file(self._dir / f"{DB_FILE}{suffix}")
+            before = _file_identity(database)
+            conn = sqlite3.connect(database, check_same_thread=False, isolation_level=None)
             try:
                 (check,) = conn.execute("PRAGMA quick_check").fetchone()
                 if check != "ok":
                     raise sqlite3.DatabaseError(f"integrity check failed: {check}")
                 conn.execute("PRAGMA foreign_keys = ON")
-                _create_schema(conn)
-                meta = dict(conn.execute("SELECT key, value FROM meta").fetchall())
+                has_meta = conn.execute(
+                    "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'meta'"
+                ).fetchone()
+                meta = (
+                    dict(conn.execute("SELECT key, value FROM meta").fetchall())
+                    if has_meta
+                    else {}
+                )
             except sqlite3.DatabaseError as exc:
                 conn.close()
                 if attempt:
@@ -315,13 +392,17 @@ class SemanticIndex:
                 logger.warning("discarding semantic index: %s", self.reset_reason)
                 self._discard_files()
                 continue
+            after = _file_identity(database)
+            if after is None or (before is not None and before != after):
+                conn.close()
+                raise IndexStorageError(f"{database} changed while it was being opened")
             return conn, meta
         raise AssertionError("unreachable")
 
     def _discard_files(self) -> None:
         for name in (FAISS_FILE, *(f"{DB_FILE}{suffix}" for suffix in ("", *_DB_SIDECARS))):
             path = self._dir / name
-            _require_regular_or_missing(path)
+            _require_safe_file(path)
             path.unlink(missing_ok=True)
 
     def _expected_meta(self) -> dict[str, str]:
@@ -351,12 +432,10 @@ class SemanticIndex:
         except Exception as exc:  # missing or unreadable vector file
             self._reset(f"vector file could not be loaded: {exc}")
             return
-        if not isinstance(index, faiss.IndexIDMap2) or index.d != self.dimension:
-            self._reset("vector file has an unexpected type or dimension")
-            return
-        stored = {int(row[0]) for row in self._conn.execute("SELECT vector_id FROM chunks")}
-        if set(faiss.vector_to_array(index.id_map).tolist()) != stored:
-            self._reset("vector file and chunk metadata are out of step")
+        stored = [int(row[0]) for row in self._conn.execute("SELECT vector_id FROM chunks")]
+        problem = _vector_index_problem(index, self.dimension, stored)
+        if problem:
+            self._reset(problem)
             return
         self._index = index
         self.loaded_from_disk = True
@@ -389,7 +468,7 @@ class SemanticIndex:
         with self._lock:
             data = faiss.serialize_index(self._index).tobytes()
         target = self._dir / FAISS_FILE
-        _require_regular_or_missing(target)
+        _require_safe_file(target)
         temporary = self._dir / f".{FAISS_FILE}.{uuid4().hex}.tmp"
         fd = os.open(
             temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL | _O_BINARY | _O_NOFOLLOW, 0o644
@@ -399,7 +478,7 @@ class SemanticIndex:
                 stream.write(data)
                 stream.flush()
                 os.fsync(stream.fileno())
-            # os.replace swaps the directory entry itself and never follows a link.
+            # os.replace swaps the directory entry itself; it never writes through a link.
             os.replace(temporary, target)
         except BaseException:
             temporary.unlink(missing_ok=True)
@@ -407,50 +486,83 @@ class SemanticIndex:
 
     # --- Updates ------------------------------------------------------------
 
-    def _note_states(self) -> dict[str, _NoteState]:
+    def _known(self) -> dict[str, _Known]:
         with self._lock:
-            rows = self._conn.execute("SELECT path, sha256, size, mtime_ns FROM notes").fetchall()
-        return {path: _NoteState(sha, size, mtime) for path, sha, size, mtime in rows}
+            rows = self._conn.execute(
+                "SELECT note_id, path, sha256, size, mtime_ns, device, inode FROM notes"
+            ).fetchall()
+        return {
+            path: _Known(note_id, path, _NoteState(sha, size, mtime, device, inode))
+            for note_id, path, sha, size, mtime, device, inode in rows
+        }
 
     def _chunk_rows(self, vector_ids: list[int]) -> list[tuple]:
         if not vector_ids:
             return []
         marks = ",".join("?" * len(vector_ids))
         return self._conn.execute(
-            "SELECT vector_id, chunk_id, path, ordinal, start_byte, end_byte, heading, text "
-            f"FROM chunks WHERE vector_id IN ({marks})",
+            "SELECT c.vector_id, c.chunk_id, c.note_id, n.path, c.ordinal, c.start_byte,"
+            " c.end_byte, c.heading, c.text"
+            " FROM chunks AS c JOIN notes AS n ON n.note_id = c.note_id"
+            f" WHERE c.vector_id IN ({marks})",
             vector_ids,
         ).fetchall()
 
-    def _plan(self, notes: Sequence[tuple[str, _NoteState, str]]) -> list[_Plan]:
-        """Match new chunks to stored ones and embed only the new chunks.
+    def _park(self, note_ids: Sequence[str]) -> None:
+        """Move notes to placeholder paths (NUL never appears in a note path)."""
+        if not note_ids:
+            return
+        with self._lock:
+            self._conn.execute("BEGIN IMMEDIATE")
+            try:
+                self._conn.executemany(
+                    "UPDATE notes SET path = ? WHERE note_id = ?",
+                    [("\x00" + note_id, note_id) for note_id in note_ids],
+                )
+                self._conn.execute("COMMIT")
+            except BaseException:
+                self._conn.execute("ROLLBACK")
+                raise
 
-        A chunk is reused when a stored chunk of the same note has the same
-        text and heading, which also means the same embedding input. Matching
-        is in document order, so repeated passages pair up in order.
+    def _plan(self, changes: Sequence[_Change]) -> list[_Plan]:
+        """Match new chunks to stored ones and embed only what changed.
+
+        A stored chunk is matched when the new chunk has the same text and
+        heading; matching is in document order, so repeated passages pair up
+        in order. A matched chunk keeps its ID. It also keeps its vector unless
+        the note was renamed, because the note title is part of the embedding
+        text.
         """
         drafts = []
         texts: list[str] = []
-        for path, state, content in notes:
+        for change in changes:
             with self._lock:
                 stored = self._conn.execute(
-                    "SELECT vector_id, text, heading FROM chunks WHERE path = ? ORDER BY ordinal",
-                    (path,),
+                    "SELECT vector_id, chunk_id, text, heading FROM chunks"
+                    " WHERE note_id = ? ORDER BY ordinal",
+                    (change.note_id,),
                 ).fetchall()
-            available: dict[tuple[str, str | None], deque[int]] = defaultdict(deque)
-            for vector_id, text, heading in stored:
-                available[(text, heading)].append(vector_id)
+            available: dict[tuple[str, str | None], deque[tuple[int, str]]] = defaultdict(deque)
+            for vector_id, chunk_id, text, heading in stored:
+                available[(text, heading)].append((vector_id, chunk_id))
             keep: list[tuple[int, TextChunk]] = []
-            add: list[TextChunk] = []
-            for chunk in chunk_markdown(content, max_chars=self._max_chunk_chars):
+            add: list[tuple[TextChunk, str]] = []
+            drop: list[int] = []
+            for chunk in chunk_markdown(change.content, max_chars=self._max_chunk_chars):
                 matches = available.get((chunk.text, chunk.heading))
-                if matches:
-                    keep.append((matches.popleft(), chunk))
+                if not matches:
+                    add.append((chunk, str(uuid4())))
+                    continue
+                vector_id, chunk_id = matches.popleft()
+                if change.retitled:
+                    drop.append(vector_id)
+                    add.append((chunk, chunk_id))
                 else:
-                    add.append(chunk)
-            drop = [vector_id for ids in available.values() for vector_id in ids]
-            drafts.append((path, state, keep, add, drop))
-            texts.extend(embedding_text(PurePosixPath(path), chunk) for chunk in add)
+                    keep.append((vector_id, chunk))
+            drop.extend(vector_id for ids in available.values() for vector_id, _ in ids)
+            drafts.append((change, keep, add, drop))
+            path = PurePosixPath(change.path)
+            texts.extend(embedding_text(path, chunk) for chunk, _ in add)
 
         vectors = (
             normalize_rows(self._embedder.embed(texts), self.dimension)
@@ -459,10 +571,10 @@ class SemanticIndex:
         )
         plans: list[_Plan] = []
         offset = 0
-        for path, state, keep, add, drop in drafts:
+        for change, keep, add, drop in drafts:
             block = vectors[offset : offset + len(add)]
             offset += len(add)
-            plans.append(_Plan(path, state, keep, add, block, drop))
+            plans.append(_Plan(change.note_id, change.path, change.state, keep, add, block, drop))
         return plans
 
     def _apply(
@@ -478,23 +590,39 @@ class SemanticIndex:
             self._conn.execute("BEGIN IMMEDIATE")
             try:
                 old_ids: list[int] = []
-                for path in removals:
+                for note_id in removals:
                     old_ids.extend(
                         row[0]
                         for row in self._conn.execute(
-                            "SELECT vector_id FROM chunks WHERE path = ?", (path,)
+                            "SELECT vector_id FROM chunks WHERE note_id = ?", (note_id,)
                         )
                     )
-                    self._conn.execute("DELETE FROM chunks WHERE path = ?", (path,))
-                    self._conn.execute("DELETE FROM notes WHERE path = ?", (path,))
+                    self._conn.execute("DELETE FROM chunks WHERE note_id = ?", (note_id,))
+                    self._conn.execute("DELETE FROM notes WHERE note_id = ?", (note_id,))
+                # Park this batch's notes too, so paths swapped within it cannot collide.
+                self._conn.executemany(
+                    "UPDATE notes SET path = ? WHERE note_id = ?",
+                    [("\x00" + plan.note_id, plan.note_id) for plan in plans],
+                )
                 new_ids: list[int] = []
                 for plan in plans:
                     state = plan.state
                     self._conn.execute(
-                        "INSERT INTO notes (path, sha256, size, mtime_ns) VALUES (?, ?, ?, ?) "
-                        "ON CONFLICT(path) DO UPDATE SET sha256 = excluded.sha256, "
-                        "size = excluded.size, mtime_ns = excluded.mtime_ns",
-                        (plan.path, state.sha256, state.size, state.mtime_ns),
+                        "INSERT INTO notes (note_id, path, sha256, size, mtime_ns, device, inode)"
+                        " VALUES (?, ?, ?, ?, ?, ?, ?)"
+                        " ON CONFLICT(note_id) DO UPDATE SET path = excluded.path,"
+                        " sha256 = excluded.sha256, size = excluded.size,"
+                        " mtime_ns = excluded.mtime_ns, device = excluded.device,"
+                        " inode = excluded.inode",
+                        (
+                            plan.note_id,
+                            plan.path,
+                            state.sha256,
+                            state.size,
+                            state.mtime_ns,
+                            state.device,
+                            state.inode,
+                        ),
                     )
                     self._conn.executemany(
                         "DELETE FROM chunks WHERE vector_id = ?",
@@ -502,20 +630,20 @@ class SemanticIndex:
                     )
                     old_ids.extend(plan.drop)
                     self._conn.executemany(
-                        "UPDATE chunks SET ordinal = ?, start_byte = ?, end_byte = ? "
-                        "WHERE vector_id = ?",
+                        "UPDATE chunks SET ordinal = ?, start_byte = ?, end_byte = ?"
+                        " WHERE vector_id = ?",
                         [
                             (chunk.ordinal, chunk.start_byte, chunk.end_byte, vector_id)
                             for vector_id, chunk in plan.keep
                         ],
                     )
-                    for chunk in plan.add:
+                    for chunk, chunk_id in plan.add:
                         cursor = self._conn.execute(
-                            "INSERT INTO chunks (chunk_id, path, ordinal, start_byte, end_byte,"
-                            " heading, text) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                            "INSERT INTO chunks (chunk_id, note_id, ordinal, start_byte,"
+                            " end_byte, heading, text) VALUES (?, ?, ?, ?, ?, ?, ?)",
                             (
-                                str(uuid4()),
-                                plan.path,
+                                chunk_id,
+                                plan.note_id,
                                 chunk.ordinal,
                                 chunk.start_byte,
                                 chunk.end_byte,
@@ -524,10 +652,18 @@ class SemanticIndex:
                             ),
                         )
                         new_ids.append(int(cursor.lastrowid))
-                for path, state in touched:
+                for note_id, state in touched:
                     self._conn.execute(
-                        "UPDATE notes SET sha256 = ?, size = ?, mtime_ns = ? WHERE path = ?",
-                        (state.sha256, state.size, state.mtime_ns, path),
+                        "UPDATE notes SET sha256 = ?, size = ?, mtime_ns = ?, device = ?,"
+                        " inode = ? WHERE note_id = ?",
+                        (
+                            state.sha256,
+                            state.size,
+                            state.mtime_ns,
+                            state.device,
+                            state.inode,
+                            note_id,
+                        ),
                     )
                 self._conn.execute("COMMIT")
             except BaseException:
@@ -549,6 +685,98 @@ class SemanticIndex:
                 raise
 
 
+def _state(content: str, info: os.stat_result) -> _NoteState:
+    data = content.encode("utf-8")
+    # File times advance in coarse ticks, so an edit made in the same tick as
+    # this read could keep the same size and time. Like git's "racy" entries,
+    # recently modified files are hashed again on the next sync.
+    mtime_ns = info.st_mtime_ns
+    if time.time_ns() - mtime_ns < _RACY_WINDOW_NS:
+        mtime_ns = -1
+    return _NoteState(hashlib.sha256(data).hexdigest(), len(data), mtime_ns, info.st_dev, info.st_ino)
+
+
+def _assign_identities(
+    changed: list[tuple[str, _Known | None, _NoteState, str]],
+    missing: dict[str, _Known],
+) -> tuple[list[_Change], int, list[str]]:
+    """Decide which note ID each new or changed path carries.
+
+    Identity follows exact content: a note whose stored content left its path
+    (the path is gone, or now holds other content) is claimed by a path that
+    now holds exactly that content. This covers renames, moves and swaps.
+    Among several candidates, the same file (device and inode) wins, then the
+    first by path, so the result is deterministic. Otherwise a changed path
+    keeps its own note's ID, unless another path claimed it, and a new path
+    gets a new ID. An edit combined with a rename between two syncs therefore
+    yields a new note.
+
+    Returns the changes, the number of moved notes and the removed note IDs.
+    """
+    sources = dict(missing)
+    for key, old, _, _ in changed:
+        if old is not None:
+            sources[key] = old
+    by_hash: dict[str, list[str]] = defaultdict(list)
+    for path in sorted(sources):
+        by_hash[sources[path].state.sha256].append(path)
+
+    claims: dict[str, _Known] = {}
+    claimed: set[str] = set()
+    for key, _, state, _ in sorted(changed, key=lambda item: item[0]):
+        candidates = [
+            path for path in by_hash.get(state.sha256, []) if path != key and path not in claimed
+        ]
+        same_file = [
+            path
+            for path in candidates
+            if sources[path].state.inode
+            and (sources[path].state.device, sources[path].state.inode)
+            == (state.device, state.inode)
+        ]
+        chosen = (same_file or candidates or [None])[0]
+        if chosen is not None:
+            claims[key] = sources[chosen]
+            claimed.add(chosen)
+
+    changes: list[_Change] = []
+    for key, old, state, content in changed:
+        if key in claims:
+            changes.append(_Change(claims[key].note_id, key, state, content, retitled=True))
+        elif old is not None and key not in claimed:
+            changes.append(_Change(old.note_id, key, state, content, retitled=False))
+        else:
+            changes.append(_Change(str(uuid4()), key, state, content, retitled=False))
+    # Any identity that no path carries any more is removed, including a changed
+    # path's own note when that path took over another note's content.
+    carried = {change.note_id for change in changes}
+    removed = [entry.note_id for entry in sources.values() if entry.note_id not in carried]
+    return changes, len(claims), removed
+
+
+def _vector_index_problem(index: object, dimension: int, stored_ids: list[int]) -> str | None:
+    """Why a loaded FAISS index cannot be used as this index, or None if it can."""
+    if not isinstance(index, faiss.IndexIDMap2):
+        return "vector file is not an ID-mapped FAISS index"
+    base = faiss.downcast_index(index.index)
+    if (
+        not isinstance(base, faiss.IndexFlatIP)
+        or base.metric_type != faiss.METRIC_INNER_PRODUCT
+        or index.metric_type != faiss.METRIC_INNER_PRODUCT
+    ):
+        return "vector file does not use an exact inner-product index"
+    if index.d != dimension or base.d != dimension:
+        return f"vector file has dimension {index.d}, expected {dimension}"
+    ids = faiss.vector_to_array(index.id_map).tolist()
+    if len(ids) != index.ntotal or base.ntotal != index.ntotal:
+        return "vector file ID map does not match its vector count"
+    if len(set(ids)) != len(ids):
+        return "vector file contains duplicate IDs"
+    if len(ids) != len(stored_ids) or set(ids) != set(stored_ids):
+        return "vector file and chunk metadata are out of step"
+    return None
+
+
 def _create_schema(conn: sqlite3.Connection) -> None:
     conn.executescript(
         """
@@ -557,30 +785,39 @@ def _create_schema(conn: sqlite3.Connection) -> None:
             value TEXT NOT NULL
         );
         CREATE TABLE IF NOT EXISTS notes (
-            path TEXT PRIMARY KEY,
+            note_id TEXT PRIMARY KEY,
+            path TEXT NOT NULL UNIQUE,
             sha256 TEXT NOT NULL,
             size INTEGER NOT NULL,
-            mtime_ns INTEGER NOT NULL
+            mtime_ns INTEGER NOT NULL,
+            device INTEGER NOT NULL,
+            inode INTEGER NOT NULL
         );
         CREATE TABLE IF NOT EXISTS chunks (
             vector_id INTEGER PRIMARY KEY AUTOINCREMENT,
             chunk_id TEXT NOT NULL UNIQUE,
-            path TEXT NOT NULL REFERENCES notes(path) ON DELETE CASCADE,
+            note_id TEXT NOT NULL REFERENCES notes(note_id) ON DELETE CASCADE,
             ordinal INTEGER NOT NULL,
             start_byte INTEGER NOT NULL,
             end_byte INTEGER NOT NULL,
             heading TEXT,
             text TEXT NOT NULL
         );
-        CREATE INDEX IF NOT EXISTS chunks_by_path ON chunks(path);
+        CREATE INDEX IF NOT EXISTS chunks_by_note ON chunks(note_id);
         """
     )
 
 
+def _is_link(info: os.stat_result) -> bool:
+    # On Windows, junctions and other reparse points are not reported as
+    # symlinks but can still redirect outside the vault.
+    return stat.S_ISLNK(info.st_mode) or bool(getattr(info, "st_reparse_tag", 0))
+
+
 def _require_real_directory(path: Path) -> None:
     info = os.lstat(path)
-    if stat.S_ISLNK(info.st_mode) or not stat.S_ISDIR(info.st_mode):
-        raise IndexStorageError(f"{path} must be a directory, not a symlink or file")
+    if _is_link(info) or not stat.S_ISDIR(info.st_mode):
+        raise IndexStorageError(f"{path} must be a directory, not a link or file")
 
 
 def _prepare_directory(directory: Path) -> None:
@@ -593,21 +830,38 @@ def _prepare_directory(directory: Path) -> None:
     _require_real_directory(directory)
 
 
-def _require_regular_or_missing(path: Path) -> None:
+def _check_file_info(path: Path, info: os.stat_result) -> None:
+    if _is_link(info) or not stat.S_ISREG(info.st_mode):
+        raise IndexStorageError(f"{path} must be a regular file, not a link or folder")
+    if info.st_nlink > 1:
+        # Another name for the same file may live outside the vault.
+        raise IndexStorageError(f"{path} has other hard links; refusing to use it")
+
+
+def _require_safe_file(path: Path) -> None:
+    """Allow a missing file or a regular file with exactly one link."""
     try:
         info = os.lstat(path)
     except FileNotFoundError:
         return
-    if stat.S_ISLNK(info.st_mode) or not stat.S_ISREG(info.st_mode):
-        raise IndexStorageError(f"{path} must be a regular file, not a symlink or folder")
+    _check_file_info(path, info)
+
+
+def _file_identity(path: Path) -> tuple[int, int] | None:
+    """(device, inode) of a safe file, or None if it does not exist."""
+    try:
+        info = os.lstat(path)
+    except FileNotFoundError:
+        return None
+    _check_file_info(path, info)
+    return info.st_dev, info.st_ino
 
 
 def _read_regular_file(path: Path) -> bytes:
-    _require_regular_or_missing(path)
+    _require_safe_file(path)
     fd = os.open(path, os.O_RDONLY | _O_BINARY | _O_NOFOLLOW)
     with os.fdopen(fd, "rb") as stream:
-        if not stat.S_ISREG(os.fstat(stream.fileno()).st_mode):
-            raise IndexStorageError(f"{path} must be a regular file")
+        _check_file_info(path, os.fstat(stream.fileno()))
         return stream.read()
 
 

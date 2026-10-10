@@ -14,7 +14,11 @@ from pathlib import PurePosixPath
 
 DEFAULT_MAX_CHARS = 1200
 
-_HEADING = re.compile(r"^ {0,3}#{1,6}[ \t]+(.+?)[ \t#]*$")
+# CommonMark ATX headings: 1-6 '#' followed by whitespace or the end of the line.
+_ATX_HEADING = re.compile(r"^ {0,3}#{1,6}(?:[ \t]+(.*?))?[ \t]*$")
+# An optional closing run of '#' counts only if whitespace precedes it (or it is
+# the whole content), so "# C#" is the heading "C#".
+_CLOSING_HASHES = re.compile(r"(?:^|[ \t]+)#+$")
 # CommonMark fences: a backtick opener's info string may not contain backticks.
 _FENCE_OPEN = re.compile(r"^ {0,3}(?:(`{3,})[^`]*|(~{3,}).*)$")
 
@@ -91,10 +95,18 @@ def embedding_text(path: PurePosixPath, chunk: TextChunk) -> str:
     The stored excerpt is always the raw chunk text.
     """
     parts = [path.stem]
-    if chunk.heading and not _HEADING.match(chunk.text.split("\n", 1)[0]):
+    if chunk.heading and heading_text(chunk.text.split("\n", 1)[0]) is None:
         parts.append(chunk.heading)
     parts.append(chunk.text)
     return "\n\n".join(parts)
+
+
+def heading_text(line: str) -> str | None:
+    """The text of an ATX heading line, "" for an empty heading, or None if not a heading."""
+    match = _ATX_HEADING.match(line)
+    if match is None:
+        return None
+    return _CLOSING_HASHES.sub("", match.group(1) or "").strip()
 
 
 def _lines(content: str) -> list[tuple[int, str]]:
@@ -131,11 +143,12 @@ def _blocks(content: str) -> list[_Block]:
             if fence.match(bare):
                 fence = None
             continue
-        heading_match = _HEADING.match(bare)
-        if heading_match:
+        text = heading_text(bare)
+        if text is not None:
             if block:
                 blocks.append(block)
-            heading = heading_match.group(1).strip()
+            # An empty heading still starts a section, but has no label.
+            heading = text or None
             block = _Block(position, end, heading, starts_section=True)
             continue
         if not bare.strip():

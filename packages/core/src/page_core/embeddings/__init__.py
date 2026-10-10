@@ -1,6 +1,11 @@
 """Chunking, embedding and the persistent vector index (requires numpy and faiss)."""
 
-from page_core.embeddings.chunking import DEFAULT_MAX_CHARS, TextChunk, chunk_markdown
+from page_core.embeddings.chunking import (
+    DEFAULT_MAX_CHARS,
+    TextChunk,
+    chunk_markdown,
+    heading_text,
+)
 from page_core.embeddings.encoder import (
     DEFAULT_MODEL,
     Embedder,
@@ -35,5 +40,6 @@ __all__ = [
     "SyncReport",
     "TextChunk",
     "chunk_markdown",
+    "heading_text",
     "normalize_rows",
 ]

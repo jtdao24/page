@@ -16,6 +16,7 @@ export interface ChunkLocation {
 }
 
 export interface SemanticSearchHit {
+  /** Persistent note ID; stable across restarts and across renames that keep the content. */
   note_id: string;
   path: string;
   title: string;
@@ -36,7 +37,8 @@ export interface SemanticSearchResponse {
 }
 
 export interface NoteResponse {
-  id: string;
+  /** Persistent note ID from the search index; null until the note is indexed. */
+  id: string | null;
   path: string;
   title: string;
   content: string;
@@ -46,4 +48,27 @@ export interface NoteResponse {
 export interface ErrorDetail {
   code: string;
   message: string;
+}
+
+export interface SyncReport {
+  added: number;
+  updated: number;
+  moved: number;
+  removed: number;
+  unchanged: number;
+  failed: string[];
+}
+
+export interface IndexStatusResponse {
+  state: "loading" | "indexing" | "ready" | "error";
+  searchable: boolean;
+  detail: string | null;
+  vault_name: string;
+  model: string | null;
+  dimension: number | null;
+  metric: "cosine";
+  notes: number;
+  chunks: number;
+  last_sync_at: string | null;
+  last_sync: SyncReport | null;
 }

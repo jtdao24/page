@@ -1,4 +1,11 @@
-"""Run the Page Core API: ``python -m page_core.api --vault PATH``."""
+"""Run the Page Core API: ``python -m page_core.api --vault PATH``.
+
+Every request needs the API token. It is read from ``PAGE_API_TOKEN`` (for a
+process that launches the API and the desktop app together) or generated for
+this launch and printed, so the user can paste it into the desktop app. It is
+never accepted as a command-line argument, which other users can see in the
+process list, and never written into the vault, which may be synced.
+"""
 
 import argparse
 import logging
@@ -7,7 +14,15 @@ from pathlib import Path
 
 import uvicorn
 
-from page_core.api.app import DEFAULT_HOST, DEFAULT_PORT, Settings, create_app, parse_sync_interval
+from page_core.api.app import (
+    DEFAULT_HOST,
+    DEFAULT_PORT,
+    Settings,
+    create_app,
+    new_api_token,
+    parse_sync_interval,
+    validate_api_token,
+)
 from page_core.embeddings.encoder import DEFAULT_MODEL
 from page_core.vault import FileSystemVault, VaultNotFoundError
 
@@ -56,8 +71,16 @@ def main() -> None:
             parser.error(f"no Page vault at {vault_path}; pass --init NAME to create one")
         FileSystemVault.create(vault_path, args.init)
 
+    supplied = os.environ.get("PAGE_API_TOKEN")
+    try:
+        token = validate_api_token(supplied) if supplied else new_api_token()
+    except ValueError as exc:
+        parser.error(f"PAGE_API_TOKEN: {exc}")
+
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
-    settings = Settings(vault_path, args.model, args.sync_interval)
+    settings = Settings(vault_path, args.model, args.sync_interval, api_token=token)
+    if not supplied:
+        print(f"Page Core API token for this launch (paste it into Page):\n\n    {token}\n", flush=True)
     uvicorn.run(create_app(settings), host=DEFAULT_HOST, port=args.port)
 
 

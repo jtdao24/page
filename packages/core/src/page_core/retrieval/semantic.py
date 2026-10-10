@@ -41,6 +41,7 @@ class QueryValidationError(ValueError):
 @dataclass(frozen=True, slots=True)
 class NoteMatch:
     note_id: UUID
+    """The note's persistent ID in the index; stable across restarts and renames."""
     path: PurePosixPath
     title: str
     score: float
@@ -136,7 +137,7 @@ class SemanticSearchService:
         ranked = sorted(best.values(), key=lambda pair: (-pair[0].score, str(pair[0].path)))
         return [
             NoteMatch(
-                note_id=note.id,
+                note_id=hit.note_id,
                 path=hit.path,
                 title=hit.path.stem,
                 score=hit.score,
@@ -148,7 +149,7 @@ class SemanticSearchService:
                 heading=hit.heading,
                 matched_chunks=counts[hit.path],
             )
-            for hit, note in ranked[:limit]
+            for hit, _ in ranked[:limit]
         ]
 
 
