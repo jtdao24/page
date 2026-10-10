@@ -7,12 +7,14 @@ imports and model loading are lazy so vault CRUD does not need a model installed
 import hashlib
 import json
 import math
+import os
 import re
+import shutil
 import subprocess
 import sys
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
-from pathlib import PurePosixPath
+from pathlib import Path, PurePosixPath
 from typing import Protocol
 from uuid import UUID, uuid5
 
@@ -24,6 +26,10 @@ REVISION = "1110a243fdf4706b3f48f1d95db1a4f5529b4d41"
 MAX_TOKENS = 220
 DIMENSION = 384
 FINGERPRINT = f"{MODEL}@{REVISION}:paragraph-v1:{MAX_TOKENS}:normalized-f32:{DIMENSION}"
+# A plain folder holding the pinned model, used instead of the Hugging Face cache
+# when set. The packaged app bundles one; ``export-model`` creates it.
+MODEL_DIR_ENV = "PAGE_MODEL_DIR"
+MODEL_MARKER = "page-model.json"
 
 
 class ModelUnavailableError(Exception):
@@ -108,6 +114,31 @@ def split_note(note: Note, offsets: Callable[[str], list[tuple[int, int]]],
     return tuple(chunks)
 
 
+def _checked_model_dir(directory: Path) -> Path:
+    """A model folder is used only if its marker names exactly the pinned model."""
+    marker = json.loads((directory / MODEL_MARKER).read_text(encoding="utf-8"))
+    if marker != {"model": MODEL, "revision": REVISION}:
+        raise ValueError("the model folder holds a different model")
+    return directory
+
+
+def export_model(destination: Path) -> None:
+    """Copy the prepared pinned model into a plain folder for bundling.
+
+    Unlike the Hugging Face cache, the copy has no symlinks, locks or markers
+    that the library writes to, so it can live inside a signed, read-only app.
+    """
+    from huggingface_hub import snapshot_download
+    source = Path(snapshot_download(MODEL, revision=REVISION, local_files_only=True))
+    if destination.exists():
+        raise FileExistsError(destination)
+    # copyfile, not copy2: cache blobs are read-only, and the bundle must be rewritable.
+    shutil.copytree(source, destination, symlinks=False, ignore=shutil.ignore_patterns("README.md", ".*"),
+                    copy_function=shutil.copyfile)
+    (destination / MODEL_MARKER).write_text(json.dumps({"model": MODEL, "revision": REVISION}) + "\n",
+                                            encoding="utf-8")
+
+
 class SentenceEncoder:
     """Fixed CPU MiniLM baseline; never downloads during indexing or search."""
 
@@ -115,9 +146,13 @@ class SentenceEncoder:
     dimension = DIMENSION
 
     def __init__(self, *, download: bool = False) -> None:
+        directory = None if download else os.environ.get(MODEL_DIR_ENV) or None
         try:
             from sentence_transformers import SentenceTransformer
-            self._model = SentenceTransformer(MODEL, revision=REVISION, device="cpu",
+            source, revision = MODEL, REVISION
+            if directory is not None:
+                source, revision = str(_checked_model_dir(Path(directory))), None
+            self._model = SentenceTransformer(source, revision=revision, device="cpu",
                 trust_remote_code=False, local_files_only=not download,
                 model_kwargs={"use_safetensors": True})
             self._model.eval()
@@ -300,7 +335,14 @@ class SemanticIndex:
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description="Prepare Page's pinned local embedding model")
-    parser.add_argument("command", choices=["prepare-model"])
-    parser.parse_args()
-    SentenceEncoder(download=True)
-    print(f"Prepared {MODEL}@{REVISION}. Indexing and search can now run offline.")
+    commands = parser.add_subparsers(dest="command", required=True)
+    commands.add_parser("prepare-model", help="download the pinned model into the Hugging Face cache")
+    export = commands.add_parser("export-model", help="copy the prepared model to a plain folder")
+    export.add_argument("destination", type=Path)
+    args = parser.parse_args()
+    if args.command == "prepare-model":
+        SentenceEncoder(download=True)
+        print(f"Prepared {MODEL}@{REVISION}. Indexing and search can now run offline.")
+    else:
+        export_model(args.destination)
+        print(f"Exported {MODEL}@{REVISION} to {args.destination}. Set {MODEL_DIR_ENV} to use it.")

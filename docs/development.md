@@ -27,7 +27,8 @@ particular LLM provider.
 ## Repository structure
 
 ```
-apps/desktop/         Desktop app (React frontend in src/, Tauri shell in src-tauri/)
+apps/desktop/         Desktop app (React frontend in src/, Tauri shell in src-tauri/,
+                      runtime build script in scripts/)
 packages/core/        page-core Python package (src layout, import name page_core)
 integrations/mcp/     Pointer to the MCP server in page-core
 training/             Reserved for model training code
@@ -190,8 +191,12 @@ installation occurs at application startup.
 
 Stage 6 dependencies and matching lockfiles are operator-prepared; see
 [docs/desktop-integration.md](docs/desktop-integration.md) for their exact versions.
-`npm run tauri:build` remains a build command, but bundled Python, installers and
-distribution validation are deferred to Stage 14.
+Release builds run a bundled Python runtime instead. To build the installable app,
+see [packaging](packaging.md):
+
+```sh
+npm run runtime:prepare && npm run tauri:bundle
+```
 
 To run only the frontend in a browser, use `npm run dev` (http://localhost:1420).
 It displays a desktop-runtime-unavailable state: vault access requires Tauri.

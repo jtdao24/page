@@ -52,3 +52,6 @@ tmp/
 *.local
 *.pem
 *.key
+
+# Bundled Python runtime (built by apps/desktop/scripts/prepare_runtime.py)
+apps/desktop/src-tauri/runtime/

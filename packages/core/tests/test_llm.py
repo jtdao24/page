@@ -1,6 +1,7 @@
 """Gemini adapter: request shape, response parsing, error mapping, no key leaks."""
 import io
 import json
+import ssl
 import urllib.error
 
 import pytest
@@ -105,3 +106,11 @@ def test_key_never_appears_in_repr_and_inputs_are_validated():
         gemini.generate("s", "p", max_output_tokens=0)
     with pytest.raises(ValueError):
         gemini.generate("s", "p", max_output_tokens=True)
+
+
+def test_default_opener_verifies_tls_with_a_ca_bundle():
+    from page_core import llm
+    context = llm._tls_context()
+    assert context.verify_mode == ssl.CERT_REQUIRED and context.check_hostname
+    assert len(context.get_ca_certs()) > 50
+    assert GeminiModel(KEY)._open is llm.https_open

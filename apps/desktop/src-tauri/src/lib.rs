@@ -4,6 +4,7 @@ pub mod command_names;
 pub mod commands;
 pub mod error;
 pub mod preferences;
+pub mod secrets;
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -86,7 +87,9 @@ fn quit_approved(app: &AppHandle) -> bool {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let backend = Arc::new(BackendManager::development());
+    let backend = Arc::new(BackendManager::for_build());
+    // Read at each launch; a credential-store failure falls back to the environment.
+    backend.set_gemini_key_source(Box::new(|| secrets::read_key().ok().flatten()));
     let quit = Arc::new(AtomicBool::new(false));
     let app = tauri::Builder::default()
         .menu(build_menu)
@@ -155,6 +158,9 @@ pub fn run() {
             commands::note_delete,
             commands::preferences_read,
             commands::preferences_write,
+            commands::gemini_key_status,
+            commands::gemini_key_save,
+            commands::gemini_key_clear,
             commands::desktop_quit,
         ])
         .build(tauri::generate_context!())

@@ -41,6 +41,9 @@ export function testClient() {
     noteMove: vi.fn(async (_vaultId: string, id: string, _revision: string, path: string) => note(id, "original", path)),
     noteDelete: vi.fn(async () => {}), preferencesRead: vi.fn(async () => emptyPreferences()),
     preferencesWrite: vi.fn(async () => {}), desktopQuit: vi.fn(async () => {}),
+    geminiKeyStatus: vi.fn<PageClient["geminiKeyStatus"]>(async () => ({ stored: false, from_environment: false })),
+    geminiKeySave: vi.fn<PageClient["geminiKeySave"]>(async () => {}),
+    geminiKeyClear: vi.fn<PageClient["geminiKeyClear"]>(async () => {}),
     onBackendStatus: vi.fn(async (handler: (status: BackendStatus) => void) => {
       statusHandler = handler;
       return () => { if (statusHandler === handler) statusHandler = undefined; };

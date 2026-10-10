@@ -134,6 +134,11 @@ export interface AskSource {
 export interface AskUsage {
   context_tokens: number; budget: number; counter: string; input_tokens: number; output_tokens: number;
 }
+export interface GeminiKeyStatus {
+  stored: boolean;
+  from_environment: boolean;
+}
+
 export interface AskResponse {
   vault_id: string; model: string; answer: string; answered_by_model: boolean; finish_reason: string;
   sources: AskSource[]; cited: number[]; usage: AskUsage;

@@ -48,7 +48,9 @@ server, which finds and budgets the relevant passages from your notes, with sour
 
 ## Availability
 
-The current desktop workflow is validated on macOS. Packaged downloads are not
-available yet; Windows support is planned.
+Page can be built as an installable macOS app (Apple silicon, macOS 14 or later)
+that includes everything it needs, with no Python setup. See
+[packaging](docs/packaging.md). Signed downloads aren't published yet, and Windows
+support is planned.
 
 For setup instructions, see [Developing Page](docs/development.md).

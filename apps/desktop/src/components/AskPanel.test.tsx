@@ -86,7 +86,8 @@ describe("ask panel", () => {
     const { client } = await setup();
     client.askQuestion.mockRejectedValueOnce(failure("llm_not_configured"));
     await click("Ask");
-    expect(host.querySelector(".ask-panel [role=alert]")?.textContent).toContain("GEMINI_API_KEY");
+    expect(host.querySelector(".ask-panel [role=alert]")?.textContent).toContain("Add one under Gemini API key");
+    expect(host.querySelector("#gemini-key")).not.toBeNull();
     expect(button("Try Again")).toBeUndefined();
     client.askQuestion.mockRejectedValueOnce(failure("llm_rate_limited"));
     await click("Ask");
@@ -114,5 +115,44 @@ describe("ask panel", () => {
     await click("Semantic search");
     expect(host.querySelector(".ask-panel")).toBeNull();
     expect(host.querySelector(".search-panel")).not.toBeNull();
+  });
+  it("saves a key to the credential store, restarts Core and clears the field", async () => {
+    const { client } = await setup();
+    await click("Gemini API key");
+    expect(host.textContent).toContain("No Gemini API key is set");
+    expect(button("Remove Key")).toBeUndefined();
+    const input = host.querySelector<HTMLInputElement>("#gemini-key")!;
+    expect(input.type).toBe("password");
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, "AIza-secret");
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    client.geminiKeyStatus.mockResolvedValue({ stored: true, from_environment: false });
+    await click("Save Key");
+    expect(client.geminiKeySave).toHaveBeenCalledWith("AIza-secret");
+    expect(client.backendRestart).toHaveBeenCalledTimes(1);
+    expect(input.value).toBe("");
+    expect(host.textContent).toContain("Key saved. Page Core restarted to use it.");
+    expect(host.textContent).toContain("saved in your system keychain");
+    client.geminiKeyStatus.mockResolvedValue({ stored: false, from_environment: true });
+    await click("Remove Key");
+    expect(client.geminiKeyClear).toHaveBeenCalledTimes(1);
+    expect(client.backendRestart).toHaveBeenCalledTimes(2);
+    expect(host.textContent).toContain("Using GEMINI_API_KEY from the environment");
+  });
+  it("shows credential store failures and keeps the typed key", async () => {
+    const { client } = await setup();
+    await click("Gemini API key");
+    const input = host.querySelector<HTMLInputElement>("#gemini-key")!;
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, "bad key");
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    client.geminiKeySave.mockRejectedValueOnce({ kind: "preferences", status: null, code: "invalid_api_key",
+      message: "Paste the API key exactly as Google AI Studio shows it.", details: null });
+    await click("Save Key");
+    expect(host.querySelector(".ask-key [role=alert]")?.textContent).toContain("Paste the API key exactly");
+    expect(client.backendRestart).not.toHaveBeenCalled();
+    expect(input.value).toBe("bad key");
   });
 });

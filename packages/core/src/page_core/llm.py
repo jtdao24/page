@@ -6,9 +6,11 @@ in a header (never a URL), and never logs or repeats the key, prompt or reply
 in errors.
 """
 
+import functools
 import json
 import os
 import re
+import ssl
 import urllib.error
 import urllib.request
 from collections.abc import Callable, Mapping
@@ -65,11 +67,23 @@ class ChatModel(Protocol):
 Opener = Callable[..., Any]
 
 
+@functools.cache
+def _tls_context() -> ssl.SSLContext:
+    # python.org and python-build-standalone builds on macOS find no system CA
+    # certificates, so use certifi's bundle (a dependency) to verify Gemini.
+    import certifi
+    return ssl.create_default_context(cafile=certifi.where())
+
+
+def https_open(request: urllib.request.Request, *, timeout: float) -> Any:
+    return urllib.request.urlopen(request, timeout=timeout, context=_tls_context())
+
+
 class GeminiModel:
     """Gemini ``generateContent`` over HTTPS, with no SDK dependency."""
 
     def __init__(self, api_key: str, model: str = DEFAULT_GEMINI_MODEL, *, timeout: float = 60.0,
-                 opener: Opener = urllib.request.urlopen) -> None:
+                 opener: Opener = https_open) -> None:
         if not isinstance(api_key, str) or not api_key.strip():
             raise LLMNotConfiguredError("an API key is required")
         if not isinstance(model, str) or not _MODEL_NAME.fullmatch(model):

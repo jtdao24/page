@@ -146,3 +146,6 @@ details[open] > .folder-row::before { transform: rotate(90deg); }
 .ask-answer .citation { display: inline; border: 0; background: transparent; padding: 0 1px; color: var(--accent); font-size: 11px; vertical-align: super; }
 .ask-usage { color: var(--muted); font-size: 10px; }
 .ask-sources li.cited > button { color: var(--accent); }
+.ask-key-toggle { align-self: flex-start; border: 0; background: transparent; color: var(--muted); font-size: 11px; padding: 2px 0; }
+.ask-key form { display: flex; flex-direction: column; gap: 8px; margin: 8px 0 12px; }
+.ask-key input { width: 100%; min-width: 0; }

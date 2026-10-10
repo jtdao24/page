@@ -5,7 +5,8 @@ and CodeMirror 6. Markdown files remain authoritative. Stage 6 acceptance is
 complete on macOS: native functional checks passed and the user accepted the
 visual layout on October 10, 2026. Backend integration is verified on macOS 26.6.2
 (25G83). Windows is unverified and private metadata access still fails closed
-there with `storage_unavailable`. Python distribution belongs to Stage 14.
+there with `storage_unavailable`. Release builds run a bundled Python runtime; see
+[packaging](packaging.md).
 
 The workspace uses an Obsidian-inspired dark palette, compact Files sidebar,
 collapsible navigation ribbon, a single document tab and violet editor accents.
@@ -32,7 +33,10 @@ files, manifests or databases directly. Python Core remains independent of Tauri
 Exposed commands: `backend_start`, `backend_status`, `backend_restart`;
 `vault_create`, `vault_open`, `vault_list`, `vault_get`, `vault_close`,
 `vault_reconcile`; `note_list`, `note_read`, `note_create`, `note_update`,
-`note_move`, `note_delete`; `preferences_read`, `preferences_write`, `desktop_quit`.
+`note_move`, `note_delete`; `preferences_read`, `preferences_write`, `desktop_quit`;
+`graph_read`, `semantic_index`, `semantic_search`, `ask_question`; `gemini_key_status`,
+`gemini_key_save`, `gemini_key_clear` (the key goes to the system credential store, never
+back to the webview).
 There is no generic URL, HTTP, filesystem, SQL or shell command. Wire fields
 match [local-api.md](local-api.md); timestamps stay strings, IDs come from Core,
 and revisions are opaque accepted snapshots. Full notes require a matching strong

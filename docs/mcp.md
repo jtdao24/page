@@ -61,6 +61,13 @@ claude mcp add page -- /path/to/page/.venv/bin/python -m page_core.mcp_server --
 }
 ```
 
+**With the installed app**, no checkout is needed. Use its bundled launcher as the
+command:
+
+```sh
+claude mcp add page -- /Applications/Page.app/Contents/Resources/runtime/bin/page-mcp --vault /path/to/vault
+```
+
 To check the server by hand, run the same command. It waits for an MCP client on
 stdin; a folder that isn't a Page vault exits with an error.
 

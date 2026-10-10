@@ -22,5 +22,8 @@ pub const COMMAND_NAMES: &[&str] = &[
     "note_delete",
     "preferences_read",
     "preferences_write",
+    "gemini_key_status",
+    "gemini_key_save",
+    "gemini_key_clear",
     "desktop_quit",
 ];
