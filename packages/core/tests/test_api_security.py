@@ -281,10 +281,11 @@ def test_openapi_is_authenticated_and_describes_the_contract(client: TestClient)
     names = set(schema["components"]["schemas"])
     assert {"CreateVaultRequest", "OpenVaultRequest", "CreateNoteRequest", "UpdateNoteRequest", "MoveNoteRequest",
             "ReconcileRequest", "HealthResponse", "VaultResponse", "NoteSummaryResponse", "NoteResponse",
-            "ReconcileResponse", "ErrorResponse"} <= names
+            "ReconcileResponse", "ErrorResponse", "GraphResponse", "GraphNodeResponse", "GraphLinkResponse"} <= names
     paths = schema["paths"]
     assert set(paths) == {
         f"{API}/health", f"{API}/vaults", f"{API}/vaults/open", f"{API}/vaults/{{vault_id}}",
+        f"{API}/vaults/{{vault_id}}/graph",
         f"{API}/vaults/{{vault_id}}/reconcile", f"{API}/vaults/{{vault_id}}/notes",
         f"{API}/vaults/{{vault_id}}/notes/{{note_id}}", f"{API}/vaults/{{vault_id}}/notes/{{note_id}}/move",
     }

@@ -4,7 +4,7 @@
 //! the endpoint table below. It is a blocking client: construct, use and drop
 //! it on ordinary worker threads, never directly inside an async runtime.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 use std::time::Duration;
 
@@ -80,6 +80,35 @@ pub struct ReconcileResponse {
     pub renamed: u64,
     pub missing: u64,
     pub unchanged: u64,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct GraphNodeResponse {
+    pub id: String,
+    pub relative_path: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct GraphLinkResponse {
+    pub source_note_id: String,
+    pub target_reference: String,
+    #[serde(deserialize_with = "Option::deserialize")]
+    pub target_note_id: Option<String>,
+    #[serde(deserialize_with = "Option::deserialize")]
+    pub alias: Option<String>,
+    pub line: u64,
+    #[serde(deserialize_with = "Option::deserialize")]
+    pub unresolved_reason: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct GraphResponse {
+    pub vault_id: String,
+    pub nodes: Vec<GraphNodeResponse>,
+    pub links: Vec<GraphLinkResponse>,
 }
 
 #[derive(Deserialize)]
@@ -324,6 +353,35 @@ impl CoreApiClient {
             }
         }
         Ok(notes)
+    }
+
+    pub fn read_graph(&self, vault_id: &str) -> Result<GraphResponse, DesktopError> {
+        let route = format!("/vaults/{}/graph", uuid(vault_id)?);
+        let reply = self.send(Method::GET, &route, None, None, None, Effect::Read, 200)?;
+        let graph: GraphResponse = decode(&reply.body, Effect::Read)?;
+        let ids: BTreeSet<&str> = graph.nodes.iter().map(|node| node.id.as_str()).collect();
+        if graph.vault_id != vault_id
+            || ids.len() != graph.nodes.len()
+            || graph
+                .nodes
+                .iter()
+                .any(|node| !is_canonical_uuid(&node.id) || node.relative_path.is_empty())
+            || graph.links.iter().any(|edge| {
+                !ids.contains(edge.source_note_id.as_str())
+                    || edge.line == 0
+                    || edge.target_reference.trim().is_empty()
+                    || match (&edge.target_note_id, &edge.unresolved_reason) {
+                        (Some(id), None) => !ids.contains(id.as_str()),
+                        (None, Some(reason)) => {
+                            !["missing", "ambiguous", "invalid"].contains(&reason.as_str())
+                        }
+                        _ => true,
+                    }
+            })
+        {
+            return Err(invalid_response(Effect::Read));
+        }
+        Ok(graph)
     }
 
     pub fn read_note(&self, vault_id: &str, note_id: &str) -> Result<NoteResponse, DesktopError> {
@@ -799,6 +857,41 @@ mod tests {
         assert!(CoreApiClient::new(8765, &format!("{}!", &TOKEN[..42])).is_err());
         let client = CoreApiClient::new(8765, TOKEN).unwrap();
         assert!(!format!("{client:?}").contains(TOKEN));
+    }
+
+    #[test]
+    fn graph_reads_validate_topology_and_use_fixed_authenticated_route() {
+        let valid = json!({"vault_id": VAULT, "nodes": [{"id": NOTE, "relative_path": "a.md"}],
+            "links": [{"source_note_id": NOTE, "target_reference": "a", "target_note_id": NOTE,
+                "alias": null, "line": 1, "unresolved_reason": null}]});
+        let mut dangling = valid.clone();
+        dangling["links"][0]["target_note_id"] = json!(VAULT);
+        let mut malformed = valid.clone();
+        malformed["links"][0]
+            .as_object_mut()
+            .unwrap()
+            .remove("alias");
+        let mut foreign = valid.clone();
+        foreign["vault_id"] = json!(NOTE);
+        let (results, requests) = with_server(
+            vec![valid, dangling, malformed, foreign]
+                .iter()
+                .map(|body| json_response("200 OK", body))
+                .collect(),
+            |client| (0..4).map(|_| client.read_graph(VAULT)).collect::<Vec<_>>(),
+        );
+        assert_eq!(
+            results[0].as_ref().unwrap().links[0]
+                .target_note_id
+                .as_deref(),
+            Some(NOTE)
+        );
+        for result in &results[1..] {
+            assert_eq!(result.as_ref().unwrap_err().code, "invalid_response");
+        }
+        for request in &requests {
+            assert_common(request, "GET", &format!("/api/v1/vaults/{VAULT}/graph"));
+        }
     }
 
     #[test]

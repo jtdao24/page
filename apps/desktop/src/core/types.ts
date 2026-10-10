@@ -99,3 +99,19 @@ export function toDesktopError(value: unknown): DesktopError {
 export function isOutcomeUnknown(error: DesktopError): boolean {
   return error.code === OUTCOME_UNKNOWN;
 }
+
+
+export interface GraphNodeResponse { id: string; relative_path: string }
+export interface GraphLinkResponse {
+  source_note_id: string;
+  target_reference: string;
+  target_note_id: string | null;
+  alias: string | null;
+  line: number;
+  unresolved_reason: "missing" | "ambiguous" | "invalid" | null;
+}
+export interface GraphResponse {
+  vault_id: string;
+  nodes: GraphNodeResponse[];
+  links: GraphLinkResponse[];
+}

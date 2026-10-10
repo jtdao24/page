@@ -26,6 +26,7 @@ export function testClient() {
     vaultCreate: vi.fn(async () => vault), vaultOpen: vi.fn(async () => vault),
     vaultList: vi.fn(async () => [vault]), vaultGet: vi.fn(async () => vault),
     vaultClose: vi.fn(async () => {}), vaultReconcile: vi.fn(async () => counts),
+    graphRead: vi.fn<PageClient["graphRead"]>(async () => ({ vault_id: vault.id, nodes: [], links: [] })),
     noteList: vi.fn(async () => [note()]),
     noteRead: vi.fn(async (_vaultId: string, id: string) => note(id)),
     noteCreate: vi.fn(async (_vaultId: string, path: string, content: string) => note(undefined, content, path)),

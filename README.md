@@ -23,6 +23,8 @@ the files remain the source of truth.
   and confirm permanent deletion.
 - **Handle changes on disk.** Refresh after external edits, review conflicts,
   and choose whether to reload the file or keep your draft.
+- **Connect your ideas.** Link notes with `[[wiki links]]`, follow backlinks,
+  and explore their relationships in an interactive knowledge graph.
 - **Pick up where you left off.** Page remembers your recent vaults and last
   selected note.
 
@@ -34,9 +36,9 @@ you can retain its draft and save it as a new note.
 
 ## Looking ahead
 
-Page's longer-term direction is an AI-native knowledge workspace: connected notes,
-a knowledge graph, and context selection for language models. Those capabilities
-are planned. The current app focuses on local Markdown editing and organization.
+Page's longer-term direction is an AI-native knowledge workspace with context
+selection for language models. That capability is planned. The current app focuses
+on local Markdown editing, organization, and relationships between notes.
 
 ## Availability
 

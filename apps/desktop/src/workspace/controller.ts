@@ -706,6 +706,11 @@ export class WorkspaceController {
     await this.loadNotes();
   }
 
+  /** Graph reads share the protected bridge; the graph view owns response lifetimes. */
+  readGraph(vaultId: string) {
+    return this.api.graphRead(vaultId);
+  }
+
   selectNote(noteId: string): Promise<void | undefined> {
     if (navigationBlocked(this.state) || this.state.document?.noteId === noteId) return Promise.resolve(undefined);
     return this.guarded("open another note", () => this.openNote(noteId));

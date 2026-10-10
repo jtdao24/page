@@ -20,6 +20,7 @@ from pathlib import Path, PurePosixPath
 from uuid import UUID
 
 from page_core.domain import Note, Vault
+from page_core.graph import GraphSnapshot, build_graph
 from page_core.metadata import (
     InvalidRenameError, MetadataSyncError, NoteMetadata, PersistentVault, ReconcileResult,
 )
@@ -259,6 +260,15 @@ class LocalVaultService:
         except MetadataSyncError:
             session.needs_reconciliation = True
             raise
+
+    def get_graph(self, vault_id: UUID) -> GraphSnapshot:
+        session = self._note_session(vault_id)
+        # Reconcile external file changes before resolving references. Canonical
+        # IDs come only from PersistentVault; note files are never rewritten.
+        session.storage.reconcile()
+        records = session.storage.metadata.list_notes()
+        notes = tuple(self._read(session, record.id) for record in records)
+        return build_graph(vault_id, notes)
 
     def get_note(self, vault_id: UUID, note_id: UUID) -> Note:
         return self._read(self._note_session(vault_id), note_id)

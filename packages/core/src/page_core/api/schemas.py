@@ -185,3 +185,26 @@ REQUEST_MODELS: tuple[type[BaseModel], ...] = (
     CreateVaultRequest, OpenVaultRequest, CreateNoteRequest,
     UpdateNoteRequest, MoveNoteRequest, ReconcileRequest,
 )
+
+
+class GraphNodeResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    id: str
+    relative_path: str
+
+
+class GraphLinkResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    source_note_id: str
+    target_reference: str
+    target_note_id: str | None
+    alias: str | None
+    line: int
+    unresolved_reason: Literal["missing", "ambiguous", "invalid"] | None
+
+
+class GraphResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    vault_id: str
+    nodes: list[GraphNodeResponse]
+    links: list[GraphLinkResponse]

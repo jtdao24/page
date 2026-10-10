@@ -1,7 +1,8 @@
 import type { CSSProperties } from "react";
 
-type IconName = "note" | "folder" | "vault" | "refresh" | "save" | "sidebar" | "plus" | "quit";
+type IconName = "graph" | "note" | "folder" | "vault" | "refresh" | "save" | "sidebar" | "plus" | "quit";
 const paths: Record<IconName, string> = {
+  graph: "M8 5a3 3 0 1 1-6 0 3 3 0 0 1 6 0ZM22 7a3 3 0 1 1-6 0 3 3 0 0 1 6 0ZM16 19a3 3 0 1 1-6 0 3 3 0 0 1 6 0ZM8 5l8 2M6 8l5 8M18 10l-4 6",
   note: "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6ZM14 2v6h6M8 13h8M8 17h5",
   folder: "M3 7V5a2 2 0 0 1 2-2h5l2 3h7a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z",
   vault: "m12 3 9 5-9 5-9-5 9-5ZM3 12l9 5 9-5M3 16l9 5 9-5",
