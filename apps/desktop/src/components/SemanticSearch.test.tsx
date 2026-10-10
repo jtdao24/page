@@ -4,7 +4,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Workspace } from "./Workspace";
 import { WorkspaceController } from "../workspace/controller";
-import { deferred, failure, note, testClient, vault } from "../workspace/testClient";
+import { deferred, failure, note, ready, testClient, vault } from "../workspace/testClient";
 import type { SearchResponse } from "../core/types";
 
 const a = note(), b = note("33333333-3333-4333-8333-333333333333", "garden text", "garden.md");
@@ -44,6 +44,19 @@ async function setup() {
   return { client, controller, emit };
 }
 describe("semantic workspace search", () => {
+  it("a search that loses ownership during a brief change does not stay loading", async () => {
+    const { client, emit } = await setup();
+    const pending = deferred<SearchResponse>();
+    client.semanticSearch.mockReturnValueOnce(pending.promise);
+    await click("Search Notes");
+    expect(host.textContent).toContain("Indexing saved notes and searching…");
+    await act(async () => emit({ ...ready, state: "failed", error: failure("backend_exited") }));
+    await act(async () => emit(ready));
+    await act(async () => pending.resolve(results));
+    expect(host.textContent).not.toContain("Indexing saved notes and searching…");
+    const search = [...host.querySelectorAll("button")].find((b) => b.textContent === "Search Notes")!;
+    expect(search.disabled).toBe(false);
+  });
   it("searches saved notes and routes result navigation through the dirty guard", async () => {
     const { client, controller } = await setup();
     const doc = controller.getState().document!;

@@ -288,8 +288,11 @@ class SemanticIndex:
             raw = note.content.encode("utf-8")
             def line(byte: int) -> int:
                 return 1 + len(re.findall(r"\r\n|\r|\n", raw[:byte].decode("utf-8")))
+            # The end line is the line of the chunk's last character; a trailing
+            # CRLF is one line break, so step back over both bytes together.
+            last = 2 if chunk.text.endswith("\r\n") else len(chunk.text[-1].encode("utf-8"))
             hits.append(SearchHit(chunk, note.relative_path, revisions[note.id],
-                line(chunk.start_byte), line(chunk.end_byte - len(chunk.text[-1].encode("utf-8"))),
+                line(chunk.start_byte), line(chunk.end_byte - last),
                 max(-1.0, min(1.0, score))))
         return tuple(hits)
 
