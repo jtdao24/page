@@ -1,9 +1,10 @@
 import math
-from pathlib import Path
+import time
+from pathlib import Path, PurePosixPath
 
 import pytest
 
-from embedding_fakes import KeywordEmbedder
+from embedding_fakes import FailingEmbedder, KeywordEmbedder
 from page_core.api import Settings
 from page_core.api.app import parse_sync_interval
 from page_core.retrieval.runtime import SearchRuntime, validate_sync_interval
@@ -40,3 +41,34 @@ def test_environment_interval_is_validated(monkeypatch: pytest.MonkeyPatch, tmp_
 
     with pytest.raises(ValueError, match="sync interval"):
         Settings.from_env()
+
+
+def test_manual_sync_recovers_from_a_failed_first_build(fs_vault: FileSystemVault) -> None:
+    fs_vault.create_note(PurePosixPath("bread.md"), "Knead the dough and bake sourdough bread.")
+    embedder = FailingEmbedder()
+    embedder.fail = True
+    runtime = SearchRuntime(fs_vault.vault.root_path, lambda: embedder, sync_interval=0)
+    runtime.start()
+    try:
+        assert runtime.wait_until_settled(10)
+        assert runtime.status().state == "error"
+
+        embedder.fail = False
+        runtime.sync_now()
+
+        status = runtime.status()
+        assert status.searchable
+        assert status.state == "ready"
+        assert status.detail is None
+        runtime.search("baking bread", 5)
+
+        # Background syncing resumes after the recovery.
+        synced = status.last_sync_at
+        fs_vault.create_note(PurePosixPath("garden.md"), "Compost the soil before planting seeds.")
+        runtime.request_sync()
+        deadline = time.monotonic() + 10
+        while runtime.status().last_sync_at == synced and time.monotonic() < deadline:
+            time.sleep(0.05)
+        assert runtime.status().last_sync_at != synced
+    finally:
+        runtime.stop()

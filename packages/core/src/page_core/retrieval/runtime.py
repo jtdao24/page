@@ -139,6 +139,10 @@ class SearchRuntime:
             raise SearchUnavailableError(self._state, self._unavailable_message())
         report = index.sync(self._sync_vault)
         self._record_sync(report)
+        # A successful sync proves the index is usable again, so recover from a
+        # failed first build: serve searches and resume background syncing.
+        self._mark_ready()
+        self._resume_background(index)
         return report
 
     def search(self, query: str, limit: int) -> SemanticSearchResult:
@@ -196,13 +200,13 @@ class SearchRuntime:
         else:
             self._state = RuntimeState.INDEXING
 
-        first = True
+        self._loop(index, first=True)
+
+    def _loop(self, index: SemanticIndex, *, first: bool) -> None:
         while not self._stop.is_set():
             try:
                 self._record_sync(index.sync(self._sync_vault))
-                self._searchable = True
-                self._state = RuntimeState.READY
-                self._detail = None
+                self._mark_ready()
             except Exception as exc:
                 logger.exception("semantic index sync failed")
                 if not self._searchable:
@@ -215,6 +219,21 @@ class SearchRuntime:
                 first = False
             self._wake.wait(self._sync_interval or None)
             self._wake.clear()
+
+    def _mark_ready(self) -> None:
+        self._searchable = True
+        self._state = RuntimeState.READY
+        self._detail = None
+
+    def _resume_background(self, index: SemanticIndex) -> None:
+        thread = self._thread
+        if self._stop.is_set() or thread is None or thread.is_alive():
+            return
+        self._thread = threading.Thread(
+            target=self._loop, args=(index,), kwargs={"first": False},
+            name="page-search", daemon=True,
+        )
+        self._thread.start()
 
     def _fail(self, exc: Exception) -> None:
         self._state = RuntimeState.ERROR
