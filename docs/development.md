@@ -20,7 +20,7 @@ particular LLM provider.
 
 | Area     | Tools                                                |
 | -------- | ---------------------------------------------------- |
-| Core     | Python 3.12, hatchling, FastAPI, Pydantic 2, Uvicorn, pytest, HTTPX |
+| Core     | Python 3.12, FastAPI, Sentence Transformers, FAISS, PyTorch, pytest |
 | Desktop  | Tauri 2 (Rust), React 19, TypeScript 6 (strict), Vite 8, Tailwind CSS 4 |
 | Tooling  | npm workspaces, ESLint, Vitest, rustfmt              |
 
@@ -69,8 +69,20 @@ python -m pip install -r packages/core/requirements-dev.txt -e packages/core
 ```
 
 `packages/core/requirements-dev.txt` pins exact versions of the runtime dependencies
-(FastAPI, Pydantic, Uvicorn), the `dev` dependency group (pytest, HTTPX) declared in
+(FastAPI, Pydantic, Uvicorn, Sentence Transformers, FAISS), the `dev` dependency group (pytest, HTTPX) declared in
 `packages/core/pyproject.toml`, and all of their transitive packages.
+
+## Local semantic search model
+
+Prepare the fixed pretrained model once before using desktop semantic search:
+
+```sh
+.venv/bin/python -m page_core.semantic prepare-model
+```
+
+This downloads model files only. Ordinary indexing and search use the local cache
+and send no note or query content to a service. See [semantic search](semantic-search.md)
+for source attribution, incremental indexing, API contracts and limitations.
 
 ## Python tests
 

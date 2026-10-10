@@ -26,6 +26,8 @@ export function testClient() {
     vaultCreate: vi.fn(async () => vault), vaultOpen: vi.fn(async () => vault),
     vaultList: vi.fn(async () => [vault]), vaultGet: vi.fn(async () => vault),
     vaultClose: vi.fn(async () => {}), vaultReconcile: vi.fn(async () => counts),
+    semanticIndex: vi.fn<PageClient["semanticIndex"]>(async () => ({ vault_id: vault.id, model: "test", notes: 1, chunks: 1, generated: 1, reused: 0, removed: 0 })),
+    semanticSearch: vi.fn<PageClient["semanticSearch"]>(async () => ({ vault_id: vault.id, model: "test", hits: [] })),
     graphRead: vi.fn<PageClient["graphRead"]>(async () => ({ vault_id: vault.id, nodes: [], links: [] })),
     noteList: vi.fn(async () => [note()]),
     noteRead: vi.fn(async (_vaultId: string, id: string) => note(id)),

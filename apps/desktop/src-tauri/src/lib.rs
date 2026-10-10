@@ -144,6 +144,8 @@ pub fn run() {
             commands::vault_close,
             commands::vault_reconcile,
             commands::graph_read,
+            commands::semantic_index,
+            commands::semantic_search,
             commands::note_list,
             commands::note_read,
             commands::note_create,

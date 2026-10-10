@@ -165,3 +165,13 @@ Owner-only enforcement currently supports POSIX and is validated on macOS.
 Windows `chmod` does not enforce owner-only ACLs, so this adapter fails closed
 there pending implemented and tested Windows ACL support. Existing Stage 2/3
 behavior is unchanged; no Windows metadata behavior is claimed as verified.
+
+
+## Stage 8 derived vector cache
+
+Migration 3 adds `semantic_vectors` to the same private database, storing canonical
+chunk/note IDs, the model/chunker fingerprint, and normalized vector bytes.
+Markdown is not stored. Replacement snapshots commit atomically and foreign keys
+cascade when note metadata is deleted. Vector corruption can be repaired with a
+semantic index rebuild while preserving the vault's historical note identities.
+See [semantic search](semantic-search.md) for cache validation and reuse rules.

@@ -169,7 +169,7 @@ def test_corrupt_stored_values_raise_a_typed_decode_error(repository, record, fi
 
 def test_fresh_schema_and_migration_history(repository):
     assert repository._db.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION
-    assert [row[0] for row in repository._db.execute("SELECT version FROM schema_migrations ORDER BY version")] == [1, 2]
+    assert [row[0] for row in repository._db.execute("SELECT version FROM schema_migrations ORDER BY version")] == list(range(1, SCHEMA_VERSION + 1))
     indexes = {row[1] for row in repository._db.execute("PRAGMA index_list(notes)")}
     assert {"notes_active_path", "notes_digest", "notes_file_identity", "notes_updated"} <= indexes
 
@@ -180,12 +180,13 @@ def test_upgrade_version_one_preserves_metadata(fs_vault, record):
     with sqlite3.connect(database) as db:
         for index in ("notes_active_path", "notes_digest", "notes_file_identity", "notes_updated"):
             db.execute(f"DROP INDEX {index}")
-        db.execute("DELETE FROM schema_migrations WHERE version=2")
+        db.execute("DROP TABLE semantic_vectors")
+        db.execute("DELETE FROM schema_migrations WHERE version>=2")
         db.execute("PRAGMA user_version=1")
         db.execute("INSERT INTO notes VALUES (?,?,?,?,?,?,?,?,?,?,?)", MetadataRepository._values(record))
     with MetadataRepository(fs_vault.vault) as migrated:
         assert migrated.get(record.id) == record
-        assert migrated._db.execute("PRAGMA user_version").fetchone()[0] == 2
+        assert migrated._db.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION
 
 
 def test_migration_failure_is_atomic(fs_vault, monkeypatch):

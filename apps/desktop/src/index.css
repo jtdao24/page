@@ -131,3 +131,11 @@ details[open] > .folder-row::before { transform: rotate(90deg); }
   .knowledge-panel { width: 290px; }
   .page-app:has(.knowledge-panel) .workspace-sidebar { display: none; }
 }
+
+.search-panel form { display: flex; flex-direction: column; gap: 8px; margin: 16px 0; }
+.search-panel input { width: 100%; min-width: 0; }
+.search-results { list-style: none; padding: 0; margin: 12px 0; }
+.search-results li { border-bottom: 1px solid var(--line); padding: 12px 0; }
+.search-results button { text-align: left; overflow-wrap: anywhere; }
+.search-results small { display: block; color: var(--muted); margin-top: 6px; }
+.search-results p { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; line-height: 1.6; max-height: 180px; overflow: auto; }

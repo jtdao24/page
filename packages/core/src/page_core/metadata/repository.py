@@ -97,6 +97,15 @@ MIGRATIONS = (
         "CREATE INDEX notes_file_identity ON notes(vault_id,device,inode)",
         "CREATE INDEX notes_updated ON notes(vault_id,updated_at)",
     ),
+    (
+        # Derived, rebuildable embeddings. Markdown is never cached here.
+        """CREATE TABLE semantic_vectors (
+            chunk_id TEXT PRIMARY KEY NOT NULL,
+            note_id TEXT NOT NULL REFERENCES notes(id) ON DELETE CASCADE,
+            fingerprint TEXT NOT NULL,
+            vector BLOB NOT NULL
+        )""",
+    ),
 )
 SCHEMA_VERSION = len(MIGRATIONS)
 
@@ -333,6 +342,26 @@ class MetadataRepository:
             result = self._db.execute("DELETE FROM notes WHERE id=? AND vault_id=?", (self._id(identifier), str(self.vault.id)))
             if result.rowcount != 1:
                 raise MetadataNotFoundError(f"unknown note id: {identifier}")
+
+    def read_vectors(self, fingerprint: str) -> dict[str, bytes]:
+        """Return cached embeddings for exactly one model/chunker contract."""
+        if not isinstance(fingerprint, str):
+            raise TypeError("fingerprint must be str")
+        self._verify_files()
+        return {row[0]: row[1] for row in self._db.execute(
+            "SELECT chunk_id,vector FROM semantic_vectors WHERE fingerprint=?", (fingerprint,))}
+
+    def replace_vectors(self, fingerprint: str, vectors: list[tuple[UUID, UUID, bytes]]) -> None:
+        """Atomically replace the derived snapshot after all encoding succeeds."""
+        if not isinstance(fingerprint, str) or not isinstance(vectors, list):
+            raise TypeError("invalid vector snapshot types")
+        for chunk_id, note_id, vector in vectors:
+            if not isinstance(chunk_id, UUID) or not isinstance(note_id, UUID) or not isinstance(vector, bytes):
+                raise TypeError("vectors require UUID identities and bytes")
+        with self.transaction():
+            self._db.execute("DELETE FROM semantic_vectors")
+            self._db.executemany("INSERT INTO semantic_vectors VALUES (?,?,?,?)",
+                [(str(chunk_id), str(note_id), fingerprint, vector) for chunk_id, note_id, vector in vectors])
 
     def close(self) -> None:
         self._db.close()

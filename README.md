@@ -25,6 +25,8 @@ the files remain the source of truth.
   and choose whether to reload the file or keep your draft.
 - **Connect your ideas.** Link notes with `[[wiki links]]`, follow backlinks,
   and explore their relationships in an interactive knowledge graph.
+- **Find notes by meaning.** Search saved passages with a local pretrained model,
+  then open the source note from the results.
 - **Pick up where you left off.** Page remembers your recent vaults and last
   selected note.
 
@@ -38,7 +40,7 @@ you can retain its draft and save it as a new note.
 
 Page's longer-term direction is an AI-native knowledge workspace with context
 selection for language models. That capability is planned. The current app focuses
-on local Markdown editing, organization, and relationships between notes.
+on local Markdown editing, relationships between notes, and semantic search.
 
 ## Availability
 

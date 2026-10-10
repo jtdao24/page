@@ -12,6 +12,7 @@ from typing import Any
 
 from starlette.responses import JSONResponse
 
+from page_core.semantic import ModelUnavailableError, IndexCorruptError, EmbeddingError
 from page_core.metadata import MetadataDecodeError, MetadataError, MetadataNotFoundError, MetadataSyncError
 from page_core.vault import (
     InvalidNotePathError, NoteConflictError, NoteExistsError, NoteNotFoundError,
@@ -19,7 +20,7 @@ from page_core.vault import (
 )
 
 from .service import (
-    InvalidReconciliationError, InvalidVaultError,
+    InvalidReconciliationError, InvalidVaultError, InvalidSearchError,
     NoteNotFoundInVaultError, ReconciliationRequiredError, RevisionConflictError,
     StorageUnavailableError, VaultAlreadyOpenError, VaultIdentityConflictError,
     VaultSessionNotFoundError,
@@ -124,6 +125,10 @@ def translate(error: BaseException) -> ApiError:
                             "reconciliation_required": True,
                         })
     simple: list[tuple[type[BaseException], int, str, str]] = [
+        (ModelUnavailableError, 503, "model_unavailable", "Prepare the local embedding model before searching."),
+        (IndexCorruptError, 503, "index_corrupt", "The semantic index is corrupt; rebuild it."),
+        (EmbeddingError, 503, "embedding_failed", "Local embedding inference failed; try again."),
+        (InvalidSearchError, 422, "invalid_search", "The query exceeds the embedding model input limit."),
         (VaultSessionNotFoundError, 404, "vault_not_found", "No open vault has this ID."),
         (VaultAlreadyOpenError, 409, "vault_exists", "A Page vault already exists at this root."),
         (VaultIdentityConflictError, 409, "vault_identity_conflict",

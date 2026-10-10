@@ -9,6 +9,7 @@ import { MarkdownEditor } from "./MarkdownEditor";
 import { NotePathForm } from "./NotePathForm";
 import { NoteTree } from "./NoteTree";
 import { VaultForms } from "./VaultForms";
+import { SemanticSearch } from "./SemanticSearch";
 import { Icon } from "./Icon";
 
 const KnowledgeGraph = lazy(() => import("./KnowledgeGraph").then((module) => ({ default: module.KnowledgeGraph })));
@@ -18,6 +19,7 @@ type Modal = "vault" | "create" | "move" | "delete" | "convert" | "orphan" | "re
 export function Workspace({ controller }: { controller: WorkspaceController }) {
   const state = useWorkspace(controller);
   const [modal, setModal] = useState<Modal>(null);
+  const [searchVisible, setSearchVisible] = useState(false);
   const [graphVisible, setGraphVisible] = useState(false);
   const [sidebarVisible, setSidebarVisible] = useState(true);
   const document = state.document;
@@ -92,7 +94,9 @@ export function Workspace({ controller }: { controller: WorkspaceController }) {
           <button className="ribbon-button" title="Open Vault · Cmd/Ctrl+O" aria-label="Open Vault" disabled={navigation}
             onClick={() => setModal("vault")}><Icon name="folder" /></button>
           <button className="ribbon-button" title="Knowledge graph" aria-label="Knowledge graph" aria-expanded={graphVisible}
-            disabled={!state.vault} onClick={() => setGraphVisible(!graphVisible)}><Icon name="graph" /></button>
+            disabled={!state.vault} onClick={() => { setGraphVisible(!graphVisible); setSearchVisible(false); }}><Icon name="graph" /></button>
+          <button className="ribbon-button" title="Semantic search" aria-label="Semantic search" aria-expanded={searchVisible}
+            disabled={!state.vault} onClick={() => { setSearchVisible(!searchVisible); setGraphVisible(false); }}><Icon name="search" /></button>
           <div className="ribbon-spacer" />
           <button className="ribbon-button" title="Quit Page" aria-label="Quit Page" disabled={state.pending !== null || state.quitting}
             onClick={() => void controller.requestQuit()}><Icon name="quit" /></button>
@@ -176,6 +180,7 @@ export function Workspace({ controller }: { controller: WorkspaceController }) {
             {document && <footer className="document-statusbar"><span>Markdown</span><span>{document.mixed ? "Mixed line endings" : describeSeparator(document.separator)} · UTF-8</span><span>Cmd/Ctrl+S to save</span></footer>}
           </>}
         </section>
+        {searchVisible && state.vault && <SemanticSearch controller={controller} state={state} onClose={() => setSearchVisible(false)} />}
         {graphVisible && state.vault && <Suspense fallback={<aside className="knowledge-panel" role="status">Loading graph view…</aside>}>
           <KnowledgeGraph controller={controller} state={state} onClose={() => setGraphVisible(false)} />
         </Suspense>}

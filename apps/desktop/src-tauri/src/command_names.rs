@@ -11,6 +11,8 @@ pub const COMMAND_NAMES: &[&str] = &[
     "vault_close",
     "vault_reconcile",
     "graph_read",
+    "semantic_index",
+    "semantic_search",
     "note_list",
     "note_read",
     "note_create",

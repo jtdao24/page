@@ -446,3 +446,13 @@ canonical note nodes and directed wiki-link references with unresolved reasons.
 See [knowledge-graph.md](knowledge-graph.md) for the wire shape, resolution rules,
 refresh behavior and limits. It uses the existing storage worker and session;
 no additional server, credential or note-writing endpoint is introduced.
+
+
+## Semantic indexing and retrieval
+
+Stage 8 adds authenticated `POST /api/v1/vaults/{vault_id}/index` and
+`POST /api/v1/vaults/{vault_id}/search`. Search reconciles current source and reuses
+unchanged embeddings; it returns canonical note and chunk identities, revisions,
+source byte/line ranges and exact cosine scores. Model preparation is explicit;
+ordinary requests remain offline. See [semantic search](semantic-search.md) for
+schemas, model setup, failure handling, incremental behavior and limits.
