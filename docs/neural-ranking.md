@@ -103,6 +103,17 @@ The reranker moved two queries up and none down:
   can never be recovered by reranking.
 - English-oriented, like the underlying embedding model.
 
+## Held-out evaluation (Stage 11)
+
+The Stage 11 benchmark tested this checkpoint on a separate vault it never trained
+on, and it **did not generalize**:
+- recall@1 dropped from 0.775 (plain embedding order) to 0.700;
+- MRR was 0.799, against the embedding order's 0.875.
+
+The improvement above reflects a tiny training set evaluated close to its own data.
+See [evaluation](evaluation.md). Until it is retrained on more varied data, prefer
+Stage 8's cosine order.
+
 ## Validation
 
 ```sh

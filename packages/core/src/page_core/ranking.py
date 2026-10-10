@@ -7,16 +7,19 @@ checkpoint never executes code and reranking never imports PyTorch.
 """
 
 import hashlib
+import itertools
 import json
 import math
 import os
 import re
 import shutil
 import tempfile
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Iterator, Sequence
+from contextlib import contextmanager
 from dataclasses import dataclass, replace
 from pathlib import Path, PurePosixPath
 from typing import Any
+from uuid import UUID, uuid5
 
 from page_core.domain import validate_note_path
 from page_core.graph import GraphSnapshot, build_graph
@@ -376,27 +379,45 @@ def load_queries(path: Path) -> tuple[LabeledQuery, ...]:
 Candidates = tuple[LabeledQuery, tuple[SearchHit, ...], GraphSnapshot]
 
 
-def build_candidates(data_dir: Path, encoder: Encoder, *, limit: int = 10) -> list[Candidates]:
-    """Index a temporary copy of the fixture vault and retrieve each query's candidates.
+_FIXTURE_IDS = UUID("6a1f3c2e-0b7d-5e89-9c41-2f8d7a3b6e10")
 
-    The fixture directory is never modified: Page metadata is created only in
-    the temporary copy.
+
+@contextmanager
+def fixture_copy(vault_dir: Path, name: str) -> Iterator[Any]:
+    """Open a temporary copy of a fixture vault with Page's real storage.
+
+    Vault and note IDs are deterministic (UUID5 from a counter, assigned in
+    sorted path order), so ties broken by chunk ID rank the same on every run.
+    The fixture directory itself is never modified.
     """
-    from page_core.metadata import PersistentVault
+    from page_core.metadata import MetadataRepository, PersistentVault
+    from page_core.vault import FileSystemVault
 
-    queries = load_queries(data_dir / "queries.jsonl")
-    with tempfile.TemporaryDirectory(prefix="page-reranker-") as scratch:
+    counter = itertools.count(1)
+    with tempfile.TemporaryDirectory(prefix="page-fixture-") as scratch:
         root = Path(scratch) / "vault"
-        shutil.copytree(data_dir / "vault", root)
-        with PersistentVault.create(root, "Reranker fixture") as storage:
-            notes = tuple(storage.read_note(record.relative_path)
-                          for record in storage.metadata.list_notes())
-            graph = build_graph(storage.vault.id, notes)
-            index = SemanticIndex(storage.metadata, encoder)
-            revisions = {note.id: hashlib.sha256(note.content.encode("utf-8")).hexdigest()
-                         for note in notes}
-            return [(query, index.search(query.query, notes, revisions, limit), graph)
-                    for query in queries]
+        shutil.copytree(vault_dir, root)
+        files = FileSystemVault.create(root, name, id_factory=lambda: uuid5(_FIXTURE_IDS, str(next(counter))))
+        metadata = MetadataRepository(files.vault)
+        try:
+            storage = PersistentVault(files, metadata)
+        except BaseException:
+            metadata.close()
+            raise
+        with storage:
+            storage.reconcile()
+            yield storage
+
+
+def build_candidates(data_dir: Path, encoder: Encoder, *, limit: int = 10) -> list[Candidates]:
+    """Index a temporary copy of the fixture vault and retrieve each query's candidates."""
+    queries = load_queries(data_dir / "queries.jsonl")
+    with fixture_copy(data_dir / "vault", "Reranker fixture") as storage:
+        notes = tuple(storage.read_note(record.relative_path) for record in storage.metadata.list_notes())
+        graph = build_graph(storage.vault.id, notes)
+        index = SemanticIndex(storage.metadata, encoder)
+        revisions = {note.id: hashlib.sha256(note.content.encode("utf-8")).hexdigest() for note in notes}
+        return [(query, index.search(query.query, notes, revisions, limit), graph) for query in queries]
 
 
 def training_groups(candidates: Iterable[Candidates]) -> list[TrainingGroup]:

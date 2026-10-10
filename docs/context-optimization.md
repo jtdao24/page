@@ -105,6 +105,17 @@ separate the best passage more sharply and the relevance cutoff removes the rest
 Stage 11 owns the rigorous comparison against full-context and embedding-only
 baselines, including answer accuracy.
 
+## Held-out results (Stage 11)
+
+On the separate Stage 11 evaluation vault:
+- **With cosine ranking,** the optimizer used 90% fewer tokens than sending every
+  note, and still contained the answer for all 40 questions.
+- **With the Stage 9 reranker,** it kept too little: the answer was missing for 28% of
+  questions.
+
+Use `optimize_context` without a reranker until the reranker is retrained. See
+[evaluation](evaluation.md).
+
 ## Validation
 
 ```sh

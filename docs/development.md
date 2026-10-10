@@ -103,6 +103,17 @@ Stage 10's `page_core.context.optimize_context` packs ranked passages into
 source-attributed context that fits a token budget, dropping repeats and trimming
 oversized passages to exact excerpts. See [context optimization](context-optimization.md).
 
+## Benchmark
+
+Stage 11 compares full context, embedding top-k and the Page optimizer on held-out
+questions:
+
+```sh
+.venv/bin/python -m page_core.evaluation run   # writes benchmarks/results/stage11.*
+```
+
+See [evaluation](evaluation.md) for metrics, results and limits.
+
 ## Python tests
 
 ```sh
