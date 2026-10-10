@@ -75,6 +75,11 @@ def _require_note_path(field: str, value: object) -> PurePosixPath:
     return value
 
 
+def validate_note_path(path: object) -> PurePosixPath:
+    """Return ``path`` if it is a valid ``Note.relative_path``, else raise."""
+    return _require_note_path("note path", path)
+
+
 @dataclass(frozen=True, slots=True)
 class Vault:
     """A local knowledge vault. Identity is ``id``, not ``root_path``."""

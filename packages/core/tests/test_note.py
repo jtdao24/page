@@ -5,7 +5,7 @@ from uuid import UUID
 
 import pytest
 
-from page_core.domain import Note
+from page_core.domain import Note, validate_note_path
 
 NOTE_ID = UUID("00000000-0000-0000-0000-000000000010")
 VAULT_ID = UUID("00000000-0000-0000-0000-000000000001")
@@ -131,3 +131,13 @@ def test_fields_are_immutable() -> None:
 
     with pytest.raises(dataclasses.FrozenInstanceError):
         note.content = "changed"  # type: ignore[misc]
+
+
+def test_validate_note_path_applies_note_rules() -> None:
+    path = PurePosixPath("projects/plan.md")
+
+    assert validate_note_path(path) is path
+    with pytest.raises(ValueError):
+        validate_note_path(PurePosixPath("../plan.md"))
+    with pytest.raises(TypeError):
+        validate_note_path("projects/plan.md")
