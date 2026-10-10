@@ -1,0 +1,1064 @@
+{
+  "format": "page-benchmark-v1",
+  "dataset": {
+    "questions": 40,
+    "notes": 17,
+    "sha256": "20aeb82d86026cc9db0072bf9b3260d8ce986411daea18d2acb644a5590ccea3"
+  },
+  "encoder": "sentence-transformers/all-MiniLM-L6-v2@1110a243fdf4706b3f48f1d95db1a4f5529b4d41:paragraph-v1:220:normalized-f32:384",
+  "reranker_training": {
+    "candidates_per_query": 10,
+    "encoder": "sentence-transformers/all-MiniLM-L6-v2@1110a243fdf4706b3f48f1d95db1a4f5529b4d41:paragraph-v1:220:normalized-f32:384",
+    "epochs": 400,
+    "groups": 28,
+    "hidden": 16,
+    "learning_rate": 0.03,
+    "seed": 0,
+    "weight_decay": 0.0001
+  },
+  "counter": "utf8-bytes/3",
+  "answerer": "extractive-overlap-v1",
+  "settings": {
+    "budget": 300,
+    "top_k": 5,
+    "candidates": 10
+  },
+  "retrieval": {
+    "embedding": {
+      "recall_at_1": 0.775,
+      "recall_at_3": 1.0,
+      "recall_at_5": 1.0,
+      "recall_at_10": 1.0,
+      "mrr": 0.875
+    },
+    "reranked": {
+      "recall_at_1": 0.7,
+      "recall_at_3": 0.875,
+      "recall_at_5": 0.925,
+      "recall_at_10": 1.0,
+      "mrr": 0.798958
+    }
+  },
+  "systems": {
+    "full_context": {
+      "avg_tokens": 2606.0,
+      "answer_support": 1.0,
+      "answer_accuracy": 0.625,
+      "attribution_precision": 0.058824,
+      "attribution_recall": 1.0,
+      "token_reduction_vs_full": 0.0
+    },
+    "embedding_top_k": {
+      "avg_tokens": 199.25,
+      "answer_support": 1.0,
+      "answer_accuracy": 0.725,
+      "attribution_precision": 0.645,
+      "attribution_recall": 1.0,
+      "token_reduction_vs_full": 0.923542
+    },
+    "page_cosine": {
+      "avg_tokens": 267.175,
+      "answer_support": 1.0,
+      "answer_accuracy": 0.75,
+      "attribution_precision": 0.565387,
+      "attribution_recall": 1.0,
+      "token_reduction_vs_full": 0.897477
+    },
+    "page_reranked": {
+      "avg_tokens": 43.25,
+      "answer_support": 0.725,
+      "answer_accuracy": 0.675,
+      "attribution_precision": 0.925,
+      "attribution_recall": 0.925,
+      "token_reduction_vs_full": 0.983404
+    }
+  },
+  "budget_sweep": [
+    {
+      "system": "page_cosine",
+      "budget": 100,
+      "avg_tokens": 89.375,
+      "answer_support": 0.975,
+      "answer_accuracy": 0.75
+    },
+    {
+      "system": "page_cosine",
+      "budget": 300,
+      "avg_tokens": 267.175,
+      "answer_support": 1.0,
+      "answer_accuracy": 0.75
+    },
+    {
+      "system": "page_cosine",
+      "budget": 1000,
+      "avg_tokens": 306.225,
+      "answer_support": 1.0,
+      "answer_accuracy": 0.75
+    },
+    {
+      "system": "page_reranked",
+      "budget": 100,
+      "avg_tokens": 43.25,
+      "answer_support": 0.725,
+      "answer_accuracy": 0.675
+    },
+    {
+      "system": "page_reranked",
+      "budget": 300,
+      "avg_tokens": 43.25,
+      "answer_support": 0.725,
+      "answer_accuracy": 0.675
+    },
+    {
+      "system": "page_reranked",
+      "budget": 1000,
+      "avg_tokens": 43.25,
+      "answer_support": 0.725,
+      "answer_accuracy": 0.675
+    }
+  ],
+  "per_question": [
+    {
+      "id": "e01",
+      "full_context": {
+        "tokens": 2606,
+        "supported": true,
+        "correct": false
+      },
+      "embedding_top_k": {
+        "tokens": 211,
+        "supported": true,
+        "correct": false
+      },
+      "page_cosine": {
+        "tokens": 265,
+        "supported": true,
+        "correct": false
+      },
+      "page_reranked": {
+        "tokens": 49,
+        "supported": true,
+        "correct": true
+      }
+    },
+    {
+      "id": "e02",
+      "full_context": {
+        "tokens": 2606,
+        "supported": true,
+        "correct": true
+      },
+      "embedding_top_k": {
+        "tokens": 204,
+        "supported": true,
+        "correct": true
+      },
+      "page_cosine": {
+        "tokens": 293,
+        "supported": true,
+        "correct": true
+      },
+      "page_reranked": {
+        "tokens": 44,
+        "supported": false,
+        "correct": false
+      }
+    },
+    {
+      "id": "e03",
+      "full_context": {
+        "tokens": 2606,
+        "supported": true,
+        "correct": true
+      },
+      "embedding_top_k": {
+        "tokens": 207,
+        "supported": true,
+        "correct": true
+      },
+      "page_cosine": {
+        "tokens": 274,
+        "supported": true,
+        "correct": true
+      },
+      "page_reranked": {
+        "tokens": 53,
+        "supported": true,
+        "correct": true
+      }
+    },
+    {
+      "id": "e04",
+      "full_context": {
+        "tokens": 2606,
+        "supported": true,
+        "correct": true
+      },
+      "embedding_top_k": {
+        "tokens": 225,
+        "supported": true,
+        "correct": true
+      },
+      "page_cosine": {
+        "tokens": 272,
+        "supported": true,
+        "correct": true
+      },
+      "page_reranked": {
+        "tokens": 52,
+        "supported": true,
+        "correct": true
+      }
+    },
+    {
+      "id": "e05",
+      "full_context": {
+        "tokens": 2606,
+        "supported": true,
+        "correct": false
+      },
+      "embedding_top_k": {
+        "tokens": 204,
+        "supported": true,
+        "correct": true
+      },
+      "page_cosine": {
+        "tokens": 256,
+        "supported": true,
+        "correct": true
+      },
+      "page_reranked": {
+        "tokens": 55,
+        "supported": true,
+        "correct": true
+      }
+    },
+    {
+      "id": "e06",
+      "full_context": {
+        "tokens": 2606,
+        "supported": true,
+        "correct": true
+      },
+      "embedding_top_k": {
+        "tokens": 225,
+        "supported": true,
+        "correct": true
+      },
+      "page_cosine": {
+        "tokens": 267,
+        "supported": true,
+        "correct": true
+      },
+      "page_reranked": {
+        "tokens": 45,
+        "supported": true,
+        "correct": true
+      }
+    },
+    {
+      "id": "e07",
+      "full_context": {
+        "tokens": 2606,
+        "supported": true,
+        "correct": false
+      },
+      "embedding_top_k": {
+        "tokens": 177,
+        "supported": true,
+        "correct": true
+      },
+      "page_cosine": {
+        "tokens": 270,
+        "supported": true,
+        "correct": true
+      },
+      "page_reranked": {
+        "tokens": 45,
+        "supported": true,
+        "correct": true
+      }
+    },
+    {
+      "id": "e08",
+      "full_context": {
+        "tokens": 2606,
+        "supported": true,
+        "correct": true
+      },
+      "embedding_top_k": {
+        "tokens": 178,
+        "supported": true,
+        "correct": true
+      },
+      "page_cosine": {
+        "tokens": 134,
+        "supported": true,
+        "correct": true
+      },
+      "page_reranked": {
+        "tokens": 31,
+        "supported": true,
+        "correct": true
+      }
+    },
+    {
+      "id": "e09",
+      "full_context": {
+        "tokens": 2606,
+        "supported": true,
+        "correct": false
+      },
+      "embedding_top_k": {
+        "tokens": 173,
+        "supported": true,
+        "correct": false
+      },
+      "page_cosine": {
+        "tokens": 275,
+        "supported": true,
+        "correct": true
+      },
+      "page_reranked": {
+        "tokens": 31,
+        "supported": false,
+        "correct": false
+      }
+    },
+    {
+      "id": "e10",
+      "full_context": {
+        "tokens": 2606,
+        "supported": true,
+        "correct": true
+      },
+      "embedding_top_k": {
+        "tokens": 217,
+        "supported": true,
+        "correct": true
+      },
+      "page_cosine": {
+        "tokens": 287,
+        "supported": true,
+        "correct": true
+      },
+      "page_reranked": {
+        "tokens": 49,
+        "supported": true,
+        "correct": true
+      }
+    },
+    {
+      "id": "e11",
+      "full_context": {
+        "tokens": 2606,
+        "supported": true,
+        "correct": true
+      },
+      "embedding_top_k": {
+        "tokens": 215,
+        "supported": true,
+        "correct": true
+      },
+      "page_cosine": {
+        "tokens": 274,
+        "supported": true,
+        "correct": true
+      },
+      "page_reranked": {
+        "tokens": 55,
+        "supported": true,
+        "correct": true
+      }
+    },
+    {
+      "id": "e12",
+      "full_context": {
+        "tokens": 2606,
+        "supported": true,
+        "correct": false
+      },
+      "embedding_top_k": {
+        "tokens": 216,
+        "supported": true,
+        "correct": false
+      },
+      "page_cosine": {
+        "tokens": 281,
+        "supported": true,
+        "correct": false
+      },
+      "page_reranked": {
+        "tokens": 55,
+        "supported": true,
+        "correct": false
+      }
+    },
+    {
+      "id": "e13",
+      "full_context": {
+        "tokens": 2606,
+        "supported": true,
+        "correct": true
+      },
+      "embedding_top_k": {
+        "tokens": 262,
+        "supported": true,
+        "correct": true
+      },
+      "page_cosine": {
+        "tokens": 278,
+        "supported": true,
+        "correct": true
+      },
+      "page_reranked": {
+        "tokens": 54,
+        "supported": true,
+        "correct": true
+      }
+    },
+    {
+      "id": "e14",
+      "full_context": {
+        "tokens": 2606,
+        "supported": true,
+        "correct": false
+      },
+      "embedding_top_k": {
+        "tokens": 203,
+        "supported": true,
+        "correct": false
+      },
+      "page_cosine": {
+        "tokens": 274,
+        "supported": true,
+        "correct": false
+      },
+      "page_reranked": {
+        "tokens": 42,
+        "supported": false,
+        "correct": false
+      }
+    },
+    {
+      "id": "e15",
+      "full_context": {
+        "tokens": 2606,
+        "supported": true,
+        "correct": false
+      },
+      "embedding_top_k": {
+        "tokens": 192,
+        "supported": true,
+        "correct": false
+      },
+      "page_cosine": {
+        "tokens": 273,
+        "supported": true,
+        "correct": false
+      },
+      "page_reranked": {
+        "tokens": 42,
+        "supported": false,
+        "correct": false
+      }
+    },
+    {
+      "id": "e16",
+      "full_context": {
+        "tokens": 2606,
+        "supported": true,
+        "correct": true
+      },
+      "embedding_top_k": {
+        "tokens": 204,
+        "supported": true,
+        "correct": true
+      },
+      "page_cosine": {
+        "tokens": 204,
+        "supported": true,
+        "correct": true
+      },
+      "page_reranked": {
+        "tokens": 55,
+        "supported": true,
+        "correct": true
+      }
+    },
+    {
+      "id": "e17",
+      "full_context": {
+        "tokens": 2606,
+        "supported": true,
+        "correct": true
+      },
+      "embedding_top_k": {
+        "tokens": 193,
+        "supported": true,
+        "correct": true
+      },
+      "page_cosine": {
+        "tokens": 285,
+        "supported": true,
+        "correct": true
+      },
+      "page_reranked": {
+        "tokens": 49,
+        "supported": true,
+        "correct": true
+      }
+    },
+    {
+      "id": "e18",
+      "full_context": {
+        "tokens": 2606,
+        "supported": true,
+        "correct": false
+      },
+      "embedding_top_k": {
+        "tokens": 218,
+        "supported": true,
+        "correct": false
+      },
+      "page_cosine": {
+        "tokens": 289,
+        "supported": true,
+        "correct": false
+      },
+      "page_reranked": {
+        "tokens": 49,
+        "supported": false,
+        "correct": false
+      }
+    },
+    {
+      "id": "e19",
+      "full_context": {
+        "tokens": 2606,
+        "supported": true,
+        "correct": false
+      },
+      "embedding_top_k": {
+        "tokens": 190,
+        "supported": true,
+        "correct": false
+      },
+      "page_cosine": {
+        "tokens": 299,
+        "supported": true,
+        "correct": false
+      },
+      "page_reranked": {
+        "tokens": 17,
+        "supported": false,
+        "correct": false
+      }
+    },
+    {
+      "id": "e20",
+      "full_context": {
+        "tokens": 2606,
+        "supported": true,
+        "correct": true
+      },
+      "embedding_top_k": {
+        "tokens": 199,
+        "supported": true,
+        "correct": true
+      },
+      "page_cosine": {
+        "tokens": 298,
+        "supported": true,
+        "correct": true
+      },
+      "page_reranked": {
+        "tokens": 50,
+        "supported": true,
+        "correct": true
+      }
+    },
+    {
+      "id": "e21",
+      "full_context": {
+        "tokens": 2606,
+        "supported": true,
+        "correct": true
+      },
+      "embedding_top_k": {
+        "tokens": 236,
+        "supported": true,
+        "correct": true
+      },
+      "page_cosine": {
+        "tokens": 297,
+        "supported": true,
+        "correct": true
+      },
+      "page_reranked": {
+        "tokens": 46,
+        "supported": true,
+        "correct": true
+      }
+    },
+    {
+      "id": "e22",
+      "full_context": {
+        "tokens": 2606,
+        "supported": true,
+        "correct": false
+      },
+      "embedding_top_k": {
+        "tokens": 166,
+        "supported": true,
+        "correct": true
+      },
+      "page_cosine": {
+        "tokens": 272,
+        "supported": true,
+        "correct": true
+      },
+      "page_reranked": {
+        "tokens": 18,
+        "supported": false,
+        "correct": false
+      }
+    },
+    {
+      "id": "e23",
+      "full_context": {
+        "tokens": 2606,
+        "supported": true,
+        "correct": false
+      },
+      "embedding_top_k": {
+        "tokens": 172,
+        "supported": true,
+        "correct": false
+      },
+      "page_cosine": {
+        "tokens": 289,
+        "supported": true,
+        "correct": false
+      },
+      "page_reranked": {
+        "tokens": 18,
+        "supported": false,
+        "correct": false
+      }
+    },
+    {
+      "id": "e24",
+      "full_context": {
+        "tokens": 2606,
+        "supported": true,
+        "correct": false
+      },
+      "embedding_top_k": {
+        "tokens": 211,
+        "supported": true,
+        "correct": false
+      },
+      "page_cosine": {
+        "tokens": 271,
+        "supported": true,
+        "correct": false
+      },
+      "page_reranked": {
+        "tokens": 55,
+        "supported": false,
+        "correct": false
+      }
+    },
+    {
+      "id": "e25",
+      "full_context": {
+        "tokens": 2606,
+        "supported": true,
+        "correct": true
+      },
+      "embedding_top_k": {
+        "tokens": 181,
+        "supported": true,
+        "correct": true
+      },
+      "page_cosine": {
+        "tokens": 282,
+        "supported": true,
+        "correct": true
+      },
+      "page_reranked": {
+        "tokens": 48,
+        "supported": true,
+        "correct": true
+      }
+    },
+    {
+      "id": "e26",
+      "full_context": {
+        "tokens": 2606,
+        "supported": true,
+        "correct": true
+      },
+      "embedding_top_k": {
+        "tokens": 183,
+        "supported": true,
+        "correct": true
+      },
+      "page_cosine": {
+        "tokens": 293,
+        "supported": true,
+        "correct": true
+      },
+      "page_reranked": {
+        "tokens": 41,
+        "supported": true,
+        "correct": true
+      }
+    },
+    {
+      "id": "e27",
+      "full_context": {
+        "tokens": 2606,
+        "supported": true,
+        "correct": false
+      },
+      "embedding_top_k": {
+        "tokens": 179,
+        "supported": true,
+        "correct": true
+      },
+      "page_cosine": {
+        "tokens": 277,
+        "supported": true,
+        "correct": true
+      },
+      "page_reranked": {
+        "tokens": 54,
+        "supported": true,
+        "correct": false
+      }
+    },
+    {
+      "id": "e28",
+      "full_context": {
+        "tokens": 2606,
+        "supported": true,
+        "correct": false
+      },
+      "embedding_top_k": {
+        "tokens": 185,
+        "supported": true,
+        "correct": false
+      },
+      "page_cosine": {
+        "tokens": 294,
+        "supported": true,
+        "correct": false
+      },
+      "page_reranked": {
+        "tokens": 36,
+        "supported": false,
+        "correct": false
+      }
+    },
+    {
+      "id": "e29",
+      "full_context": {
+        "tokens": 2606,
+        "supported": true,
+        "correct": true
+      },
+      "embedding_top_k": {
+        "tokens": 193,
+        "supported": true,
+        "correct": true
+      },
+      "page_cosine": {
+        "tokens": 176,
+        "supported": true,
+        "correct": true
+      },
+      "page_reranked": {
+        "tokens": 40,
+        "supported": true,
+        "correct": true
+      }
+    },
+    {
+      "id": "e30",
+      "full_context": {
+        "tokens": 2606,
+        "supported": true,
+        "correct": true
+      },
+      "embedding_top_k": {
+        "tokens": 189,
+        "supported": true,
+        "correct": true
+      },
+      "page_cosine": {
+        "tokens": 228,
+        "supported": true,
+        "correct": true
+      },
+      "page_reranked": {
+        "tokens": 36,
+        "supported": true,
+        "correct": true
+      }
+    },
+    {
+      "id": "e31",
+      "full_context": {
+        "tokens": 2606,
+        "supported": true,
+        "correct": true
+      },
+      "embedding_top_k": {
+        "tokens": 204,
+        "supported": true,
+        "correct": true
+      },
+      "page_cosine": {
+        "tokens": 295,
+        "supported": true,
+        "correct": true
+      },
+      "page_reranked": {
+        "tokens": 41,
+        "supported": true,
+        "correct": true
+      }
+    },
+    {
+      "id": "e32",
+      "full_context": {
+        "tokens": 2606,
+        "supported": true,
+        "correct": true
+      },
+      "embedding_top_k": {
+        "tokens": 230,
+        "supported": true,
+        "correct": true
+      },
+      "page_cosine": {
+        "tokens": 102,
+        "supported": true,
+        "correct": true
+      },
+      "page_reranked": {
+        "tokens": 54,
+        "supported": true,
+        "correct": true
+      }
+    },
+    {
+      "id": "e33",
+      "full_context": {
+        "tokens": 2606,
+        "supported": true,
+        "correct": true
+      },
+      "embedding_top_k": {
+        "tokens": 216,
+        "supported": true,
+        "correct": true
+      },
+      "page_cosine": {
+        "tokens": 269,
+        "supported": true,
+        "correct": true
+      },
+      "page_reranked": {
+        "tokens": 44,
+        "supported": true,
+        "correct": true
+      }
+    },
+    {
+      "id": "e34",
+      "full_context": {
+        "tokens": 2606,
+        "supported": true,
+        "correct": true
+      },
+      "embedding_top_k": {
+        "tokens": 246,
+        "supported": true,
+        "correct": true
+      },
+      "page_cosine": {
+        "tokens": 293,
+        "supported": true,
+        "correct": true
+      },
+      "page_reranked": {
+        "tokens": 44,
+        "supported": true,
+        "correct": true
+      }
+    },
+    {
+      "id": "e35",
+      "full_context": {
+        "tokens": 2606,
+        "supported": true,
+        "correct": true
+      },
+      "embedding_top_k": {
+        "tokens": 157,
+        "supported": true,
+        "correct": true
+      },
+      "page_cosine": {
+        "tokens": 272,
+        "supported": true,
+        "correct": true
+      },
+      "page_reranked": {
+        "tokens": 36,
+        "supported": false,
+        "correct": false
+      }
+    },
+    {
+      "id": "e36",
+      "full_context": {
+        "tokens": 2606,
+        "supported": true,
+        "correct": true
+      },
+      "embedding_top_k": {
+        "tokens": 192,
+        "supported": true,
+        "correct": true
+      },
+      "page_cosine": {
+        "tokens": 287,
+        "supported": true,
+        "correct": true
+      },
+      "page_reranked": {
+        "tokens": 43,
+        "supported": true,
+        "correct": true
+      }
+    },
+    {
+      "id": "e37",
+      "full_context": {
+        "tokens": 2606,
+        "supported": true,
+        "correct": true
+      },
+      "embedding_top_k": {
+        "tokens": 171,
+        "supported": true,
+        "correct": true
+      },
+      "page_cosine": {
+        "tokens": 289,
+        "supported": true,
+        "correct": true
+      },
+      "page_reranked": {
+        "tokens": 42,
+        "supported": true,
+        "correct": true
+      }
+    },
+    {
+      "id": "e38",
+      "full_context": {
+        "tokens": 2606,
+        "supported": true,
+        "correct": true
+      },
+      "embedding_top_k": {
+        "tokens": 200,
+        "supported": true,
+        "correct": true
+      },
+      "page_cosine": {
+        "tokens": 284,
+        "supported": true,
+        "correct": true
+      },
+      "page_reranked": {
+        "tokens": 37,
+        "supported": true,
+        "correct": true
+      }
+    },
+    {
+      "id": "e39",
+      "full_context": {
+        "tokens": 2606,
+        "supported": true,
+        "correct": true
+      },
+      "embedding_top_k": {
+        "tokens": 144,
+        "supported": true,
+        "correct": true
+      },
+      "page_cosine": {
+        "tokens": 271,
+        "supported": true,
+        "correct": true
+      },
+      "page_reranked": {
+        "tokens": 32,
+        "supported": true,
+        "correct": true
+      }
+    },
+    {
+      "id": "e40",
+      "full_context": {
+        "tokens": 2606,
+        "supported": true,
+        "correct": false
+      },
+      "embedding_top_k": {
+        "tokens": 202,
+        "supported": true,
+        "correct": false
+      },
+      "page_cosine": {
+        "tokens": 298,
+        "supported": true,
+        "correct": false
+      },
+      "page_reranked": {
+        "tokens": 43,
+        "supported": true,
+        "correct": true
+      }
+    }
+  ],
+  "latency_ms": {
+    "search": {
+      "median": 173.283,
+      "max": 197.419
+    },
+    "full_context": {
+      "median": 0.031,
+      "max": 0.031
+    },
+    "embedding_top_k": {
+      "median": 0.295,
+      "max": 0.34
+    },
+    "page_cosine": {
+      "median": 0.345,
+      "max": 0.506
+    },
+    "page_reranked": {
+      "median": 0.375,
+      "max": 0.602
+    }
+  }
+}

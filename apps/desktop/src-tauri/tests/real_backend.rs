@@ -63,6 +63,20 @@ fn desktop_bridge_drives_the_real_backend() {
         content.as_bytes()
     );
 
+    let linking = client
+        .create_note(&vault.id, "links.md", "[[ideas/first|First]] [[missing]]")
+        .unwrap();
+    let graph = client.read_graph(&vault.id).unwrap();
+    assert_eq!(graph.links[0].source_note_id, linking.id);
+    assert_eq!(
+        graph.links[0].target_note_id.as_deref(),
+        Some(created.id.as_str())
+    );
+    assert_eq!(graph.links[1].unresolved_reason.as_deref(), Some("missing"));
+    client
+        .delete_note(&vault.id, &linking.id, &linking.revision)
+        .unwrap();
+
     let read = client.read_note(&vault.id, &created.id).unwrap();
     assert_eq!(
         (read.content.as_str(), read.revision.as_str()),
@@ -158,4 +172,75 @@ fn desktop_bridge_drives_the_real_backend() {
     assert_eq!(manager.status().state, Lifecycle::Stopped);
     assert!(TcpStream::connect(("127.0.0.1", port)).is_err());
     assert!(TcpStream::connect(("127.0.0.1", old_port)).is_err());
+}
+
+#[test]
+#[ignore = "requires the pinned model: python -m page_core.semantic prepare-model"]
+fn semantic_bridge_drives_the_real_local_model() {
+    let root = std::env::temp_dir().join(format!("page-semantic-it-{}", std::process::id()));
+    let _ = fs::remove_dir_all(&root);
+    fs::create_dir_all(&root).unwrap();
+    let root = root.canonicalize().unwrap();
+    let fixture = Fixture {
+        root: root.clone(),
+        manager: Arc::new(BackendManager::new(
+            Ok(development_launch().unwrap()),
+            Timing::default(),
+        )),
+    };
+    fixture.manager.start().unwrap();
+    let client = fixture.manager.client().unwrap();
+    let vault_root = root.join("vault");
+    let vault = client
+        .create_vault(vault_root.to_str().unwrap(), "Semantic")
+        .unwrap();
+    let garden = client
+        .create_note(
+            &vault.id,
+            "garden.md",
+            "Seedlings require moist soil and sunlight. Water the young plants regularly.",
+        )
+        .unwrap();
+    client
+        .create_note(
+            &vault.id,
+            "database.md",
+            "An SQL transaction commits all changes together or rolls back on failure.",
+        )
+        .unwrap();
+    assert_eq!(client.index_vault(&vault.id, false).unwrap().generated, 2);
+    assert_eq!(client.index_vault(&vault.id, false).unwrap().reused, 2);
+    let first = client
+        .search_vault(&vault.id, "How do I care for baby vegetables?", 1)
+        .unwrap();
+    assert_eq!(first.hits[0].note_id, garden.id);
+    assert_eq!(first.hits[0].revision, garden.revision);
+    assert_eq!(first.hits[0].text, garden.content);
+    let moved = client
+        .move_note(&vault.id, &garden.id, &garden.revision, "nested/garden.md")
+        .unwrap();
+    let again = client
+        .search_vault(&vault.id, "How do I care for baby vegetables?", 1)
+        .unwrap();
+    assert_eq!(again.hits[0].chunk_id, first.hits[0].chunk_id);
+    assert_eq!(again.hits[0].relative_path, "nested/garden.md");
+    assert_eq!(again.hits[0].revision, moved.revision);
+    assert_eq!(again.hits[0].score, first.hits[0].score);
+    fs::write(
+        vault_root.join("outside.md"),
+        "Bake bread using flour and yeast. Knead the dough.",
+    )
+    .unwrap();
+    let external = client
+        .search_vault(&vault.id, "How do I make a loaf?", 1)
+        .unwrap();
+    assert_eq!(external.hits[0].relative_path, "outside.md");
+    client
+        .delete_note(&vault.id, &garden.id, &moved.revision)
+        .unwrap();
+    let remaining = client.search_vault(&vault.id, "plants", 10).unwrap();
+    assert!(remaining.hits.iter().all(|hit| hit.note_id != garden.id));
+    client.close_vault(&vault.id).unwrap();
+    client.open_vault(vault_root.to_str().unwrap()).unwrap();
+    assert_eq!(client.index_vault(&vault.id, false).unwrap().generated, 0);
 }

@@ -99,3 +99,42 @@ export function toDesktopError(value: unknown): DesktopError {
 export function isOutcomeUnknown(error: DesktopError): boolean {
   return error.code === OUTCOME_UNKNOWN;
 }
+
+
+export interface GraphNodeResponse { id: string; relative_path: string }
+export interface GraphLinkResponse {
+  source_note_id: string;
+  target_reference: string;
+  target_note_id: string | null;
+  alias: string | null;
+  line: number;
+  unresolved_reason: "missing" | "ambiguous" | "invalid" | null;
+}
+export interface GraphResponse {
+  vault_id: string;
+  nodes: GraphNodeResponse[];
+  links: GraphLinkResponse[];
+}
+
+
+export interface IndexResponse {
+  vault_id: string; model: string; notes: number; chunks: number;
+  generated: number; reused: number; removed: number;
+}
+export interface SearchHitResponse {
+  chunk_id: string; note_id: string; relative_path: string; revision: string;
+  ordinal: number; text: string; start_byte: number; end_byte: number;
+  start_line: number; end_line: number; score: number;
+}
+export interface SearchResponse { vault_id: string; model: string; hits: SearchHitResponse[] }
+export interface AskSource {
+  number: number; note_id: string; relative_path: string;
+  start_line: number; end_line: number; text: string; excerpt: boolean;
+}
+export interface AskUsage {
+  context_tokens: number; budget: number; counter: string; input_tokens: number; output_tokens: number;
+}
+export interface AskResponse {
+  vault_id: string; model: string; answer: string; answered_by_model: boolean; finish_reason: string;
+  sources: AskSource[]; cited: number[]; usage: AskUsage;
+}

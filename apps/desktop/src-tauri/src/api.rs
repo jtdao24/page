@@ -4,7 +4,7 @@
 //! the endpoint table below. It is a blocking client: construct, use and drop
 //! it on ordinary worker threads, never directly inside an async runtime.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 use std::time::Duration;
 
@@ -82,6 +82,35 @@ pub struct ReconcileResponse {
     pub unchanged: u64,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct GraphNodeResponse {
+    pub id: String,
+    pub relative_path: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct GraphLinkResponse {
+    pub source_note_id: String,
+    pub target_reference: String,
+    #[serde(deserialize_with = "Option::deserialize")]
+    pub target_note_id: Option<String>,
+    #[serde(deserialize_with = "Option::deserialize")]
+    pub alias: Option<String>,
+    pub line: u64,
+    #[serde(deserialize_with = "Option::deserialize")]
+    pub unresolved_reason: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct GraphResponse {
+    pub vault_id: String,
+    pub nodes: Vec<GraphNodeResponse>,
+    pub links: Vec<GraphLinkResponse>,
+}
+
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct ErrorEnvelope {
@@ -127,6 +156,125 @@ struct UpdateNoteRequest<'a> {
 #[derive(Serialize)]
 struct MoveNoteRequest<'a> {
     relative_path: &'a str,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct IndexResponse {
+    pub vault_id: String,
+    pub model: String,
+    pub notes: usize,
+    pub chunks: usize,
+    pub generated: usize,
+    pub reused: usize,
+    pub removed: usize,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SearchHitResponse {
+    pub chunk_id: String,
+    pub note_id: String,
+    pub relative_path: String,
+    pub revision: String,
+    pub ordinal: usize,
+    pub text: String,
+    pub start_byte: usize,
+    pub end_byte: usize,
+    pub start_line: usize,
+    pub end_line: usize,
+    pub score: f64,
+}
+
+impl fmt::Debug for SearchHitResponse {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("SearchHitResponse")
+            .field("chunk_id", &self.chunk_id)
+            .field("note_id", &self.note_id)
+            .field("score", &self.score)
+            .finish_non_exhaustive()
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SearchResponse {
+    pub vault_id: String,
+    pub model: String,
+    pub hits: Vec<SearchHitResponse>,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AskSource {
+    pub number: usize,
+    pub note_id: String,
+    pub relative_path: String,
+    pub start_line: usize,
+    pub end_line: usize,
+    pub text: String,
+    pub excerpt: bool,
+}
+
+impl fmt::Debug for AskSource {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("AskSource")
+            .field("number", &self.number)
+            .field("note_id", &self.note_id)
+            .finish_non_exhaustive()
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AskUsage {
+    pub context_tokens: usize,
+    pub budget: usize,
+    pub counter: String,
+    pub input_tokens: usize,
+    pub output_tokens: usize,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AskResponse {
+    pub vault_id: String,
+    pub model: String,
+    pub answer: String,
+    pub answered_by_model: bool,
+    pub finish_reason: String,
+    pub sources: Vec<AskSource>,
+    pub cited: Vec<usize>,
+    pub usage: AskUsage,
+}
+
+impl fmt::Debug for AskResponse {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("AskResponse")
+            .field("vault_id", &self.vault_id)
+            .field("model", &self.model)
+            .field("sources", &self.sources)
+            .field("cited", &self.cited)
+            .field("usage", &self.usage)
+            .finish_non_exhaustive()
+    }
+}
+
+#[derive(Serialize)]
+struct AskRequest<'a> {
+    question: &'a str,
+    budget: usize,
+}
+
+#[derive(Serialize)]
+struct IndexRequest {
+    rebuild: bool,
+}
+
+#[derive(Serialize)]
+struct SearchRequest<'a> {
+    query: &'a str,
+    limit: usize,
 }
 
 struct Reply {
@@ -324,6 +472,155 @@ impl CoreApiClient {
             }
         }
         Ok(notes)
+    }
+
+    pub fn index_vault(
+        &self,
+        vault_id: &str,
+        rebuild: bool,
+    ) -> Result<IndexResponse, DesktopError> {
+        let route = format!("/vaults/{}/index", uuid(vault_id)?);
+        // Derived indexing is repeatable and never mutates Markdown. A timeout
+        // may leave a completed cache, but it cannot create a note uncertainty.
+        let reply = self.send(
+            Method::POST,
+            &route,
+            Some(json(&IndexRequest { rebuild })?),
+            None,
+            Some(Duration::from_secs(300)),
+            Effect::Read,
+            200,
+        )?;
+        let response: IndexResponse = decode(&reply.body, Effect::Read)?;
+        if response.vault_id != vault_id
+            || response.model.is_empty()
+            || response.generated.checked_add(response.reused) != Some(response.chunks)
+        {
+            return Err(invalid_response(Effect::Read));
+        }
+        Ok(response)
+    }
+
+    pub fn search_vault(
+        &self,
+        vault_id: &str,
+        query: &str,
+        limit: usize,
+    ) -> Result<SearchResponse, DesktopError> {
+        let route = format!("/vaults/{}/search", uuid(vault_id)?);
+        let reply = self.send(
+            Method::POST,
+            &route,
+            Some(json(&SearchRequest { query, limit })?),
+            None,
+            Some(Duration::from_secs(300)),
+            Effect::Read,
+            200,
+        )?;
+        let response: SearchResponse = decode(&reply.body, Effect::Read)?;
+        let ids: BTreeSet<&str> = response
+            .hits
+            .iter()
+            .map(|hit| hit.chunk_id.as_str())
+            .collect();
+        if response.vault_id != vault_id
+            || response.model.is_empty()
+            || response.hits.len() > limit
+            || ids.len() != response.hits.len()
+            || response.hits.iter().any(|hit| {
+                !is_canonical_uuid(&hit.chunk_id)
+                    || !is_canonical_uuid(&hit.note_id)
+                    || !is_revision(&hit.revision)
+                    || hit.relative_path.is_empty()
+                    || hit.start_byte >= hit.end_byte
+                    || hit.end_byte - hit.start_byte != hit.text.len()
+                    || hit.start_line == 0
+                    || hit.end_line < hit.start_line
+                    || !hit.score.is_finite()
+                    || !(-1.0..=1.0).contains(&hit.score)
+            })
+        {
+            return Err(invalid_response(Effect::Read));
+        }
+        Ok(response)
+    }
+
+    /// Ask a question answered from the vault by the configured language model.
+    pub fn ask_question(
+        &self,
+        vault_id: &str,
+        question: &str,
+        budget: usize,
+    ) -> Result<AskResponse, DesktopError> {
+        let route = format!("/vaults/{}/ask", uuid(vault_id)?);
+        let reply = self.send(
+            Method::POST,
+            &route,
+            Some(json(&AskRequest { question, budget })?),
+            None,
+            Some(Duration::from_secs(300)),
+            Effect::Read,
+            200,
+        )?;
+        let response: AskResponse = decode(&reply.body, Effect::Read)?;
+        // Sources are numbered 1..=n in order; citations must refer to them.
+        let numbered = response
+            .sources
+            .iter()
+            .enumerate()
+            .all(|(index, source)| source.number == index + 1);
+        let cited_known = response
+            .cited
+            .iter()
+            .all(|number| (1..=response.sources.len()).contains(number));
+        if response.vault_id != vault_id
+            || response.model.is_empty()
+            || response.answer.trim().is_empty()
+            || !numbered
+            || !cited_known
+            || response.usage.budget != budget
+            || response.usage.context_tokens > response.usage.budget
+            || (!response.answered_by_model && !response.cited.is_empty())
+            || response.sources.iter().any(|source| {
+                !is_canonical_uuid(&source.note_id)
+                    || source.relative_path.is_empty()
+                    || source.start_line == 0
+                    || source.end_line < source.start_line
+                    || source.text.is_empty()
+            })
+        {
+            return Err(invalid_response(Effect::Read));
+        }
+        Ok(response)
+    }
+
+    pub fn read_graph(&self, vault_id: &str) -> Result<GraphResponse, DesktopError> {
+        let route = format!("/vaults/{}/graph", uuid(vault_id)?);
+        let reply = self.send(Method::GET, &route, None, None, None, Effect::Read, 200)?;
+        let graph: GraphResponse = decode(&reply.body, Effect::Read)?;
+        let ids: BTreeSet<&str> = graph.nodes.iter().map(|node| node.id.as_str()).collect();
+        if graph.vault_id != vault_id
+            || ids.len() != graph.nodes.len()
+            || graph
+                .nodes
+                .iter()
+                .any(|node| !is_canonical_uuid(&node.id) || node.relative_path.is_empty())
+            || graph.links.iter().any(|edge| {
+                !ids.contains(edge.source_note_id.as_str())
+                    || edge.line == 0
+                    || edge.target_reference.trim().is_empty()
+                    || match (&edge.target_note_id, &edge.unresolved_reason) {
+                        (Some(id), None) => !ids.contains(id.as_str()),
+                        (None, Some(reason)) => {
+                            !["missing", "ambiguous", "invalid"].contains(&reason.as_str())
+                        }
+                        _ => true,
+                    }
+            })
+        {
+            return Err(invalid_response(Effect::Read));
+        }
+        Ok(graph)
     }
 
     pub fn read_note(&self, vault_id: &str, note_id: &str) -> Result<NoteResponse, DesktopError> {
@@ -799,6 +1096,166 @@ mod tests {
         assert!(CoreApiClient::new(8765, &format!("{}!", &TOKEN[..42])).is_err());
         let client = CoreApiClient::new(8765, TOKEN).unwrap();
         assert!(!format!("{client:?}").contains(TOKEN));
+    }
+
+    #[test]
+    fn semantic_commands_validate_sources_and_use_fixed_routes() {
+        let valid = json!({"vault_id": VAULT, "model": "pinned", "hits": [{
+            "chunk_id": NOTE, "note_id": NOTE, "relative_path": "a.md", "revision": revision(),
+            "ordinal": 0, "text": "secret note text", "start_byte": 0, "end_byte": 16,
+            "start_line": 1, "end_line": 1, "score": 0.9
+        }]});
+        let mut foreign = valid.clone();
+        foreign["vault_id"] = json!(NOTE);
+        let mut invalid_range = valid.clone();
+        invalid_range["hits"][0]["end_byte"] = json!(1);
+        let mut invalid_score = valid.clone();
+        invalid_score["hits"][0]["score"] = json!(2);
+        let mut invalid_id = valid.clone();
+        invalid_id["hits"][0]["note_id"] = json!("bad");
+        let mut invalid_revision = valid.clone();
+        invalid_revision["hits"][0]["revision"] = json!("bad");
+        let (results, requests) = with_server(
+            vec![
+                valid,
+                foreign,
+                invalid_range,
+                invalid_score,
+                invalid_id,
+                invalid_revision,
+            ]
+            .iter()
+            .map(|body| json_response("200 OK", body))
+            .collect(),
+            |client| {
+                (0..6)
+                    .map(|_| client.search_vault(VAULT, "meaning", 10))
+                    .collect::<Vec<_>>()
+            },
+        );
+        assert_eq!(results[0].as_ref().unwrap().hits[0].note_id, NOTE);
+        assert!(!format!("{:?}", results[0]).contains("secret note text"));
+        for result in &results[1..] {
+            assert_eq!(result.as_ref().unwrap_err().code, "invalid_response");
+        }
+        for request in requests {
+            assert_common(&request, "POST", &format!("/api/v1/vaults/{VAULT}/search"));
+            assert_eq!(request.json(), json!({"query": "meaning", "limit": 10}));
+        }
+        let report = json!({"vault_id": VAULT, "model": "pinned", "notes": 1, "chunks": 2,
+            "generated": 1, "reused": 1, "removed": 0});
+        let mut invalid = report.clone();
+        invalid["generated"] = json!(3);
+        let (results, requests) = with_server(
+            vec![report, invalid]
+                .iter()
+                .map(|body| json_response("200 OK", body))
+                .collect(),
+            |client| {
+                (0..2)
+                    .map(|_| client.index_vault(VAULT, true))
+                    .collect::<Vec<_>>()
+            },
+        );
+        assert_eq!(results[0].as_ref().unwrap().chunks, 2);
+        assert_eq!(results[1].as_ref().unwrap_err().code, "invalid_response");
+        for request in requests {
+            assert_common(&request, "POST", &format!("/api/v1/vaults/{VAULT}/index"));
+            assert_eq!(request.json(), json!({"rebuild":true}));
+        }
+    }
+
+    #[test]
+    fn ask_validates_sources_and_citations_and_hides_text() {
+        let valid = json!({"vault_id": VAULT, "model": "gemini-test", "answer": "Apples [1].",
+            "answered_by_model": true, "finish_reason": "STOP",
+            "sources": [{"number": 1, "note_id": NOTE, "relative_path": "a.md", "start_line": 1,
+                "end_line": 2, "text": "secret note text", "excerpt": false}],
+            "cited": [1],
+            "usage": {"context_tokens": 40, "budget": 500, "counter": "utf8-bytes/3",
+                "input_tokens": 120, "output_tokens": 8}});
+        let mut foreign = valid.clone();
+        foreign["vault_id"] = json!(NOTE);
+        let mut unknown_citation = valid.clone();
+        unknown_citation["cited"] = json!([2]);
+        let mut misnumbered = valid.clone();
+        misnumbered["sources"][0]["number"] = json!(3);
+        let mut over_budget = valid.clone();
+        over_budget["usage"]["context_tokens"] = json!(501);
+        let mut bad_note = valid.clone();
+        bad_note["sources"][0]["note_id"] = json!("bad");
+        let mut uncalled_citation = valid.clone();
+        uncalled_citation["answered_by_model"] = json!(false);
+        let bodies = vec![
+            valid,
+            foreign,
+            unknown_citation,
+            misnumbered,
+            over_budget,
+            bad_note,
+            uncalled_citation,
+        ];
+        let count = bodies.len();
+        let (results, requests) = with_server(
+            bodies
+                .iter()
+                .map(|body| json_response("200 OK", body))
+                .collect(),
+            |client| {
+                (0..count)
+                    .map(|_| client.ask_question(VAULT, "which fruit?", 500))
+                    .collect::<Vec<_>>()
+            },
+        );
+        let first = results[0].as_ref().unwrap();
+        assert_eq!(first.cited, vec![1]);
+        assert!(!format!("{first:?}").contains("secret note text"));
+        assert!(!format!("{first:?}").contains("Apples"));
+        for result in &results[1..] {
+            assert_eq!(result.as_ref().unwrap_err().code, "invalid_response");
+        }
+        for request in requests {
+            assert_common(&request, "POST", &format!("/api/v1/vaults/{VAULT}/ask"));
+            assert_eq!(
+                request.json(),
+                json!({"question": "which fruit?", "budget": 500})
+            );
+        }
+    }
+
+    #[test]
+    fn graph_reads_validate_topology_and_use_fixed_authenticated_route() {
+        let valid = json!({"vault_id": VAULT, "nodes": [{"id": NOTE, "relative_path": "a.md"}],
+            "links": [{"source_note_id": NOTE, "target_reference": "a", "target_note_id": NOTE,
+                "alias": null, "line": 1, "unresolved_reason": null}]});
+        let mut dangling = valid.clone();
+        dangling["links"][0]["target_note_id"] = json!(VAULT);
+        let mut malformed = valid.clone();
+        malformed["links"][0]
+            .as_object_mut()
+            .unwrap()
+            .remove("alias");
+        let mut foreign = valid.clone();
+        foreign["vault_id"] = json!(NOTE);
+        let (results, requests) = with_server(
+            vec![valid, dangling, malformed, foreign]
+                .iter()
+                .map(|body| json_response("200 OK", body))
+                .collect(),
+            |client| (0..4).map(|_| client.read_graph(VAULT)).collect::<Vec<_>>(),
+        );
+        assert_eq!(
+            results[0].as_ref().unwrap().links[0]
+                .target_note_id
+                .as_deref(),
+            Some(NOTE)
+        );
+        for result in &results[1..] {
+            assert_eq!(result.as_ref().unwrap_err().code, "invalid_response");
+        }
+        for request in &requests {
+            assert_common(request, "GET", &format!("/api/v1/vaults/{VAULT}/graph"));
+        }
     }
 
     #[test]

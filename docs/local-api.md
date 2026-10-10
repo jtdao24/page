@@ -438,3 +438,30 @@ are not part of this stage. Desktop connection and process ownership are impleme
 separately in Stage 6 without changing the API contract. There are no filesystem watchers,
 background reconciliation, remote or multi-user access, TLS, uploads,
 arbitrary file access, vault deletion, trash, pagination or WebSockets.
+
+## Knowledge graph
+
+Stage 7 adds authenticated `GET /api/v1/vaults/{vault_id}/graph`, returning
+canonical note nodes and directed wiki-link references with unresolved reasons.
+See [knowledge-graph.md](knowledge-graph.md) for the wire shape, resolution rules,
+refresh behavior and limits. It uses the existing storage worker and session;
+no additional server, credential or note-writing endpoint is introduced.
+
+
+## Semantic indexing and retrieval
+
+Stage 8 adds authenticated `POST /api/v1/vaults/{vault_id}/index` and
+`POST /api/v1/vaults/{vault_id}/search`. Search reconciles current source and reuses
+unchanged embeddings; it returns canonical note and chunk identities, revisions,
+source byte/line ranges and exact cosine scores. Model preparation is explicit;
+ordinary requests remain offline. See [semantic search](semantic-search.md) for
+schemas, model setup, failure handling, incremental behavior and limits.
+
+## Question answering
+
+Stage 12 adds authenticated `POST /api/v1/vaults/{vault_id}/ask`. It retrieves and
+optimizes context like search, then sends only the selected passages and the question
+to the configured language model (Gemini, keyed by `GEMINI_API_KEY` at startup) and
+returns a cited answer with token usage. This is the only endpoint that contacts a
+remote service. See [question answering](question-answering.md) for schemas, errors
+and privacy.

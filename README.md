@@ -23,6 +23,10 @@ the files remain the source of truth.
   and confirm permanent deletion.
 - **Handle changes on disk.** Refresh after external edits, review conflicts,
   and choose whether to reload the file or keep your draft.
+- **Connect your ideas.** Link notes with `[[wiki links]]`, follow backlinks,
+  and explore their relationships in an interactive knowledge graph.
+- **Find notes by meaning.** Search saved passages with a local pretrained model,
+  then open the source note from the results.
 - **Pick up where you left off.** Page remembers your recent vaults and last
   selected note.
 
@@ -34,9 +38,13 @@ you can retain its draft and save it as a new note.
 
 ## Looking ahead
 
-Page's longer-term direction is an AI-native knowledge workspace: connected notes,
-a knowledge graph, and context selection for language models. Those capabilities
-are planned. The current app focuses on local Markdown editing and organization.
+Page is becoming an AI-native knowledge workspace. Besides local Markdown editing,
+relationships between notes and semantic search, you can now ask questions about your
+notes with Gemini: Page sends only the most relevant passages, within a token budget
+you choose, and the answer cites the notes it used.
+
+AI agents such as Claude Code can use the same context engine through Page's MCP
+server, which finds and budgets the relevant passages from your notes, with sources.
 
 ## Availability
 

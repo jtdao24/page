@@ -23,11 +23,17 @@ from starlette.responses import JSONResponse, Response
 from starlette.routing import Match
 
 import page_core
+from page_core.answering import answer_question
+from page_core.llm import ChatModel, GeminiModel, LLMNotConfiguredError
+from page_core.semantic import FINGERPRINT
 from page_core.domain import Note
 from page_core.metadata import NoteMetadata, ReconcileResult
 
 from .errors import ApiError, error_response, field_error, translate, validation_error
 from .schemas import (
+    AskRequest, AskResponse, AskSource, AskUsage,
+    GraphResponse, GraphNodeResponse, GraphLinkResponse,
+    IndexRequest, IndexResponse, SearchRequest, SearchResponse, SearchHitResponse,
     REQUEST_MODELS, CreateNoteRequest, CreateVaultRequest, ErrorResponse, HealthResponse,
     MoveNoteRequest, NoteResponse, NoteSummaryResponse, OpenVaultRequest, ReconcileRequest,
     ReconcileResponse, UpdateNoteRequest, VaultResponse, parse_note_path, parse_root, parse_uuid,
@@ -187,13 +193,19 @@ def _allowed_methods(app: FastAPI, scope: dict[str, Any]) -> str:
     return ", ".join(sorted(methods))
 
 
-def create_app(*, session_token: str | None = None) -> FastAPI:
+def create_app(*, session_token: str | None = None, chat_model: ChatModel | None = None) -> FastAPI:
     """Build an application with its own credential, registry and worker.
 
     Nothing is opened, started or bound until the ASGI lifespan starts. Omit
-    ``session_token`` to generate one from 32 random bytes.
+    ``session_token`` to generate one from 32 random bytes. Omit ``chat_model``
+    to use Gemini when ``GEMINI_API_KEY`` is set; questions are refused otherwise.
     """
     token = generate_token() if session_token is None else validate_token(session_token)
+    if chat_model is None:
+        try:
+            chat_model = GeminiModel.from_environment()
+        except ValueError:
+            chat_model = None  # an invalid PAGE_GEMINI_MODEL leaves questions unavailable
     app = FastAPI(
         title="Page Core Local API",
         version=page_core.__version__,
@@ -288,6 +300,71 @@ def create_app(*, session_token: str | None = None) -> FastAPI:
         renames = {parse_uuid(key): parse_note_path(value) for key, value in body.known_renames.items()}
         result = await _run(request, lambda service: service.reconcile(identifier, renames))
         return _json(_reconcile_response(result))
+
+    @app.post(f"{PREFIX}/vaults/{{vault_id}}/index", response_model=IndexResponse,
+              responses=_errors(404, 409, 415, 422, 503), openapi_extra=_json_body(IndexRequest))
+    async def index_vault(request: Request, vault_id: str) -> Response:
+        identifier = _path_uuid("vault_id", vault_id)
+        body = await _body(request, IndexRequest)
+        result = await _run(request, lambda service: service.index_vault(identifier, body.rebuild))
+        return _json(IndexResponse(vault_id=str(identifier), model=FINGERPRINT,
+            notes=result.notes, chunks=result.chunks, generated=result.generated,
+            reused=result.reused, removed=result.removed))
+
+    @app.post(f"{PREFIX}/vaults/{{vault_id}}/search", response_model=SearchResponse,
+              responses=_errors(404, 409, 415, 422, 503), openapi_extra=_json_body(SearchRequest))
+    async def search_vault(request: Request, vault_id: str) -> Response:
+        identifier = _path_uuid("vault_id", vault_id)
+        body = await _body(request, SearchRequest)
+        hits = await _run(request, lambda service: service.search_vault(identifier, body.query, body.limit))
+        return _json(SearchResponse(vault_id=str(identifier), model=FINGERPRINT,
+            hits=[SearchHitResponse(chunk_id=str(hit.chunk.id), note_id=str(hit.chunk.note_id),
+                relative_path=str(hit.relative_path), revision=hit.revision, ordinal=hit.chunk.ordinal,
+                text=hit.chunk.text, start_byte=hit.chunk.start_byte, end_byte=hit.chunk.end_byte,
+                start_line=hit.start_line, end_line=hit.end_line, score=hit.score) for hit in hits]))
+
+    @app.post(f"{PREFIX}/vaults/{{vault_id}}/ask", response_model=AskResponse,
+              responses=_errors(404, 409, 415, 422, 429, 502, 503), openapi_extra=_json_body(AskRequest))
+    async def ask(request: Request, vault_id: str) -> Response:
+        identifier = _path_uuid("vault_id", vault_id)
+        body = await _body(request, AskRequest)
+        model = chat_model
+        if model is None:
+            raise translate(LLMNotConfiguredError("no API key"))
+        # Context is built on the storage worker; the model call runs elsewhere so a
+        # slow provider never blocks note editing.
+        package = await _run(request, lambda service: service.question_context(
+            identifier, body.question, body.budget))
+        try:
+            answer = await asyncio.to_thread(answer_question, body.question, package, model)
+        except Exception as exc:
+            raise translate(exc) from None
+        return _json(AskResponse(
+            vault_id=str(identifier), model=answer.model, answer=answer.text,
+            answered_by_model=answer.called_model, finish_reason=answer.finish_reason,
+            sources=[AskSource(number=block.number, note_id=str(block.note_id),
+                               relative_path=str(block.relative_path), start_line=block.start_line,
+                               end_line=block.end_line, text=block.text, excerpt=block.compressed)
+                     for block in package.blocks],
+            cited=[block.number for block in answer.citations],
+            usage=AskUsage(context_tokens=package.usage.tokens, budget=package.usage.budget,
+                           counter=package.usage.counter, input_tokens=answer.input_tokens,
+                           output_tokens=answer.output_tokens)))
+
+    @app.get(f"{PREFIX}/vaults/{{vault_id}}/graph", response_model=GraphResponse,
+             responses=_errors(404, 409, 422, 503))
+    async def get_graph(request: Request, vault_id: str) -> Response:
+        identifier = _path_uuid("vault_id", vault_id)
+        graph = await _run(request, lambda service: service.get_graph(identifier))
+        return _json(GraphResponse(
+            vault_id=str(graph.vault_id),
+            nodes=[GraphNodeResponse(id=str(node.id), relative_path=str(node.relative_path))
+                   for node in graph.nodes],
+            links=[GraphLinkResponse(source_note_id=str(edge.link.source_note_id),
+                    target_reference=edge.link.target_reference,
+                    target_note_id=str(edge.link.target_note_id) if edge.link.target_note_id else None,
+                    alias=edge.alias, line=edge.line, unresolved_reason=edge.unresolved_reason)
+                   for edge in graph.links]))
 
     @app.get(f"{PREFIX}/vaults/{{vault_id}}/notes", response_model=list[NoteSummaryResponse],
              responses=_errors(404, 409, 422, 503))

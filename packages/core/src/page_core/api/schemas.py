@@ -185,3 +185,102 @@ REQUEST_MODELS: tuple[type[BaseModel], ...] = (
     CreateVaultRequest, OpenVaultRequest, CreateNoteRequest,
     UpdateNoteRequest, MoveNoteRequest, ReconcileRequest,
 )
+
+
+class GraphNodeResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    id: str
+    relative_path: str
+
+
+class GraphLinkResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    source_note_id: str
+    target_reference: str
+    target_note_id: str | None
+    alias: str | None
+    line: int
+    unresolved_reason: Literal["missing", "ambiguous", "invalid"] | None
+
+
+class GraphResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    vault_id: str
+    nodes: list[GraphNodeResponse]
+    links: list[GraphLinkResponse]
+
+
+class IndexRequest(_Request):
+    rebuild: bool = False
+
+
+class SearchRequest(_Request):
+    query: Annotated[VaultName, Field(max_length=2000)]
+    limit: Annotated[int, Field(ge=1, le=50)] = 10
+
+
+class IndexResponse(_Response):
+    vault_id: str
+    model: str
+    notes: int
+    chunks: int
+    generated: int
+    reused: int
+    removed: int
+
+
+class SearchHitResponse(_Response):
+    chunk_id: str
+    note_id: str
+    relative_path: str
+    revision: str
+    ordinal: int
+    text: str
+    start_byte: int
+    end_byte: int
+    start_line: int
+    end_line: int
+    score: float
+
+
+class SearchResponse(_Response):
+    vault_id: str
+    model: str
+    hits: list[SearchHitResponse]
+
+
+class AskRequest(_Request):
+    question: Annotated[VaultName, Field(max_length=2000)]
+    budget: Annotated[int, Field(ge=50, le=20000)] = 1500
+
+
+class AskSource(_Response):
+    number: int
+    note_id: str
+    relative_path: str
+    start_line: int
+    end_line: int
+    text: str
+    excerpt: bool
+
+
+class AskUsage(_Response):
+    context_tokens: int
+    budget: int
+    counter: str
+    input_tokens: int
+    output_tokens: int
+
+
+class AskResponse(_Response):
+    vault_id: str
+    model: str
+    answer: str
+    answered_by_model: bool
+    finish_reason: str
+    sources: list[AskSource]
+    cited: list[int]
+    usage: AskUsage
+
+
+REQUEST_MODELS += (IndexRequest, SearchRequest, AskRequest)

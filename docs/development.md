@@ -10,8 +10,8 @@ Several interfaces share one engine:
 - **Page Desktop** (`apps/desktop`): Tauri 2 shell with a React + TypeScript frontend.
 - **Page Core** (`packages/core`): Python package for knowledge processing, retrieval
   and context selection. It runs on its own, without the desktop app.
-- **Page Integrations** (`integrations/`): planned adapters, such as MCP, that expose
-  Page Core to external tools.
+- **Page Integrations**: an MCP server (`page_core.mcp_server`) exposes Page Core to AI
+  agents; `integrations/` is reserved for future editor integrations.
 
 Notes stay as plain Markdown files that the user owns. The engine will not depend on any
 particular LLM provider.
@@ -20,7 +20,7 @@ particular LLM provider.
 
 | Area     | Tools                                                |
 | -------- | ---------------------------------------------------- |
-| Core     | Python 3.12, hatchling, FastAPI, Pydantic 2, Uvicorn, pytest, HTTPX |
+| Core     | Python 3.12, FastAPI, Sentence Transformers, FAISS, PyTorch, MCP SDK, pytest |
 | Desktop  | Tauri 2 (Rust), React 19, TypeScript 6 (strict), Vite 8, Tailwind CSS 4 |
 | Tooling  | npm workspaces, ESLint, Vitest, rustfmt              |
 
@@ -29,7 +29,7 @@ particular LLM provider.
 ```
 apps/desktop/         Desktop app (React frontend in src/, Tauri shell in src-tauri/)
 packages/core/        page-core Python package (src layout, import name page_core)
-integrations/mcp/     Reserved for the MCP integration
+integrations/mcp/     Pointer to the MCP server in page-core
 training/             Reserved for model training code
 benchmarks/           Reserved for evaluation and benchmarks
 docs/                 Project documentation (domain models, filesystem vault, SQLite metadata, local API)
@@ -69,8 +69,66 @@ python -m pip install -r packages/core/requirements-dev.txt -e packages/core
 ```
 
 `packages/core/requirements-dev.txt` pins exact versions of the runtime dependencies
-(FastAPI, Pydantic, Uvicorn), the `dev` dependency group (pytest, HTTPX) declared in
+(FastAPI, Pydantic, Uvicorn, Sentence Transformers, FAISS), the `dev` dependency group (pytest, HTTPX) declared in
 `packages/core/pyproject.toml`, and all of their transitive packages.
+
+## Local semantic search model
+
+Prepare the fixed pretrained model once before using desktop semantic search:
+
+```sh
+.venv/bin/python -m page_core.semantic prepare-model
+```
+
+This downloads model files only. Ordinary indexing and search use the local cache
+and send no note or query content to a service. See [semantic search](semantic-search.md)
+for source attribution, incremental indexing, API contracts and limitations.
+
+## Neural reranker
+
+Stage 9's learned reranker reorders semantic search candidates. With the model
+prepared, retrain it and re-measure it on held-out queries:
+
+```sh
+.venv/bin/python -m page_core.ranking train      # writes training/reranker/model.json
+.venv/bin/python -m page_core.ranking evaluate   # writes benchmarks/reranker.json
+```
+
+See [neural ranking](neural-ranking.md) for features, the checkpoint format, the
+dataset and current results.
+
+## Context optimization
+
+Stage 10's `page_core.context.optimize_context` packs ranked passages into
+source-attributed context that fits a token budget, dropping repeats and trimming
+oversized passages to exact excerpts. See [context optimization](context-optimization.md).
+
+## Benchmark
+
+Stage 11 compares full context, embedding top-k and the Page optimizer on held-out
+questions:
+
+```sh
+.venv/bin/python -m page_core.evaluation run   # writes benchmarks/results/stage11.*
+```
+
+See [evaluation](evaluation.md) for metrics, results and limits.
+
+## Asking questions
+
+Stage 12 answers questions from your notes with Gemini and cited sources. Set
+`GEMINI_API_KEY` (and optionally `PAGE_GEMINI_MODEL`) before `npm run tauri:dev`. See
+[question answering](question-answering.md) for setup, privacy and errors.
+
+## MCP server
+
+Stage 13 serves a vault's search and optimized context to MCP clients:
+
+```sh
+.venv/bin/python -m page_core.mcp_server --vault /path/to/vault
+```
+
+See [MCP integration](mcp.md) for tools and client setup.
 
 ## Python tests
 

@@ -20,10 +20,17 @@ from pathlib import Path, PurePosixPath
 from uuid import UUID
 
 from page_core.domain import Note, Vault
+from page_core.semantic import FINGERPRINT, Encoder, IndexReport, SearchHit, SemanticIndex, SentenceEncoder
+from page_core.context import ContextPackage, optimize_context
+from page_core.graph import GraphSnapshot, build_graph
 from page_core.metadata import (
     InvalidRenameError, MetadataSyncError, NoteMetadata, PersistentVault, ReconcileResult,
 )
 from page_core.vault import FileSystemVault, InvalidNotePathError, NoteNotFoundError, VaultError
+
+
+class InvalidSearchError(Exception):
+    """A search query exceeds the model input bounds."""
 
 
 class ServiceError(Exception):
@@ -122,6 +129,7 @@ class LocalVaultService:
         self._owner = threading.get_ident()
         self._sessions: dict[UUID, _Session] = {}
         self._roots: dict[Path, UUID] = {}
+        self._encoder: Encoder | None = None
 
     def _check_thread(self) -> None:
         if threading.get_ident() != self._owner:
@@ -259,6 +267,71 @@ class LocalVaultService:
         except MetadataSyncError:
             session.needs_reconciliation = True
             raise
+
+    def _semantic_snapshot(self, vault_id: UUID) -> tuple[_Session, tuple[Note, ...]]:
+        session = self._note_session(vault_id)
+        session.storage.reconcile()
+        notes = tuple(self._read(session, record.id) for record in session.storage.metadata.list_notes())
+        return session, notes
+
+    def _semantic_encoder(self) -> Encoder:
+        if self._encoder is None:
+            self._encoder = SentenceEncoder()
+        return self._encoder
+
+    def index_vault(self, vault_id: UUID, rebuild: bool = False) -> IndexReport:
+        if not isinstance(rebuild, bool):
+            raise TypeError("rebuild must be bool")
+        session, notes = self._semantic_snapshot(vault_id)
+        if not notes:
+            previous = session.storage.metadata.read_vectors(FINGERPRINT)
+            session.storage.metadata.replace_vectors(FINGERPRINT, [])
+            return IndexReport(0, 0, 0, 0, len(previous))
+        return SemanticIndex(session.storage.metadata, self._semantic_encoder()).update(notes, rebuild=rebuild)
+
+    def search_vault(self, vault_id: UUID, query: str, limit: int = 10) -> tuple[SearchHit, ...]:
+        session, notes = self._semantic_snapshot(vault_id)
+        if not isinstance(query, str) or isinstance(limit, bool) or not isinstance(limit, int):
+            raise TypeError("query must be str and limit must be int")
+        if not query.strip() or len(query) > 2000 or not 1 <= limit <= 50:
+            raise InvalidSearchError("invalid search input")
+        if not notes:
+            session.storage.metadata.replace_vectors(FINGERPRINT, [])
+            return ()
+        try:
+            return SemanticIndex(session.storage.metadata, self._semantic_encoder()).search(
+                query, notes, {note.id: revision_of_note(note) for note in notes}, limit)
+        except ValueError as exc:
+            raise InvalidSearchError("invalid search input") from exc
+
+    def question_context(self, vault_id: UUID, question: str, budget: int,
+                         candidates: int = 10) -> ContextPackage:
+        """Stage 10 context for a question, ranked by Stage 8 cosine similarity.
+
+        Stage 11 found the Stage 9 reranker does not yet generalize, so it is not used.
+        """
+        session, notes = self._semantic_snapshot(vault_id)
+        if not isinstance(question, str) or not question.strip() or len(question) > 2000:
+            raise InvalidSearchError("invalid question")
+        graph = build_graph(vault_id, notes)
+        if not notes:
+            session.storage.metadata.replace_vectors(FINGERPRINT, [])
+            return optimize_context(question, (), graph, budget=budget)
+        try:
+            hits = SemanticIndex(session.storage.metadata, self._semantic_encoder()).search(
+                question, notes, {note.id: revision_of_note(note) for note in notes}, candidates)
+        except ValueError as exc:
+            raise InvalidSearchError("invalid question") from exc
+        return optimize_context(question, hits, graph, budget=budget)
+
+    def get_graph(self, vault_id: UUID) -> GraphSnapshot:
+        session = self._note_session(vault_id)
+        # Reconcile external file changes before resolving references. Canonical
+        # IDs come only from PersistentVault; note files are never rewritten.
+        session.storage.reconcile()
+        records = session.storage.metadata.list_notes()
+        notes = tuple(self._read(session, record.id) for record in records)
+        return build_graph(vault_id, notes)
 
     def get_note(self, vault_id: UUID, note_id: UUID) -> Note:
         return self._read(self._note_session(vault_id), note_id)
