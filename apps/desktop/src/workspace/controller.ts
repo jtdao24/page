@@ -355,7 +355,16 @@ export class WorkspaceController {
 
   async retryStart(): Promise<void> {
     if (this.client === null || this.state.quitting || this.restarting) return;
-    if (await this.startBackend()) await this.restore(this.state.preferences);
+    if (!(await this.startBackend())) return;
+    if (this.state.vault === null) {
+      await this.restore(this.state.preferences);
+      return;
+    }
+    // Core sessions belong to one process: a new process after a crash has
+    // never opened the active vault, so reopen it as restart() does.
+    this.vaultEpoch += 1;
+    this.set({ sessions: [], conflict: null });
+    await this.reopenActiveVault();
   }
 
   private async restore(preferences: DesktopPreferences): Promise<void> {
@@ -394,33 +403,38 @@ export class WorkspaceController {
         this.set({ backendError: toDesktopError(error) });
         return;
       }
-      const vault = this.state.vault;
-      if (vault === null) return;
-      const ticket = this.ticket();
-      this.set({ vaultBusy: true });
-      try {
-        const reopened = await this.api.vaultOpen(vault.root_path);
-        if (!this.owns(ticket, "vault")) return;
-        if (reopened.id !== vault.id) {
-          this.set({
-            identity: { remembered: { vault_id: vault.id, root_path: vault.root_path, last_note_id: null }, vault: reopened },
-          });
-          return;
-        }
-        this.set({ vault: reopened, sessions: [reopened] });
-        if (reopened.needs_reconciliation) {
-          this.enterRecovery(null, null);
-          return;
-        }
-        const notes = await this.loadNotes();
-        if (notes !== null && this.owns(ticket, "vault")) await this.refreshDocument(notes);
-      } catch (error) {
-        if (this.owns(ticket, "vault")) this.set({ vaultError: toDesktopError(error) });
-      } finally {
-        if (this.owns(ticket, "vault")) this.set({ vaultBusy: false });
-      }
+      await this.reopenActiveVault();
     } finally {
       this.restarting = false;
+    }
+  }
+
+  /** Reopen the active vault in a freshly started Core process. */
+  private async reopenActiveVault(): Promise<void> {
+    const vault = this.state.vault;
+    if (vault === null) return;
+    const ticket = this.ticket();
+    this.set({ vaultBusy: true });
+    try {
+      const reopened = await this.api.vaultOpen(vault.root_path);
+      if (!this.owns(ticket, "vault")) return;
+      if (reopened.id !== vault.id) {
+        this.set({
+          identity: { remembered: { vault_id: vault.id, root_path: vault.root_path, last_note_id: null }, vault: reopened },
+        });
+        return;
+      }
+      this.set({ vault: reopened, sessions: [reopened] });
+      if (reopened.needs_reconciliation) {
+        this.enterRecovery(null, null);
+        return;
+      }
+      const notes = await this.loadNotes();
+      if (notes !== null && this.owns(ticket, "vault")) await this.refreshDocument(notes);
+    } catch (error) {
+      if (this.owns(ticket, "vault")) this.set({ vaultError: toDesktopError(error) });
+    } finally {
+      if (this.owns(ticket, "vault")) this.set({ vaultBusy: false });
     }
   }
 
