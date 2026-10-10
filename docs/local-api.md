@@ -2,8 +2,9 @@
 
 `page_core.api` exposes the Stage 3 filesystem vault and Stage 4 persistent
 metadata through an authenticated HTTP API on IPv4 loopback. It is a core
-development entry point: the desktop app is not connected to it yet (Stage 6),
-and it offers no search, AI, graph or packaging features.
+development entry point. The Stage 6 desktop uses it through a trusted Rust HTTP
+bridge; see [desktop-integration.md](desktop-integration.md). It offers no search,
+AI, graph or packaging features.
 
 ## Architecture
 
@@ -106,8 +107,9 @@ storage work is scheduled:
 The scheme is case-insensitive and the token is compared case-sensitively in
 constant time. Tokens in query strings, cookies, bodies or other headers are
 ignored. There is no login, token issuance, JWT or switch to disable
-authentication. CORS is not enabled, so browsers cannot use the API in Stage 5;
-browser and Tauri origin policies belong to Stage 6.
+authentication. CORS is not enabled, so browsers cannot use the API. The Stage 6
+Tauri webview invokes fixed commands; Rust sends authenticated requests without
+Origin. Credentials never reach React. Standalone API security is unchanged.
 
 All responses carry `Cache-Control: no-store`. Debug pages, trailing-slash
 redirects, Swagger UI and ReDoc are disabled. The authenticated
@@ -431,8 +433,8 @@ unchanged.
 ## Deferred
 
 Search, indexing and embeddings (Stage 8), the knowledge graph (Stage 7), AI
-and context endpoints (Stages 9–12), MCP (Stage 13), the desktop connection,
-browser/Tauri origins and process management (Stage 6), and packaging
-(Stage 14) are not part of this stage. There are also no filesystem watchers,
+and context endpoints (Stages 9–12), MCP (Stage 13), and packaging (Stage 14)
+are not part of this stage. Desktop connection and process ownership are implemented
+separately in Stage 6 without changing the API contract. There are no filesystem watchers,
 background reconciliation, remote or multi-user access, TLS, uploads,
 arbitrary file access, vault deletion, trash, pagination or WebSockets.

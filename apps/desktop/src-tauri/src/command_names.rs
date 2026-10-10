@@ -1,0 +1,22 @@
+/// Every application command. `build.rs` includes this file to generate one
+/// `allow-<command>` permission per entry; the main capability grants them.
+pub const COMMAND_NAMES: &[&str] = &[
+    "backend_start",
+    "backend_status",
+    "backend_restart",
+    "vault_create",
+    "vault_open",
+    "vault_list",
+    "vault_get",
+    "vault_close",
+    "vault_reconcile",
+    "note_list",
+    "note_read",
+    "note_create",
+    "note_update",
+    "note_move",
+    "note_delete",
+    "preferences_read",
+    "preferences_write",
+    "desktop_quit",
+];
