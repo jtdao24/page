@@ -320,7 +320,7 @@ details[open] > .folder-row::before { transform: rotate(90deg); }
 
 /* Motion across the app */
 .dialog-panel { animation: pop-in .26s var(--ease) both; }
-.fixed.inset-0.z-50 { animation: fade-in .2s var(--ease) both; backdrop-filter: blur(3px); }
+.dialog-backdrop { animation: fade-in .2s var(--ease) both; backdrop-filter: blur(3px); }
 .page-editor { animation: fade-in .3s var(--ease) both; }
 .document-tab { animation: fade-in .25s var(--ease) both; }
 .workspace-notices p { animation: slide-down .3s var(--ease) both; }

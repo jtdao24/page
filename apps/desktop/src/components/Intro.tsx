@@ -17,6 +17,7 @@ export function Intro({ onDone }: { onDone: () => void }) {
   const [step, setStep] = useState(0);
   const [direction, setDirection] = useState<"forward" | "back">("forward");
   const next = useRef<HTMLButtonElement>(null);
+  const panel = useRef<HTMLDivElement>(null);
   const last = step === STEPS.length - 1;
   const go = (target: number) => {
     setDirection(target > step ? "forward" : "back");
@@ -28,10 +29,17 @@ export function Intro({ onDone }: { onDone: () => void }) {
   return <div className="intro-backdrop" role="dialog" aria-modal="true" aria-label="Introduction to Page"
     onKeyDown={(event) => {
       if (event.key === "Escape") onDone();
+      if (event.key === "Tab" && panel.current) {
+        // Keep focus inside the tour while it's open.
+        const items = [...panel.current.querySelectorAll<HTMLElement>("button:not([disabled])")];
+        const first = items[0], last = items[items.length - 1];
+        if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+      }
       if (event.key === "ArrowRight") { event.preventDefault(); if (last) onDone(); else go(step + 1); }
       if (event.key === "ArrowLeft") { event.preventDefault(); go(step - 1); }
     }}>
-    <div className="intro-panel">
+    <div ref={panel} className="intro-panel">
       <button className="intro-skip" onClick={onDone}>Skip</button>
       <div key={step} className={`intro-slide is-${direction}`}>
         <div className="intro-art">

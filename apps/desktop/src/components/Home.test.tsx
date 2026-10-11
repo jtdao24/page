@@ -70,6 +70,14 @@ describe("home screen", () => {
     expect(client.noteCreate).toHaveBeenCalledTimes(SAMPLE_NOTES.length);
     expect(controller.getState().vault?.id).toBe(vault.id);
   });
+  it("stops and reports other errors while creating sample notes", async () => {
+    const { client, controller } = await mount();
+    client.pickFolder.mockResolvedValueOnce("/Users/me/Notes");
+    client.noteCreate.mockRejectedValueOnce({ kind: "api", status: 503, code: "storage_unavailable", message: "Storage is unavailable.", details: null });
+    await act(async () => card("Start with a sample").click());
+    expect(client.noteCreate).toHaveBeenCalledTimes(1);
+    expect(controller.getState().actionError?.error.code).toBe("storage_unavailable");
+  });
   it("shows quick actions when a vault is open but no note is selected", async () => {
     const { client, controller } = await mount();
     client.noteList.mockResolvedValue([]);
@@ -131,6 +139,12 @@ describe("intro tour", () => {
     expect(done).toHaveBeenCalledTimes(1);
     await act(async () => panel.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })));
     expect(done).toHaveBeenCalledTimes(2);
+    const skip = host.querySelector<HTMLButtonElement>(".intro-skip")!;
+    next.focus();
+    await act(async () => next.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", bubbles: true })));
+    expect(document.activeElement).toBe(skip);
+    await act(async () => skip.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", shiftKey: true, bubbles: true })));
+    expect(document.activeElement).toBe(next);
   });
 });
 

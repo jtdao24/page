@@ -600,8 +600,12 @@ export class WorkspaceController {
       try {
         const note = await this.api.noteCreate(vault.id, sample.path, sample.content);
         first ??= note.id;
-      } catch {
-        // A note with that name already exists in the chosen folder; keep the user's file.
+      } catch (cause) {
+        const error = toDesktopError(cause);
+        // A note with that name already exists in the chosen folder: keep the user's file.
+        if (error.code === "note_exists") continue;
+        this.set({ actionError: { operation: "create", error } });
+        break;
       }
     }
     await this.loadNotes();
