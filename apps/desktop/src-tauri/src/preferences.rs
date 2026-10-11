@@ -206,7 +206,14 @@ impl PreferencesStore {
     }
 
     fn prepare_directory(&self) -> std::io::Result<()> {
-        match fs::symlink_metadata(&self.directory) {
+        prepare_private_directory(&self.directory)
+    }
+}
+
+/// Create `directory` if needed and restrict it to this user (0700 on Unix).
+pub(crate) fn prepare_private_directory(directory: &Path) -> std::io::Result<()> {
+    {
+        match fs::symlink_metadata(directory) {
             Ok(metadata) if metadata.file_type().is_dir() => {}
             Ok(_) => return Err(std::io::Error::other("not a directory")),
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
@@ -217,20 +224,20 @@ impl PreferencesStore {
                     use std::os::unix::fs::DirBuilderExt;
                     builder.mode(0o700);
                 }
-                builder.create(&self.directory)?;
+                builder.create(directory)?;
             }
             Err(error) => return Err(error),
         }
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
-            fs::set_permissions(&self.directory, fs::Permissions::from_mode(0o700))?;
+            fs::set_permissions(directory, fs::Permissions::from_mode(0o700))?;
         }
         Ok(())
     }
 }
 
-fn open_no_follow(path: &Path) -> std::io::Result<File> {
+pub(crate) fn open_no_follow(path: &Path) -> std::io::Result<File> {
     let mut options = OpenOptions::new();
     options.read(true);
     #[cfg(target_os = "macos")]
@@ -246,7 +253,7 @@ fn open_no_follow(path: &Path) -> std::io::Result<File> {
     options.open(path)
 }
 
-fn create_private(path: &Path) -> std::io::Result<File> {
+pub(crate) fn create_private(path: &Path) -> std::io::Result<File> {
     let _ = fs::remove_file(path);
     let mut options = OpenOptions::new();
     options.write(true).create_new(true);

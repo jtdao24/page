@@ -48,7 +48,7 @@ Exposed commands: `backend_start`, `backend_status`, `backend_restart`;
 `note_move`, `note_delete`; `preferences_read`, `preferences_write`, `desktop_quit`;
 `graph_read`, `semantic_index`, `semantic_search`, `ask_question`; `source_list`,
 `source_read`, `web_page_save`; `gemini_key_status`,
-`gemini_key_save`, `gemini_key_clear` (the key goes to the system credential store, never
+`gemini_key_save`, `gemini_key_clear` (the key goes to a private file in Page's settings folder, never
 back to the webview).
 There is no generic URL, HTTP, filesystem, SQL or shell command. Wire fields
 match [local-api.md](local-api.md); timestamps stay strings, IDs come from Core,

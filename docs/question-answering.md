@@ -24,7 +24,7 @@ If no passage is relevant, no model is called and Page says it found nothing.
 ## Setup
 
 In the app, click the key button in the ask box, paste the key and choose
-**Save Key**. Page keeps it in the macOS Keychain and restarts Page Core to use it.
+**Save Key**. Page keeps it in a private file in its settings folder and restarts Page Core to use it.
 
 When running from a terminal, you can instead set it in the environment:
 

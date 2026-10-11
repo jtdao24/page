@@ -169,7 +169,7 @@ describe("floating ask box", () => {
     expect(client.backendRestart).toHaveBeenCalledTimes(1);
     expect(input.value).toBe("");
     expect(host.textContent).toContain("Key saved. Page Core restarted to use it.");
-    expect(host.textContent).toContain("saved in your system keychain");
+    expect(host.textContent).toContain("saved in Page's private settings");
     client.geminiKeyStatus.mockResolvedValue({ stored: false, from_environment: true });
     await click("Remove Key");
     expect(client.geminiKeyClear).toHaveBeenCalledTimes(1);
