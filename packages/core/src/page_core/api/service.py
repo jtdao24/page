@@ -258,6 +258,8 @@ class LocalVaultService:
     def _current(self, session: _Session, note_id: UUID, revision: str) -> Note:
         if not isinstance(revision, str):
             raise TypeError(f"revision must be str, got {type(revision).__name__}")
+        # Decode every stored record before any mutation, so corruption fails closed.
+        session.storage.metadata.list_notes()
         note = self._read(session, note_id)
         if not secrets.compare_digest(revision_of_note(note).encode("ascii"), revision.encode("ascii")):
             raise RevisionConflictError(str(note_id))
@@ -370,7 +372,11 @@ class LocalVaultService:
         return build_graph(vault_id, notes)
 
     def get_note(self, vault_id: UUID, note_id: UUID) -> Note:
-        return self._read(self._note_session(vault_id), note_id)
+        session = self._note_session(vault_id)
+        # Fail closed if any stored record is corrupt, as every other note operation does.
+        # Bulk readers (graph, search) already decode every record once before reading.
+        session.storage.metadata.list_notes()
+        return self._read(session, note_id)
 
     def create_note(self, vault_id: UUID, path: PurePosixPath, content: str) -> Note:
         session = self._note_session(vault_id)

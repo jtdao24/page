@@ -1,4 +1,4 @@
-import cytoscape, { type Core, type ElementDefinition } from "cytoscape";
+import cytoscape, { type Core, type ElementDefinition, type LayoutOptions } from "cytoscape";
 import type { GraphResponse } from "../core/types";
 
 /** Soft colors that read well on the dark canvas; each top-level folder gets one. */
@@ -42,16 +42,34 @@ export function graphElements(graph: GraphResponse): ElementDefinition[] {
   return elements;
 }
 
+/**
+ * Force-directed layouts cost roughly n² per iteration, so large vaults get
+ * cheaper layouts: an animated force layout for small graphs, a shorter
+ * unanimated one for medium graphs, and rings by link count for big ones.
+ */
+export function layoutFor(nodeCount: number, animate: boolean): LayoutOptions {
+  if (nodeCount <= 1) return { name: "circle", padding: 40, animate: false };
+  if (nodeCount <= 400) {
+    return { name: "cose", animate, animationDuration: 700, animationEasing: "ease-out", padding: 48, randomize: true, fit: true,
+      nodeRepulsion: () => 14000, idealEdgeLength: () => 80, edgeElasticity: () => 120, gravity: 0.9, numIter: 1500, componentSpacing: 80 };
+  }
+  if (nodeCount <= 1500) {
+    return { name: "cose", animate: false, padding: 48, randomize: true, fit: true, nodeRepulsion: () => 14000,
+      idealEdgeLength: () => 80, gravity: 1, numIter: 300, componentSpacing: 60 };
+  }
+  return { name: "concentric", animate: false, padding: 40, fit: true, minNodeSpacing: 6,
+    concentric: (node) => node.degree(false), levelWidth: () => 2 };
+}
+
 /** Real Cytoscape is also used headlessly by behavior tests. */
 export function createKnowledgeGraph(container: HTMLElement | null, graph: GraphResponse, onOpen: (id: string) => void): Core {
   const animate = container !== null && !window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
   const cy = cytoscape({
     ...(container ? { container } : { headless: true }),
     elements: graphElements(graph),
-    layout: graph.nodes.length > 1
-      ? { name: "cose", animate, animationDuration: 700, animationEasing: "ease-out", padding: 48, randomize: true, fit: true,
-        nodeRepulsion: () => 14000, idealEdgeLength: () => 80, edgeElasticity: () => 120, gravity: 0.9, numIter: 1500, componentSpacing: 80 }
-      : { name: "circle", padding: 40, animate: false },
+    layout: layoutFor(graph.nodes.length, animate),
+    // Big graphs pan and zoom from a cached image and hide edges while moving.
+    ...(graph.nodes.length > 400 ? { textureOnViewport: true, hideEdgesOnViewport: true } : {}),
     minZoom: .15, maxZoom: 3, wheelSensitivity: .3,
     style: [
       { selector: "node", style: {
