@@ -123,7 +123,11 @@ export function AskBar({ controller, state }: { controller: WorkspaceController;
   useEffect(() => {
     const ownership = owner;
     ownership.current++;
-    return () => { ownership.current++; };
+    return () => {
+      ownership.current++;
+      // A request from before the change can no longer finish, so stop showing it as busy.
+      setLoading(null);
+    };
   }, [key]);
   const vaultId = state.vault?.id;
   const exchanges = thread.vaultId === vaultId ? thread.exchanges : [];
@@ -140,13 +144,15 @@ export function AskBar({ controller, state }: { controller: WorkspaceController;
   }, [question]);
   useEffect(() => { end.current?.scrollIntoView?.({ block: "end", behavior: "smooth" }); }, [exchanges.length, busy]);
 
-  async function ask(text = question.trim()) {
+  /** Ask the typed question, or retry an earlier one without touching what's typed. */
+  async function ask(retry?: string) {
+    const text = retry ?? question.trim();
     if (!vaultId || !available || busy || !text) return;
     const request = ++owner.current;
     const id = ++nextId.current;
     setLoading({ key, request });
     setCardOpen(true);
-    setQuestion("");
+    if (retry === undefined) setQuestion("");
     setThread((current) => ({ vaultId, exchanges: [...(current.vaultId === vaultId ? current.exchanges : []), { id, question: text }] }));
     const settle = (patch: Partial<Exchange>) => {
       if (owner.current !== request) return;

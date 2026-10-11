@@ -54,6 +54,10 @@ describe("graph workspace",()=> {
     expect(split.style.width).toBe("640px");
     await act(async()=>handle.dispatchEvent(new KeyboardEvent("keydown",{key:"ArrowRight",bubbles:true})));
     expect(split.style.width).toBe("600px");
+    await act(async()=>handle.dispatchEvent(new MouseEvent("pointerdown",{bubbles:true,clientX:700})));
+    await act(async()=>handle.dispatchEvent(new MouseEvent("pointercancel",{clientX:700})));
+    await act(async()=>handle.dispatchEvent(new MouseEvent("pointermove",{clientX:100})));
+    expect(split.style.width).toBe("600px");
   });
   it("navigates real graph taps and backlinks through the dirty guard",async()=> {
     const {controller}=await setup(); await click("Knowledge graph");
