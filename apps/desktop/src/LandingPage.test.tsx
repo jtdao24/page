@@ -6,12 +6,14 @@ import LandingPage from "./LandingPage";
 afterEach(cleanup);
 
 describe("Page download landing page", () => {
-  it("keeps unavailable downloads honest and keeps the local workspace accessible", () => {
-    render(<LandingPage appHref="/app/" />);
-    expect(screen.getByRole("button", { name: /Download being prepared/ }).hasAttribute("disabled")).toBe(true);
+  it("says the download is coming soon until a release exists, and points to GitHub", () => {
+    render(<LandingPage />);
+    expect(screen.getByRole("button", { name: "Coming soon" }).hasAttribute("disabled")).toBe(true);
     expect(screen.queryByRole("link", { name: "Download for macOS" })).toBeNull();
-    expect(screen.getByRole("link", { name: /Just looking\? Open the workspace preview/ }).getAttribute("href")).toBe("/app/");
-    expect(screen.getByRole("link", { name: "Download" }).getAttribute("href")).toBe("#download");
+    expect(screen.queryByText(/workspace preview/)).toBeNull();
+    expect(screen.getByRole("link", { name: /Follow Page on GitHub/ }).getAttribute("href")).toBe("https://github.com/jtdao24/page");
+    expect(screen.getByText(/signed, Apple-notarized release/)).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Coming soon" }).getAttribute("href")).toBe("#download");
     expect(screen.getByRole("link", { name: "get on the same Page" }).getAttribute("href")).toBe("#download");
   });
 
@@ -20,9 +22,8 @@ describe("Page download landing page", () => {
     const download = screen.getByRole("link", { name: "Download for macOS" });
     expect(download.getAttribute("href")).toBe("/downloads/Page-0.1.0-macos-arm64.dmg");
     expect(download.hasAttribute("download")).toBe(true);
-    expect(screen.queryByRole("button", { name: /Download being prepared/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Coming soon" })).toBeNull();
     expect(screen.getByText(/No Python setup required/)).toBeTruthy();
-    expect(screen.getByText(/Locally signed; not Apple-notarized/)).toBeTruthy();
     expect(screen.queryByText(/development build/i)).toBeNull();
   });
 
@@ -41,4 +42,12 @@ describe("Page download landing page", () => {
     expect(screen.getByText(/not Gemini’s billing tokenizer/)).toBeTruthy();
     expect(screen.getByRole("link", { name: /Download the benchmark results/ }).hasAttribute("download")).toBe(true);
   });
+  it("describes what Page does today: sources, search, cited answers and MCP", () => {
+    render(<LandingPage />);
+    expect(screen.getByText("get answers with sources.")).toBeTruthy();
+    expect(screen.getByText(/drop PDFs and code into your vault folder/)).toBeTruthy();
+    expect(screen.getByText(/through MCP/)).toBeTruthy();
+    expect(screen.queryByText(/experimental graph preview/)).toBeNull();
+  });
 });
+

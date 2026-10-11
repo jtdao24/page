@@ -17,7 +17,9 @@
     "tauri:bundle": "tauri build --config src-tauri/tauri.bundle.conf.json",
     "rust:fmt": "cargo fmt --manifest-path src-tauri/Cargo.toml",
     "rust:fmt:check": "cargo fmt --manifest-path src-tauri/Cargo.toml --check",
-    "rust:check": "cargo check --manifest-path src-tauri/Cargo.toml"
+    "rust:check": "cargo check --manifest-path src-tauri/Cargo.toml",
+    "landing:build": "vite build --config vite.landing.config.ts",
+    "landing:preview": "vite preview --config vite.landing.config.ts"
   },
   "dependencies": {
     "@codemirror/commands": "6.11.1",
@@ -31,11 +33,7 @@
     "gsap": "^3.15.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
-    "react-markdown": "^10.1.0",
-    "remark-gfm": "^4.0.1",
-    "remark-parse": "^11.0.0",
-    "three": "^0.186.1",
-    "unified": "^11.0.5"
+    "three": "^0.186.1"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

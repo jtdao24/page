@@ -4,5 +4,5 @@ import LandingPage from "./LandingPage";
 import "./landing.css";
 
 const root = document.getElementById("root") as HTMLElement;
-createRoot(root).render(<StrictMode><LandingPage appHref={root.dataset.appUrl ?? "/"}
-  macDownloadUrl={root.dataset.macDownloadUrl} /></StrictMode>);
+// A download link appears only when the page is published with a real build URL.
+createRoot(root).render(<StrictMode><LandingPage macDownloadUrl={root.dataset.macDownloadUrl} /></StrictMode>);
