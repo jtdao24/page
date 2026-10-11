@@ -346,4 +346,8 @@ details[open] > .note-tree { animation: slide-down .22s var(--ease) both; }
 .forget-recent { opacity: 0; transition: opacity .15s var(--ease), background .15s var(--ease); }
 .home-recent-row:hover .forget-recent, .recent-row:hover .forget-recent, .forget-recent:focus-visible { opacity: 1; }
 .recent-row .forget-recent { width: 22px; height: 22px; }
+.ask-card-header > .ask-savings { display: flex; font-weight: 400; align-items: center; gap: 6px; margin-right: 6px; padding: 3px 10px; border-radius: 11px; background: #22303f; color: #a9bfdc; font-size: 10.5px; white-space: nowrap; animation: fade-in .3s var(--ease); }
+.ask-savings strong { color: #dbe6f7; font-weight: 600; }
+.ask-savings em { font-style: normal; font-weight: 600; color: #8fcf9b; }
+@media (max-width: 900px) { .ask-savings { display: none; } }
 
