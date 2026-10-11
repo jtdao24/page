@@ -88,8 +88,6 @@ fn quit_approved(app: &AppHandle) -> bool {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let backend = Arc::new(BackendManager::for_build());
-    // Read at each launch; a credential-store failure falls back to the environment.
-    backend.set_gemini_key_source(Box::new(|| secrets::read_key().ok().flatten()));
     let quit = Arc::new(AtomicBool::new(false));
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -117,9 +115,15 @@ pub fn run() {
                     let _ = handle.emit_to(MAIN_LABEL, commands::BACKEND_STATUS_EVENT, status);
                 }));
                 let directory = app.path().app_config_dir()?;
+                // Read at each Core launch, so a changed key applies on restart; a
+                // missing or unreadable file falls back to the environment.
+                let keys = Arc::new(secrets::KeyStore::new(directory.clone()));
+                let source = Arc::clone(&keys);
+                backend.set_gemini_key_source(Box::new(move || source.read().ok().flatten()));
                 app.manage(AppState {
                     backend,
                     preferences: Arc::new(PreferencesStore::new(directory)),
+                    keys,
                     quit_approved: quit,
                 });
                 let dev_url = if cfg!(debug_assertions) {

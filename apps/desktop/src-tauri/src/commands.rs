@@ -15,7 +15,7 @@ use crate::api::{
 use crate::backend::{BackendManager, BackendStatus};
 use crate::error::DesktopError;
 use crate::preferences::{DesktopPreferences, PreferencesStore};
-use crate::secrets::{self, GeminiKeyStatus};
+use crate::secrets::{GeminiKeyStatus, KeyStore};
 
 pub const MAIN_LABEL: &str = "main";
 pub const BACKEND_STATUS_EVENT: &str = "backend-status";
@@ -24,6 +24,7 @@ pub const QUIT_REQUESTED_EVENT: &str = "quit-requested";
 pub struct AppState {
     pub backend: Arc<BackendManager>,
     pub preferences: Arc<PreferencesStore>,
+    pub keys: Arc<KeyStore>,
     pub quit_approved: Arc<AtomicBool>,
 }
 
@@ -357,22 +358,35 @@ pub async fn preferences_write(
 }
 
 #[tauri::command(rename_all = "snake_case")]
-pub async fn gemini_key_status(webview: Webview) -> Result<GeminiKeyStatus, DesktopError> {
+pub async fn gemini_key_status(
+    webview: Webview,
+    state: State<'_, AppState>,
+) -> Result<GeminiKeyStatus, DesktopError> {
     ensure_main(&webview)?;
-    blocking(secrets::status).await
+    let keys = Arc::clone(&state.keys);
+    blocking(move || keys.status()).await
 }
 
 /// Save the key; the frontend restarts Page Core so it takes effect.
 #[tauri::command(rename_all = "snake_case")]
-pub async fn gemini_key_save(webview: Webview, key: String) -> Result<(), DesktopError> {
+pub async fn gemini_key_save(
+    webview: Webview,
+    state: State<'_, AppState>,
+    key: String,
+) -> Result<(), DesktopError> {
     ensure_main(&webview)?;
-    blocking(move || secrets::save_key(&key)).await
+    let keys = Arc::clone(&state.keys);
+    blocking(move || keys.save(&key)).await
 }
 
 #[tauri::command(rename_all = "snake_case")]
-pub async fn gemini_key_clear(webview: Webview) -> Result<(), DesktopError> {
+pub async fn gemini_key_clear(
+    webview: Webview,
+    state: State<'_, AppState>,
+) -> Result<(), DesktopError> {
     ensure_main(&webview)?;
-    blocking(secrets::clear_key).await
+    let keys = Arc::clone(&state.keys);
+    blocking(move || keys.clear()).await
 }
 
 /// Begin the approved shutdown. Repeated calls do not start another one.

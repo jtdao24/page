@@ -39,7 +39,7 @@ interface Exchange {
   error?: DesktopError;
 }
 
-/** The Gemini key, saved in the system credential store; saving restarts Core. */
+/** The Gemini key, saved in a private file in Page's settings; saving restarts Core. */
 function GeminiKey({ controller, canRestart }: { controller: WorkspaceController; canRestart: boolean }) {
   const [status, setStatus] = useState<GeminiKeyStatus | null>(null);
   const [key, setKey] = useState("");
@@ -74,7 +74,7 @@ function GeminiKey({ controller, canRestart }: { controller: WorkspaceController
   return <div className="ask-key" aria-label="Gemini API key">
     <p className="knowledge-hint">
       {status === null ? "Checking for a Gemini API key…"
-        : status.stored ? "A Gemini API key is saved in your system keychain."
+        : status.stored ? "A Gemini API key is saved in Page's private settings."
         : status.from_environment ? "Using GEMINI_API_KEY from the environment Page started in."
         : "No Gemini API key is set. Create one in Google AI Studio."}
     </p>
