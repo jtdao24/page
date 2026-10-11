@@ -104,6 +104,15 @@ describe("desktop workspace interaction", () => {
     await click("Rename / Move");
     expect(client.noteMove).not.toHaveBeenCalled();
     expect(host.textContent).toContain("Notes must stay inside this vault's folder");
+    client.noteList.mockResolvedValue([note(), note("55555555-5555-4555-8555-555555555555", "x", "taken.md")]);
+    await act(async () => { await controller.reloadNotes(); });
+    client.pickSavePath.mockResolvedValueOnce(`${vault.root_path}/taken.md`);
+    await click("Rename / Move");
+    expect(client.noteMove).not.toHaveBeenCalled();
+    expect(host.textContent).toContain("A note named taken.md already exists");
+    client.pickSavePath.mockRejectedValueOnce(new Error("dialog failed"));
+    await click("Rename / Move");
+    expect(host.textContent).toContain("The save window couldn't open");
     client.pickSavePath.mockResolvedValueOnce(`${vault.root_path}/archive/new`);
     await click("Rename / Move");
     expect(client.noteMove).toHaveBeenCalledWith(vault.id, note().id, note().revision, "archive/new.md");

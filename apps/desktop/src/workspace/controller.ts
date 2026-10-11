@@ -605,8 +605,14 @@ export class WorkspaceController {
   }
 
   /** Native folder picker; null when cancelled or outside the desktop app. */
-  pickFolder(title: string): Promise<string | null> {
-    return this.client === null ? Promise.resolve(null) : this.api.pickFolder(title);
+  async pickFolder(title: string): Promise<string | null> {
+    if (this.client === null) return null;
+    try {
+      return await this.api.pickFolder(title);
+    } catch {
+      this.announce("The folder window couldn't open. Try again.", "error");
+      return null;
+    }
   }
 
   /** Create a vault filled with starter notes that teach Page, and open the welcome note. */
@@ -1022,20 +1028,43 @@ export class WorkspaceController {
 
   /** Create a new note from an orphaned draft at a user-chosen path. */
   /** Create "Untitled.md" in the current note's folder and open it. Callers run the dirty guard first. */
-  createUntitled(): Promise<boolean> {
+  async createUntitled(): Promise<boolean> {
     const folder = this.state.document?.path.split("/").slice(0, -1).join("/") ?? "";
     const taken = new Set((this.state.notes ?? []).map((note) => note.relative_path));
-    return this.createNote(untitledPath(folder, taken));
+    // A file added outside Page may already hold the name: try the next number.
+    for (let attempt = 0; attempt < 20; attempt++) {
+      const path = untitledPath(folder, taken);
+      if (await this.createNote(path)) return true;
+      if (this.state.actionError?.error.code !== "note_exists") return false;
+      taken.add(path);
+      this.set({ actionError: null });
+    }
+    return false;
   }
 
   /** Ask Finder's save window for a note path inside the vault; null if cancelled or outside it. */
   private async pickNotePath(title: string, suggested: string): Promise<string | null> {
     const vault = this.state.vault;
     if (vault === null || this.client === null) return null;
-    const chosen = await this.api.pickSavePath(title, `${vault.root_path}/${suggested}`);
+    let chosen: string | null;
+    try {
+      chosen = await this.api.pickSavePath(title, `${vault.root_path}/${suggested}`);
+    } catch {
+      this.announce("The save window couldn't open. Try again.", "error");
+      return null;
+    }
     if (chosen === null) return null;
     const relative = vaultRelativePath(vault.root_path, chosen);
-    if (relative === null) this.announce("Notes must stay inside this vault's folder. Choose a place inside it.", "error");
+    if (relative === null) {
+      this.announce("Notes must stay inside this vault's folder. Choose a place inside it.", "error");
+      return null;
+    }
+    // The Save window offers to "replace" an existing file, but Page never overwrites
+    // a note, so say so now instead of failing after that prompt.
+    if (relative !== suggested && (this.state.notes ?? []).some((note) => note.relative_path === relative)) {
+      this.announce(`A note named ${relative} already exists. Choose another name.`, "error");
+      return null;
+    }
     return relative;
   }
 
