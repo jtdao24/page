@@ -55,3 +55,6 @@ tmp/
 
 # Bundled Python runtime (built by apps/desktop/scripts/prepare_runtime.py)
 apps/desktop/src-tauri/runtime/
+
+# Landing page build (npm run landing:build)
+apps/desktop/dist-landing/

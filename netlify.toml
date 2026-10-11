@@ -1,0 +1,7 @@
+# The Page landing page (apps/desktop/landing.html), built as a static site.
+[build]
+  command = "npm run landing:build"
+  publish = "apps/desktop/dist-landing"
+
+[build.environment]
+  NODE_VERSION = "24"
