@@ -18,7 +18,7 @@ from pathlib import Path, PurePosixPath
 from typing import Protocol
 from uuid import UUID, uuid5
 
-from page_core.domain import Chunk, Note, validate_note_path
+from page_core.domain import Chunk, Note, SourceDocument, validate_document_path
 from page_core.metadata import MetadataRepository
 
 MODEL = "sentence-transformers/all-MiniLM-L6-v2"
@@ -52,7 +52,11 @@ class Encoder(Protocol):
     def encode(self, texts: Sequence[str]) -> list[list[float]]: ...
 
 
-def split_note(note: Note, offsets: Callable[[str], list[tuple[int, int]]],
+# Notes and read-only sources are indexed alike; chunks locate text in either.
+Document = Note | SourceDocument
+
+
+def split_note(note: Document, offsets: Callable[[str], list[tuple[int, int]]],
                max_tokens: int = MAX_TOKENS) -> tuple[Chunk, ...]:
     """Split paragraphs/headings at tokenizer boundaries without changing source.
 
@@ -60,7 +64,7 @@ def split_note(note: Note, offsets: Callable[[str], list[tuple[int, int]]],
     UUIDs depend on canonical note identity, exact text and duplicate occurrence,
     so moving a note or inserting a paragraph preserves unaffected chunk IDs.
     """
-    if not isinstance(note, Note) or not callable(offsets):
+    if not isinstance(note, Note | SourceDocument) or not callable(offsets):
         raise TypeError("note and tokenizer are required")
     if isinstance(max_tokens, bool) or not isinstance(max_tokens, int):
         raise TypeError("max_tokens must be int")
@@ -208,7 +212,7 @@ class SearchHit:
     def __post_init__(self) -> None:
         if not isinstance(self.chunk, Chunk):
             raise TypeError("chunk must be Chunk")
-        validate_note_path(self.relative_path)
+        validate_document_path(self.relative_path)
         if not isinstance(self.revision, str):
             raise TypeError("revision must be str")
         if not re.fullmatch(r"[0-9a-f]{64}", self.revision):
@@ -251,9 +255,9 @@ class SemanticIndex:
             return list(value)
         return [float(v / norm) for v in value]
 
-    def update(self, notes: tuple[Note, ...], *, rebuild: bool = False) -> IndexReport:
-        if not isinstance(notes, tuple) or not all(isinstance(note, Note) for note in notes):
-            raise TypeError("notes must be a tuple of Note values")
+    def update(self, notes: tuple[Document, ...], *, rebuild: bool = False) -> IndexReport:
+        if not isinstance(notes, tuple) or not all(isinstance(note, Note | SourceDocument) for note in notes):
+            raise TypeError("notes must be a tuple of Note or SourceDocument values")
         if not isinstance(rebuild, bool):
             raise TypeError("rebuild must be bool")
         if any(note.vault_id != self.repository.vault.id for note in notes) or len({note.id for note in notes}) != len(notes):
@@ -285,7 +289,7 @@ class SemanticIndex:
         return IndexReport(len(notes), len(chunks), len(needed), len(chunks) - len(needed),
                            len(set(cached) - {str(chunk.id) for chunk in chunks}))
 
-    def search(self, query: str, notes: tuple[Note, ...], revisions: dict[UUID, str],
+    def search(self, query: str, notes: tuple[Document, ...], revisions: dict[UUID, str],
                limit: int = 10) -> tuple[SearchHit, ...]:
         if not isinstance(query, str):
             raise TypeError("query must be str")

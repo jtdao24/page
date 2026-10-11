@@ -1,5 +1,5 @@
 import type {
-  AskResponse, GeminiKeyStatus, GraphResponse, IndexResponse, SearchResponse,
+  AskResponse, GeminiKeyStatus, GraphResponse, IndexResponse, SearchResponse, SourceResponse, SourceSummaryResponse,
   BackendStatus,
   DesktopPreferences,
   NoteResponse,
@@ -23,6 +23,9 @@ export interface PageClient {
   semanticIndex(vaultId: string, rebuild: boolean): Promise<IndexResponse>;
   semanticSearch(vaultId: string, query: string, limit: number): Promise<SearchResponse>;
   askQuestion(vaultId: string, question: string, budget: number): Promise<AskResponse>;
+  sourceList(vaultId: string): Promise<SourceSummaryResponse[]>;
+  sourceRead(vaultId: string, sourceId: string): Promise<SourceResponse>;
+  webPageSave(vaultId: string, url: string): Promise<NoteResponse>;
   graphRead(vaultId: string): Promise<GraphResponse>;
   noteList(vaultId: string): Promise<NoteSummaryResponse[]>;
   noteRead(vaultId: string, noteId: string): Promise<NoteResponse>;
@@ -74,6 +77,9 @@ export function createPageClient(invoke: InvokeFn, listen: ListenFn): PageClient
     semanticIndex: (vaultId, rebuild) => call("semantic_index", { vault_id: vaultId, rebuild }),
     semanticSearch: (vaultId, query, limit) => call("semantic_search", { vault_id: vaultId, query, limit }),
     askQuestion: (vaultId, question, budget) => call("ask_question", { vault_id: vaultId, question, budget }),
+    sourceList: (vaultId) => call("source_list", { vault_id: vaultId }),
+    sourceRead: (vaultId, sourceId) => call("source_read", { vault_id: vaultId, source_id: sourceId }),
+    webPageSave: (vaultId, url) => call("web_page_save", { vault_id: vaultId, url }),
     graphRead: (vaultId) => call("graph_read", { vault_id: vaultId }),
     noteList: (vaultId) => call("note_list", { vault_id: vaultId }),
     noteRead: (vaultId, noteId) => call("note_read", { vault_id: vaultId, note_id: noteId }),

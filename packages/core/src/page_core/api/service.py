@@ -19,14 +19,16 @@ from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath
 from uuid import UUID
 
-from page_core.domain import Note, Vault
+from page_core.domain import Note, SourceDocument, Vault
 from page_core.semantic import FINGERPRINT, Encoder, IndexReport, SearchHit, SemanticIndex, SentenceEncoder
 from page_core.context import ContextPackage, optimize_context
 from page_core.graph import GraphSnapshot, build_graph
+from page_core.sources import SourceEntry, SourceLibrary
+from page_core.web import WebPage, note_for_page
 from page_core.metadata import (
     InvalidRenameError, MetadataSyncError, NoteMetadata, PersistentVault, ReconcileResult,
 )
-from page_core.vault import FileSystemVault, InvalidNotePathError, NoteNotFoundError, VaultError
+from page_core.vault import FileSystemVault, InvalidNotePathError, NoteExistsError, NoteNotFoundError, VaultError
 
 
 class InvalidSearchError(Exception):
@@ -85,6 +87,7 @@ class _Session:
     def __init__(self, storage: PersistentVault) -> None:
         self.storage = storage
         self.needs_reconciliation = False
+        self.sources = SourceLibrary(storage.vault.root_path, storage.vault.id)
 
     def snapshot(self) -> VaultSession:
         return VaultSession(self.storage.vault, self.needs_reconciliation)
@@ -274,6 +277,16 @@ class LocalVaultService:
         notes = tuple(self._read(session, record.id) for record in session.storage.metadata.list_notes())
         return session, notes
 
+    @staticmethod
+    def _documents(session: _Session, notes: tuple[Note, ...]) -> tuple[Note | SourceDocument, ...]:
+        """Notes plus readable PDFs, code and text files in the vault folder."""
+        return notes + session.sources.documents()
+
+    @staticmethod
+    def _revisions(documents: tuple[Note | SourceDocument, ...]) -> dict[UUID, str]:
+        return {document.id: revision_of_note(document) if isinstance(document, Note) else document.revision
+                for document in documents}
+
     def _semantic_encoder(self) -> Encoder:
         if self._encoder is None:
             self._encoder = SentenceEncoder()
@@ -283,11 +296,12 @@ class LocalVaultService:
         if not isinstance(rebuild, bool):
             raise TypeError("rebuild must be bool")
         session, notes = self._semantic_snapshot(vault_id)
-        if not notes:
+        documents = self._documents(session, notes)
+        if not documents:
             previous = session.storage.metadata.read_vectors(FINGERPRINT)
             session.storage.metadata.replace_vectors(FINGERPRINT, [])
             return IndexReport(0, 0, 0, 0, len(previous))
-        return SemanticIndex(session.storage.metadata, self._semantic_encoder()).update(notes, rebuild=rebuild)
+        return SemanticIndex(session.storage.metadata, self._semantic_encoder()).update(documents, rebuild=rebuild)
 
     def search_vault(self, vault_id: UUID, query: str, limit: int = 10) -> tuple[SearchHit, ...]:
         session, notes = self._semantic_snapshot(vault_id)
@@ -295,12 +309,13 @@ class LocalVaultService:
             raise TypeError("query must be str and limit must be int")
         if not query.strip() or len(query) > 2000 or not 1 <= limit <= 50:
             raise InvalidSearchError("invalid search input")
-        if not notes:
+        documents = self._documents(session, notes)
+        if not documents:
             session.storage.metadata.replace_vectors(FINGERPRINT, [])
             return ()
         try:
             return SemanticIndex(session.storage.metadata, self._semantic_encoder()).search(
-                query, notes, {note.id: revision_of_note(note) for note in notes}, limit)
+                query, documents, self._revisions(documents), limit)
         except ValueError as exc:
             raise InvalidSearchError("invalid search input") from exc
 
@@ -314,15 +329,48 @@ class LocalVaultService:
         if not isinstance(question, str) or not question.strip() or len(question) > 2000:
             raise InvalidSearchError("invalid question")
         graph = build_graph(vault_id, notes)
-        if not notes:
+        documents = self._documents(session, notes)
+        if not documents:
             session.storage.metadata.replace_vectors(FINGERPRINT, [])
             return optimize_context(question, (), graph, budget=budget)
         try:
             hits = SemanticIndex(session.storage.metadata, self._semantic_encoder()).search(
-                question, notes, {note.id: revision_of_note(note) for note in notes}, candidates)
+                question, documents, self._revisions(documents), candidates)
         except ValueError as exc:
             raise InvalidSearchError("invalid question") from exc
         return optimize_context(question, hits, graph, budget=budget)
+
+    def source_library(self, vault_id: UUID) -> SourceLibrary:
+        """The vault's thread-safe source library, so callers can extract text off the worker."""
+        return self._note_session(vault_id).sources
+
+    def list_sources(self, vault_id: UUID) -> list[SourceEntry]:
+        return self._note_session(vault_id).sources.list()
+
+    def get_source(self, vault_id: UUID, source_id: UUID) -> SourceDocument:
+        if not isinstance(source_id, UUID):
+            raise TypeError(f"source_id must be UUID, got {type(source_id).__name__}")
+        return self._note_session(vault_id).sources.get(source_id)
+
+    def save_web_page(self, vault_id: UUID, page: WebPage, saved_at: datetime) -> Note:
+        """Create a note for a fetched page, adding -2, -3 … if the name is taken."""
+        if not isinstance(page, WebPage):
+            raise TypeError("page must be WebPage")
+        path, content = note_for_page(page, saved_at)
+        # Pick up files added outside Page, then also step past any unregistered file.
+        self._note_session(vault_id).storage.reconcile()
+        taken = {record.relative_path for record in self.list_notes(vault_id)}
+        number = 1
+        while number <= 1000:
+            candidate = path if number == 1 else path.with_name(f"{path.stem}-{number}.md")
+            number += 1
+            if candidate in taken:
+                continue
+            try:
+                return self.create_note(vault_id, candidate, content)
+            except NoteExistsError:
+                continue
+        raise NoteExistsError(str(path))
 
     def get_graph(self, vault_id: UUID) -> GraphSnapshot:
         session = self._note_session(vault_id)

@@ -290,6 +290,8 @@ def test_openapi_is_authenticated_and_describes_the_contract(client: TestClient)
         f"{API}/health", f"{API}/vaults", f"{API}/vaults/open", f"{API}/vaults/{{vault_id}}",
         f"{API}/vaults/{{vault_id}}/graph",
         f"{API}/vaults/{{vault_id}}/index", f"{API}/vaults/{{vault_id}}/search", f"{API}/vaults/{{vault_id}}/ask",
+        f"{API}/vaults/{{vault_id}}/sources", f"{API}/vaults/{{vault_id}}/sources/{{source_id}}",
+        f"{API}/vaults/{{vault_id}}/web-pages",
         f"{API}/vaults/{{vault_id}}/reconcile", f"{API}/vaults/{{vault_id}}/notes",
         f"{API}/vaults/{{vault_id}}/notes/{{note_id}}", f"{API}/vaults/{{vault_id}}/notes/{{note_id}}/move",
     }

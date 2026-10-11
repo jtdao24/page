@@ -14,4 +14,14 @@ describe("summary sidebar", () => {
     expect(tree[0].key).toBe(`note:${root.vault_id}:${root.id}`);
     expect(buildTree([])).toEqual([]);
   });
+  it("places read-only sources in the same folders as notes", () => {
+    const plan = note(undefined, "", "papers/plan.md");
+    const pdf = { id: "55555555-5555-4555-8555-555555555555", relative_path: "papers/study.pdf", kind: "pdf" as const, size_bytes: 10 };
+    const code = { id: "66666666-6666-4666-8666-666666666666", relative_path: "timer.py", kind: "code" as const, size_bytes: 5 };
+    const tree = buildTree([plan], [pdf, code]);
+    expect(tree.map((node) => [node.kind, node.name])).toEqual([["folder", "papers"], ["source", "timer.py"]]);
+    const papers = tree[0].kind === "folder" ? tree[0].children : [];
+    expect(papers.map((node) => [node.kind, node.name])).toEqual([["note", "plan.md"], ["source", "study.pdf"]]);
+    expect(papers[1].key).toBe(`source:${pdf.id}`);
+  });
 });

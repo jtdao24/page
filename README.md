@@ -43,6 +43,9 @@ relationships between notes and semantic search, you can now ask questions about
 notes with Gemini: Page sends only the most relevant passages, within a token budget
 you choose, and the answer cites the notes it used.
 
+Your knowledge isn't limited to Markdown: PDFs, code and text files in the vault
+folder are searchable too, and you can save websites as notes.
+
 AI agents such as Claude Code can use the same context engine through Page's MCP
 server, which finds and budgets the relevant passages from your notes, with sources.
 

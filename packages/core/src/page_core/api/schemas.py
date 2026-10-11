@@ -229,10 +229,14 @@ class IndexResponse(_Response):
     removed: int
 
 
+DocumentKind = Literal["note", "pdf", "code", "text"]
+
+
 class SearchHitResponse(_Response):
     chunk_id: str
     note_id: str
     relative_path: str
+    kind: DocumentKind
     revision: str
     ordinal: int
     text: str
@@ -258,6 +262,7 @@ class AskSource(_Response):
     number: int
     note_id: str
     relative_path: str
+    kind: DocumentKind
     start_line: int
     end_line: int
     text: str
@@ -283,4 +288,24 @@ class AskResponse(_Response):
     usage: AskUsage
 
 
-REQUEST_MODELS += (IndexRequest, SearchRequest, AskRequest)
+class SourceSummaryResponse(_Response):
+    id: str
+    relative_path: str
+    kind: Literal["pdf", "code", "text"]
+    size_bytes: NonNegativeInt
+
+
+class SourceResponse(_Response):
+    id: str
+    vault_id: str
+    relative_path: str
+    kind: Literal["pdf", "code", "text"]
+    revision: str
+    content: str
+
+
+class WebPageRequest(_Request):
+    url: Annotated[str, Field(min_length=1, max_length=2048)]
+
+
+REQUEST_MODELS += (IndexRequest, SearchRequest, AskRequest, WebPageRequest)

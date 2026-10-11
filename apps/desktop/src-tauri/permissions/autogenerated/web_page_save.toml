@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-web-page-save"
+description = "Enables the web_page_save command without any pre-configured scope."
+commands.allow = ["web_page_save"]
+
+[[permission]]
+identifier = "deny-web-page-save"
+description = "Denies the web_page_save command without any pre-configured scope."
+commands.deny = ["web_page_save"]

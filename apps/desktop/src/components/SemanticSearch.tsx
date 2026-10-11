@@ -2,9 +2,11 @@ import { useEffect, useRef, useState } from "react";
 import { type DesktopError, type SearchResponse, toDesktopError } from "../core/types";
 import { backendReady, navigationBlocked, type WorkspaceController, type WorkspaceState } from "../workspace/controller";
 import { ErrorText } from "./ErrorText";
+import { Icon } from "./Icon";
+import type { OpenSource } from "./SourceViewer";
 
-export function SemanticSearch({ controller, state, onClose }: {
-  controller: WorkspaceController; state: WorkspaceState; onClose: () => void;
+export function SemanticSearch({ controller, state, onClose, onOpenSource }: {
+  controller: WorkspaceController; state: WorkspaceState; onClose: () => void; onOpenSource?: (source: OpenSource) => void;
 }) {
   const [query, setQuery] = useState("");
   // The workspace key and request number of the search in flight.
@@ -68,7 +70,10 @@ export function SemanticSearch({ controller, state, onClose }: {
       <p role="status">{visible.response.hits.length} matching passages · similarity ranking</p>
       {visible.response.hits.length === 0 && <p>No saved passages to search yet.</p>}
       <ol className="search-results">{visible.response.hits.map((hit) => <li key={hit.chunk_id}>
-        <button disabled={blocked} onClick={() => void controller.selectNote(hit.note_id)}>{hit.relative_path}</button>
+        {hit.kind === "note"
+          ? <button disabled={blocked} onClick={() => void controller.selectNote(hit.note_id)}>{hit.relative_path}</button>
+          : <button onClick={() => onOpenSource?.({ id: hit.note_id, relativePath: hit.relative_path, kind: hit.kind as OpenSource["kind"],
+              lines: [hit.start_line, hit.end_line] })}><Icon name={hit.kind} size={13} />{hit.relative_path}</button>}
         <small>Lines {hit.start_line}–{hit.end_line} · {hit.score.toFixed(3)}</small>
         <p>{hit.text}</p>
       </li>)}</ol>
