@@ -102,3 +102,13 @@ def test_invalid_requests_are_rejected(client, vault, model, body):
 def test_unknown_vault(client, model):
     response = client.post(f"{API}/vaults/00000000-0000-4000-8000-000000000000/ask", json={"question": "q"})
     assert response.status_code == 404 and model.calls == []
+
+
+def test_ask_reports_the_whole_vault_size_for_comparison(client, vault):
+    import math
+    contents = ["fruit apples are sweet\n\nspace stars are far", "unrelated " * 200]
+    for index, content in enumerate(contents):
+        create_note(client, vault, f"n{index}.md", content)
+    usage = ask(client, vault, question="fruit apples?", budget=200).json()["usage"]
+    assert usage["vault_tokens"] == sum(math.ceil(len(text.encode()) / 3) for text in contents)
+    assert usage["context_tokens"] < usage["vault_tokens"]

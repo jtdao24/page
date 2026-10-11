@@ -358,8 +358,9 @@ def create_app(*, session_token: str | None = None, chat_model: ChatModel | None
         # Context is built on the storage worker; the model call runs elsewhere so a
         # slow provider never blocks note editing.
         await _warm_sources(request, identifier)
-        package = await _run(request, lambda service: service.question_context(
+        prepared = await _run(request, lambda service: service.question_context(
             identifier, body.question, body.budget))
+        package = prepared.package
         try:
             answer = await asyncio.to_thread(answer_question, body.question, package, model)
         except Exception as exc:
@@ -375,7 +376,7 @@ def create_app(*, session_token: str | None = None, chat_model: ChatModel | None
             cited=[block.number for block in answer.citations],
             usage=AskUsage(context_tokens=package.usage.tokens, budget=package.usage.budget,
                            counter=package.usage.counter, input_tokens=answer.input_tokens,
-                           output_tokens=answer.output_tokens)))
+                           output_tokens=answer.output_tokens, vault_tokens=prepared.vault_tokens)))
 
     @app.get(f"{PREFIX}/vaults/{{vault_id}}/sources", response_model=list[SourceSummaryResponse],
              responses=_errors(404, 409, 422, 503))

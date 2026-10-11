@@ -236,6 +236,8 @@ pub struct AskUsage {
     pub counter: String,
     pub input_tokens: usize,
     pub output_tokens: usize,
+    /// Estimated tokens for the whole vault, for comparison with `context_tokens`.
+    pub vault_tokens: usize,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -1337,7 +1339,7 @@ mod tests {
                 "end_line": 2, "text": "secret note text", "excerpt": false}],
             "cited": [1],
             "usage": {"context_tokens": 40, "budget": 500, "counter": "utf8-bytes/3",
-                "input_tokens": 120, "output_tokens": 8}});
+                "input_tokens": 120, "output_tokens": 8, "vault_tokens": 9000}});
         let mut foreign = valid.clone();
         foreign["vault_id"] = json!(NOTE);
         let mut unknown_citation = valid.clone();

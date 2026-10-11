@@ -275,6 +275,8 @@ class AskUsage(_Response):
     counter: str
     input_tokens: int
     output_tokens: int
+    # Estimated tokens for every note and source in the vault, with the same counter.
+    vault_tokens: NonNegativeInt
 
 
 class AskResponse(_Response):
