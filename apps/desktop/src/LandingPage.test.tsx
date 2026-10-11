@@ -36,18 +36,21 @@ describe("Page download landing page", () => {
   it("replaces questions with measured performance without the removed target panel", () => {
     render(<LandingPage />);
     expect(screen.queryByText("03 / A FEW GOOD QUESTIONS")).toBeNull();
-    expect(screen.getByText("03 / PERFORMANCE, MEASURED")).toBeTruthy();
+    expect(screen.getByText("PERFORMANCE, MEASURED")).toBeTruthy();
     expect(screen.getByText("89.7%")).toBeTruthy();
     expect(screen.queryByText("target token reduction")).toBeNull();
-    expect(screen.getByText(/not Gemini’s billing tokenizer/)).toBeTruthy();
+    expect(screen.getByText("How we measured").closest("details")?.textContent).toMatch(/not Gemini’s billing tokenizer/);
     expect(screen.getByRole("link", { name: /Download the benchmark results/ }).hasAttribute("download")).toBe(true);
   });
-  it("describes what Page does today: sources, search, cited answers and MCP", () => {
+
+  it("walks through four steps, each with a real screenshot", () => {
     render(<LandingPage />);
-    expect(screen.getByText("get answers with sources.")).toBeTruthy();
-    expect(screen.getByText(/drop PDFs and code into your vault folder/)).toBeTruthy();
-    expect(screen.getByText(/through MCP/)).toBeTruthy();
-    expect(screen.queryByText(/experimental graph preview/)).toBeNull();
+    for (const title of ["plain notes you own.", "see how ideas link up.", "find things by meaning.", "answers with sources."]) {
+      expect(screen.getByRole("heading", { name: title })).toBeTruthy();
+    }
+    expect(screen.getByRole("img", { name: /PDF passage ranked first/ })).toBeTruthy();
+    expect(screen.getByRole("img", { name: /cited answer/ })).toBeTruthy();
+    expect(screen.queryByText(/WHY WE MADE PAGE/)).toBeNull();
+    expect(document.querySelector("canvas")).toBeNull();
   });
 });
-
