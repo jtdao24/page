@@ -34,10 +34,9 @@ export function LogoScene({ onReady, lowComplexity = false }: { onReady: (handle
     shadows={!lowComplexity}
     fallback={<div className="logo-experience-fallback" role="img" aria-label="Five-layer Page architecture illustration" />}
   >
-    <color attach="background" args={["#f4f6f7"]} />
     <ambientLight intensity={1.5} />
     <directionalLight position={[4, 6, 8]} intensity={2.2} castShadow={!lowComplexity} />
-    <directionalLight position={[-4, -2, 4]} intensity={0.8} color="#d9e4ee" />
+    <directionalLight position={[-4, -2, 4]} intensity={0.8} color="#7fa6e3" />
     <SceneContents onReady={onReady} />
   </Canvas>;
 }

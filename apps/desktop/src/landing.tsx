@@ -5,4 +5,4 @@ import "./landing.css";
 
 const root = document.getElementById("root") as HTMLElement;
 createRoot(root).render(<StrictMode><LandingPage appHref={root.dataset.appUrl ?? "/"}
-  macDownloadUrl={root.dataset.macDownloadUrl} windowsDownloadUrl={root.dataset.windowsDownloadUrl} /></StrictMode>);
+  macDownloadUrl={root.dataset.macDownloadUrl} /></StrictMode>);

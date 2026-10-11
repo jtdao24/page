@@ -1,6 +1,7 @@
 import { lazy, Suspense } from "react";
-import heroImage from "./assets/page-books.png";
 import hacklantaLogo from "../hacklanta.png";
+import { ScreenshotFolio } from "./landing/ScreenshotFolio";
+import { PerformanceStats } from "./landing/PerformanceStats";
 
 
 const LogoExperience = lazy(() => import("./landing/LogoExperience").then((module) => ({ default: module.LogoExperience })));
@@ -15,30 +16,28 @@ function DownloadIcon() {
   return <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5" /></svg>;
 }
 
-export default function LandingPage({ appHref = "/", macDownloadUrl, windowsDownloadUrl }: {
-  appHref?: string; macDownloadUrl?: string; windowsDownloadUrl?: string;
+export default function LandingPage({ appHref = "/", macDownloadUrl }: {
+  appHref?: string; macDownloadUrl?: string;
 }) {
 
   return <div className="page-landing" id="top">
     <a className="landing-skip" href="#landing-main">Skip to content</a>
     <header className="landing-nav">
       <a className="page-wordmark" href="#top" aria-label="Page home">Page<span className="page-fold" aria-hidden="true" />
-      <div className="logo-experience-credit" aria-label="For Hacklanta">
-        <span>for</span>
+      <div className="logo-experience-credit" aria-label=" For Hacklanta">
+        <span>  for</span>
       <img src={hacklantaLogo} alt="Hacklanta" />
       </div>
       </a>
       <nav aria-label="Landing page navigation">
         <a className="landing-nav-link" href="#mission">the mission</a><a className="landing-nav-link" href="#how-it-works">how it works</a>
-        <a className="landing-open" href={appHref}>Open App <Arrow diagonal /></a>
         <a className="landing-outline" href="#download">Download <DownloadIcon /></a>
       </nav>
     </header>
 
     <main id="landing-main">
       <section className="landing-hero" aria-labelledby="hero-title">
-        <div className="landing-art"><img src={heroImage} alt="Clothbound books, an open book, and loose pages taking flight" width="1254" height="1254" fetchPriority="high" />
-          <span className="art-caption">good thoughts deserve a place to land.</span></div>
+        <ScreenshotFolio />
         <div className="hero-copy"><p className="landing-kicker"><span />A LOCAL HOME FOR A CURIOUS MIND</p>
           <h1 id="hero-title"><span>your thoughts.</span><span>connected<span className="landing-period">.</span></span></h1>
           <p className="hero-description">Give your notes a little more room to think.<br />A Markdown workspace for keeping ideas,<br />seeing connections, and finding your way back.</p>
@@ -74,29 +73,17 @@ export default function LandingPage({ appHref = "/", macDownloadUrl, windowsDown
 
 
 
-      <section className="landing-section landing-questions" aria-labelledby="questions-title"><div className="section-label"><span>03 / A FEW GOOD QUESTIONS</span><span>BEFORE YOU TURN THE PAGE.</span></div>
-        <div className="questions-layout"><h2 id="questions-title">good to<br />know.</h2><div className="landing-faq">
-          <details><summary>Where do my notes live?<span aria-hidden="true">+</span></summary><p>In your own Markdown vault on your device. Page builds a local index around your files; your Markdown remains the source of truth.</p></details>
-          <details><summary>Do I need an account?<span aria-hidden="true">+</span></summary><p>No account is required for the local workspace. Online sign-in is not configured yet. Future accounts will support connected services and synchronization.</p></details>
-          <details><summary>Can I ask AI about my notes?<span aria-hidden="true">+</span></summary><p>Not yet. The question box currently keeps an unsent local draft. AI answers, neural context ranking, and token-budget controls are planned. Local semantic indexing and a development search API already exist.</p></details>
-          <details><summary>What’s included in the download?<span aria-hidden="true">+</span></summary><p>The macOS development app provides the native Markdown editing workspace. Install the Python core and configure its interpreter separately; the desktop then starts it for vault access. The experimental sample graph is available in the web preview. This is not yet a self-contained release.</p></details>
-          <details><summary>Will Page be available on Windows?<span aria-hidden="true">+</span></summary><p>Windows is a planned platform. A Windows download is not available yet, and local metadata permissions still need platform-specific support.</p></details>
-        </div></div>
-      </section>
+      <PerformanceStats />
 
       <section className="landing-download" id="download" aria-labelledby="download-title">
         <div className="download-heading"><p className="landing-kicker">YOUR NEXT IDEA NEEDS A PLACE TO START.</p><h2 id="download-title">turn a Page<span>.</span></h2><p>A little space for everything you know.<br />And everything you’re still figuring out.</p></div>
         <div className="download-cards">
-          <div className="download-card"><span className="download-platform">01 / macOS</span><h3>make yourself at home.</h3><p>Apple Silicon · development build</p>
+          <div className="download-card"><span className="download-platform">PAGE / macOS</span><h3>your knowledge, ready to go.</h3><p>Apple Silicon · macOS 14 or later</p>
             {macDownloadUrl ? <a className="landing-primary" href={macDownloadUrl} download>Download for macOS <DownloadIcon /></a> : <><button className="landing-primary" disabled>Download being prepared <DownloadIcon /></button><p className="download-unavailable">A download will appear when a build is published.</p></>}
-            <small>Native desktop app. The local core is installed separately.<br />This development build is not notarized.</small>
-          </div>
-          <div className="download-card download-card--secondary"><span className="download-platform">02 / WINDOWS</span><h3>another chapter, soon.</h3><p>Windows support is in progress.</p>
-            {windowsDownloadUrl ? <a className="landing-outline" href={windowsDownloadUrl} download>Download for Windows <DownloadIcon /></a> : <button className="landing-outline" disabled>Windows coming soon</button>}
-            <small>We’ll add a download when a Windows build is ready.</small>
+            <small>DMG installer · open it and drag Page to Applications.<br />Includes the local core and offline search model. No Python setup required.<br />Locally signed; not Apple-notarized.</small>
           </div>
         </div>
-        <div className="download-footnote"><a href={appHref}>Just looking? Open the workspace preview <Arrow diagonal /></a><a href="https://github.com/jtdao24/page/blob/main/docs/development.md#running-the-desktop-app" target="_blank" rel="noreferrer">Local core setup & source <Arrow diagonal /></a></div>
+        <div className="download-footnote"><a href={appHref}>Just looking? Open the workspace preview <Arrow diagonal /></a><a href="https://github.com/jtdao24/page/blob/main/docs/packaging.md" target="_blank" rel="noreferrer">Installation & source <Arrow diagonal /></a></div>
       </section>
     </main>
 

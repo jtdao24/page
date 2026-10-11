@@ -6,7 +6,7 @@ export const LOGO_WIDTH = 3.5;
 export const LOGO_HEIGHT = 3.5;
 export const PANEL_DEPTH = 0.12;
 
-const layerColors = ["#fffdf7", "#d9e4ee", "#aebfd0", "#6f8da8", "#355d83"];
+const layerColors = ["#222630", "#26344a", "#2c3646", "#314966", "#3d5f96"];
 
 export function panelColor(index: number): string {
   return layerColors[index] ?? layerColors[0];
