@@ -110,9 +110,12 @@ export function Workspace({ controller }: { controller: WorkspaceController }) {
     handle.setPointerCapture?.(event.pointerId);
     const right = split.current?.getBoundingClientRect().right ?? window.innerWidth;
     const move = (moved: PointerEvent) => setGraphWidth(clampGraph(right - moved.clientX));
-    const stop = () => { handle.removeEventListener("pointermove", move); handle.removeEventListener("pointerup", stop); };
+    const stop = () => {
+      handle.removeEventListener("pointermove", move);
+      for (const end of ["pointerup", "pointercancel", "lostpointercapture"] as const) handle.removeEventListener(end, stop);
+    };
     handle.addEventListener("pointermove", move);
-    handle.addEventListener("pointerup", stop);
+    for (const end of ["pointerup", "pointercancel", "lostpointercapture"] as const) handle.addEventListener(end, stop);
   }
   function resizeByKey(event: ReactKeyboardEvent<HTMLDivElement>) {
     const step = event.key === "ArrowLeft" ? 40 : event.key === "ArrowRight" ? -40 : 0;
