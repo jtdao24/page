@@ -8,9 +8,10 @@ visual layout on October 10, 2026. Backend integration is verified on macOS 26.6
 there with `storage_unavailable`. Release builds run a bundled Python runtime; see
 [packaging](packaging.md).
 
-The workspace uses an Obsidian-inspired dark palette, compact Files sidebar,
-collapsible navigation ribbon, a single document tab and violet editor accents.
-Hiding Files preserves the current editor, selection, undo history and draft.
+The workspace uses an Obsidian-inspired dark palette and a sidebar with labeled
+actions (New note, Search, Graph, Ask, with their shortcuts) above the Files tree. The
+sidebar collapses to an icon rail; collapsing preserves the current editor, selection,
+undo history and draft. A rounded ask box floats over the note (Cmd/Ctrl+K).
 
 ## Boundaries and commands
 

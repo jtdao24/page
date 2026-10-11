@@ -22,7 +22,7 @@ If no passage is relevant, no model is called and Page says it found nothing.
 
 ## Setup
 
-In the app, open **Ask your notes → Gemini API key**, paste the key and choose
+In the app, click the key button in the ask box, paste the key and choose
 **Save Key**. Page keeps it in the macOS Keychain and restarts Page Core to use it.
 
 When running from a terminal, you can instead set it in the environment:
@@ -35,12 +35,14 @@ npm run tauri:dev
 
 A key saved in the app takes precedence over `GEMINI_API_KEY`. Page Core reads the key
 when it starts; saving or removing a key restarts it. Without a key, everything else
-works and the Ask panel shows where to add one.
+works and the ask box shows where to add one.
 
 ## Using it
 
-Open **Ask your notes** from the ribbon, type a question, pick a context budget (500,
-1,500 or 4,000 tokens) and press **Ask**. The panel shows:
+Type a question in the rounded ask box at the bottom of the note (Cmd/Ctrl+K focuses
+it), pick a context budget (500, 1,500 or 4,000 tokens) and press Enter. Answers appear
+in a card above the box, with follow-up questions kept in the same thread. Each answer
+shows:
 - the answer, with clickable `[n]` citations that open the cited note;
 - the sources, with path, line range, whether the text was trimmed to an excerpt, and
   whether the answer cited it;

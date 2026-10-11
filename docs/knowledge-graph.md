@@ -76,11 +76,14 @@ another editor are reflected through Refresh Graph/Refresh from Disk.
 
 ## Graph workspace
 
-The ribbon's Knowledge graph button opens a panel alongside the editor. The
+**Graph** in the sidebar opens the graph beside the editor, taking half the width.
+Drag the divider, or focus it and use the arrow keys, to resize it. The
 [Cytoscape.js](https://js.cytoscape.org/) canvas supports node dragging, pan, zoom
-and Fit. Solid violet nodes are notes; dashed amber nodes are unresolved references.
-Arrows point from the source note to its target. Selecting a note highlights its
-node and shows outgoing links and backlinks. Clicking a real node, an outgoing
+and an animated Fit. Notes are colored by top-level folder and sized by how many links
+they have; dashed amber nodes are unresolved references. Arrows point from the source
+note to its target. Hovering a note highlights its neighbors. Opening a note selects
+its node, glides to it if it is off screen, and lists its outgoing links and backlinks
+below the canvas. Clicking a real node, an outgoing
 link, a backlink or a note in All notes navigates through the existing dirty guard.
 Unresolved nodes cannot navigate or create files. All notes and relationship lists
 provide keyboard-accessible navigation alongside the canvas.

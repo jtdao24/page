@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from "react";
 import { type WorkspaceController, backendReady, isDirty, mutationsBlocked, navigationBlocked } from "../workspace/controller";
 import { useWorkspace } from "../workspace/useWorkspace";
 import { buildTree } from "../workspace/tree";
@@ -9,11 +9,26 @@ import { MarkdownEditor } from "./MarkdownEditor";
 import { NotePathForm } from "./NotePathForm";
 import { NoteTree } from "./NoteTree";
 import { VaultForms } from "./VaultForms";
-import { AskPanel } from "./AskPanel";
+import { AskBar, focusAskBar } from "./AskBar";
 import { SemanticSearch } from "./SemanticSearch";
-import { Icon } from "./Icon";
+import { Icon, type IconName } from "./Icon";
 
 const KnowledgeGraph = lazy(() => import("./KnowledgeGraph").then((module) => ({ default: module.KnowledgeGraph })));
+
+const SHORTCUT = typeof navigator !== "undefined" && /Mac/.test(navigator.platform) ? "⌘" : "Ctrl+";
+const GRAPH_MIN = 320;
+
+/** A labeled sidebar action; collapsed sidebars show only the icon with a tooltip. */
+function NavItem({ icon, label, ariaLabel, shortcut, active, disabled, onClick, controls }: {
+  icon: IconName; label: string; ariaLabel?: string; shortcut?: string; active?: boolean; disabled?: boolean;
+  onClick: () => void; controls?: string;
+}) {
+  return <button className="nav-item" aria-label={ariaLabel ?? label} title={shortcut ? `${label} · ${SHORTCUT}${shortcut}` : label}
+    aria-pressed={active === undefined ? undefined : active} aria-controls={controls} disabled={disabled} onClick={onClick}>
+    <Icon name={icon} size={17} /><span className="nav-label">{label}</span>
+    {shortcut && <kbd className="nav-shortcut">{SHORTCUT}{shortcut}</kbd>}
+  </button>;
+}
 
 type Modal = "vault" | "create" | "move" | "delete" | "convert" | "orphan" | "reload" | "overwrite" | "failed-move" | "reset" | null;
 
@@ -21,9 +36,10 @@ export function Workspace({ controller }: { controller: WorkspaceController }) {
   const state = useWorkspace(controller);
   const [modal, setModal] = useState<Modal>(null);
   const [searchVisible, setSearchVisible] = useState(false);
-  const [askVisible, setAskVisible] = useState(false);
   const [graphVisible, setGraphVisible] = useState(false);
-  const [sidebarVisible, setSidebarVisible] = useState(true);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [graphWidth, setGraphWidth] = useState<number | null>(null);
+  const split = useRef<HTMLDivElement>(null);
   const document = state.document;
   const blocked = mutationsBlocked(state) || state.vaultBusy;
   const navigation = navigationBlocked(state);
@@ -39,10 +55,11 @@ export function Workspace({ controller }: { controller: WorkspaceController }) {
     function shortcut(event: KeyboardEvent) {
       if ((!event.metaKey && !event.ctrlKey) || event.altKey || event.shiftKey) return;
       const key = event.key.toLowerCase();
-      if (!["s", "n", "o"].includes(key)) return;
+      if (!["s", "n", "o", "k"].includes(key)) return;
       event.preventDefault();
       if (event.repeat || modal !== null || controller.getState().guard !== null) return;
       const current = controller.getState();
+      if (key === "k") { focusAskBar(); return; }
       if (key === "s" && !mutationsBlocked(current)) void controller.save();
       if (key === "o" && !navigationBlocked(current)) setModal("vault");
       if (key === "n" && !mutationsBlocked(current) && !navigationBlocked(current)) {
@@ -58,6 +75,31 @@ export function Workspace({ controller }: { controller: WorkspaceController }) {
     void controller.guarded(action === "create" ? "create another note" : `${action} this note`, () => setModal(action));
   }
   const cancel = () => setModal(null);
+
+  // The graph split is resizable by pointer or arrow keys; it defaults to half the main area.
+  function clampGraph(width: number) {
+    const total = split.current?.clientWidth || 1200;
+    return Math.round(Math.min(Math.max(width, GRAPH_MIN), Math.max(GRAPH_MIN, total - 360)));
+  }
+  function startResize(event: ReactPointerEvent<HTMLDivElement>) {
+    event.preventDefault();
+    const handle = event.currentTarget;
+    handle.setPointerCapture?.(event.pointerId);
+    const right = split.current?.getBoundingClientRect().right ?? window.innerWidth;
+    const move = (moved: PointerEvent) => setGraphWidth(clampGraph(right - moved.clientX));
+    const stop = () => {
+      handle.removeEventListener("pointermove", move);
+      for (const end of ["pointerup", "pointercancel", "lostpointercapture"] as const) handle.removeEventListener(end, stop);
+    };
+    handle.addEventListener("pointermove", move);
+    for (const end of ["pointerup", "pointercancel", "lostpointercapture"] as const) handle.addEventListener(end, stop);
+  }
+  function resizeByKey(event: ReactKeyboardEvent<HTMLDivElement>) {
+    const step = event.key === "ArrowLeft" ? 40 : event.key === "ArrowRight" ? -40 : 0;
+    if (step === 0) return;
+    event.preventDefault();
+    setGraphWidth((width) => clampGraph((width ?? (split.current?.clientWidth || 1200) / 2) + step));
+  }
   const errors = [state.backendError, state.preferencesWriteError, state.listError, state.actionError?.error];
 
   return <main className="page-app flex h-screen min-h-0 flex-col">
@@ -67,10 +109,8 @@ export function Workspace({ controller }: { controller: WorkspaceController }) {
         <span className={`connection-dot ${backendReady(state) ? "is-ready" : ""}`} aria-hidden="true" />
         {state.phase === "unavailable" ? "Desktop runtime unavailable" : `Page Core: ${state.backend?.state ?? "starting"}`}
       </span>
-      <button disabled={navigation} onClick={() => setModal("vault")}>Open / Create Vault</button>
       <button disabled={state.phase !== "active" || state.quitting || state.vaultBusy || state.backend?.state === "starting" || state.backend?.state === "stopping"}
         onClick={() => void controller.restart()}>Restart Core</button>
-      <button disabled={state.phase === "unavailable" || state.pending !== null || state.quitting} onClick={() => void controller.requestQuit()}>Quit Page</button>
     </header>
     {state.phase === "unavailable" ? <section className="workspace-welcome">
       <div className="welcome-mark"><Icon name="vault" size={36} /></div>
@@ -88,52 +128,52 @@ export function Workspace({ controller }: { controller: WorkspaceController }) {
         {!backendReady(state) && state.phase === "active" && <button onClick={() => void controller.retryStart()}>Retry Startup</button>}
       </div>
       <div className="flex min-h-0 flex-1">
-        <nav className="workspace-ribbon" aria-label="Workspace tools">
-          <button className="ribbon-button" title={sidebarVisible ? "Hide sidebar" : "Show sidebar"} aria-label={sidebarVisible ? "Hide sidebar" : "Show sidebar"}
-            aria-expanded={sidebarVisible} aria-controls="workspace-sidebar" onClick={() => setSidebarVisible(!sidebarVisible)}><Icon name="sidebar" /></button>
-          <button className="ribbon-button" title="New Note · Cmd/Ctrl+N" aria-label="New Note" disabled={blocked || navigation}
-            onClick={() => noteAction("create")}><Icon name="note" /></button>
-          <button className="ribbon-button" title="Open Vault · Cmd/Ctrl+O" aria-label="Open Vault" disabled={navigation}
-            onClick={() => setModal("vault")}><Icon name="folder" /></button>
-          <button className="ribbon-button" title="Knowledge graph" aria-label="Knowledge graph" aria-expanded={graphVisible}
-            disabled={!state.vault} onClick={() => { setGraphVisible(!graphVisible); setSearchVisible(false); }}><Icon name="graph" /></button>
-          <button className="ribbon-button" title="Semantic search" aria-label="Semantic search" aria-expanded={searchVisible}
-            disabled={!state.vault} onClick={() => { setSearchVisible(!searchVisible); setGraphVisible(false); setAskVisible(false); }}><Icon name="search" /></button>
-          <button className="ribbon-button" title="Ask your notes" aria-label="Ask your notes" aria-expanded={askVisible}
-            disabled={!state.vault} onClick={() => { setAskVisible(!askVisible); setSearchVisible(false); setGraphVisible(false); }}><Icon name="ask" /></button>
-          <div className="ribbon-spacer" />
-          <button className="ribbon-button" title="Quit Page" aria-label="Quit Page" disabled={state.pending !== null || state.quitting}
-            onClick={() => void controller.requestQuit()}><Icon name="quit" /></button>
-        </nav>
-        <aside id="workspace-sidebar" hidden={!sidebarVisible} className="workspace-sidebar" aria-label="Vault and note navigation">
-          <div className="sidebar-heading"><Icon name="folder" size={15} /><span>Files</span><span className="sidebar-count">{state.notes?.length ?? 0}</span></div>
-          <h2 className="vault-name">{state.vault?.name ?? "No vault selected"}</h2>
-          {state.vault && <>
-            <p className="vault-root" title={state.vault.root_path}>{state.vault.root_path}</p>
-            <div className="sidebar-actions">
-              <button disabled={blocked || navigation} onClick={() => noteAction("create")}><Icon name="plus" size={14} />New Note</button>
-              <button disabled={blocked || navigation} onClick={() => void controller.refreshFromDisk()}>Refresh from Disk</button>
-              <button disabled={navigation} onClick={() => void controller.closeVault()}>Close Vault</button>
+        <aside id="workspace-sidebar" className="workspace-sidebar" data-collapsed={sidebarCollapsed || undefined} aria-label="Vault and note navigation">
+          <div className="sidebar-top">
+            {!sidebarCollapsed && <button className="vault-switcher" disabled={navigation} title="Switch or create vault" onClick={() => setModal("vault")}>
+              <span className="vault-name">{state.vault?.name ?? "No vault"}</span><span aria-hidden="true">⌄</span>
+            </button>}
+            <button className="collapse-toggle" aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"} title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+              aria-expanded={!sidebarCollapsed} aria-controls="workspace-sidebar" onClick={() => setSidebarCollapsed(!sidebarCollapsed)}><Icon name="sidebar" size={16} /></button>
+          </div>
+          <nav className="sidebar-nav" aria-label="Workspace tools">
+            <NavItem icon="plus" label="New note" ariaLabel="New Note" shortcut="N" disabled={!state.vault || blocked || navigation} onClick={() => noteAction("create")} />
+            <NavItem icon="search" label="Search" ariaLabel="Semantic search" active={searchVisible} disabled={!state.vault}
+              onClick={() => { setSearchVisible(!searchVisible); setGraphVisible(false); }} />
+            <NavItem icon="graph" label="Graph" ariaLabel="Knowledge graph" active={graphVisible} disabled={!state.vault}
+              onClick={() => { setGraphVisible(!graphVisible); setSearchVisible(false); }} />
+            <NavItem icon="ask" label="Ask" ariaLabel="Ask your notes" shortcut="K" disabled={!state.vault} onClick={focusAskBar} />
+          </nav>
+          {!sidebarCollapsed && state.vault && <section className="sidebar-files" aria-label="Files">
+            <div className="sidebar-heading"><span>Files</span><span className="sidebar-count">{state.notes?.length ?? 0}</span>
+              <button className="icon-button" aria-label="Refresh from Disk" title="Refresh from disk" disabled={blocked || navigation}
+                onClick={() => void controller.refreshFromDisk()}><Icon name="refresh" size={13} /></button>
             </div>
-            {state.notesLoading && <p role="status">Loading notes…</p>}
-            {state.notes?.length === 0 && <p>No notes yet. Create a note to begin.</p>}
+            {state.notesLoading && <p role="status" className="sidebar-note">Loading notes…</p>}
+            {state.notes?.length === 0 && <p className="sidebar-note">No notes yet. Create a note to begin.</p>}
             <NoteTree nodes={buildTree(state.notes ?? [])} selected={document?.noteId} disabled={navigation || state.recovery !== null || state.unknown !== null}
               onSelect={(id) => void controller.selectNote(id)} />
             {state.listError && <button onClick={() => void controller.reloadNotes()}>Retry Note List</button>}
-          </>}
-          {state.sessions.length > 1 && <section className="sidebar-section">
-            <h3 className="text-xs font-semibold">Open vaults</h3>
+          </section>}
+          {!sidebarCollapsed && state.sessions.length > 1 && <section className="sidebar-section">
+            <h3>Open vaults</h3>
             {state.sessions.map((vault) => <button className="block w-full break-words text-left" key={vault.id} disabled={navigation || vault.id === state.vault?.id}
               onClick={() => void controller.selectSession(vault.id)}>{vault.name}</button>)}
           </section>}
-          <section className="sidebar-section sidebar-recents">
-            <h3 className="text-xs font-semibold">Recent vaults</h3>
+          {!sidebarCollapsed && <section className="sidebar-section sidebar-recents">
+            <h3>Recent vaults</h3>
             {state.preferences.recent_vaults.map((entry) => <button className="block w-full break-all text-left text-xs" key={entry.vault_id}
               disabled={navigation} onClick={() => void controller.openRecent(entry)}>{entry.root_path}</button>)}
             {state.preferences.recent_vaults.length === 0 && <p className="text-xs text-neutral-500">No recent vaults</p>}
-          </section>
+          </section>}
+          <div className="sidebar-footer">
+            <NavItem icon="folder" label="Open vault" ariaLabel="Open Vault" shortcut="O" disabled={navigation} onClick={() => setModal("vault")} />
+            {state.vault && <NavItem icon="vault" label="Close vault" ariaLabel="Close Vault" disabled={navigation} onClick={() => void controller.closeVault()} />}
+            <NavItem icon="quit" label="Quit" ariaLabel="Quit Page" disabled={state.pending !== null || state.quitting} onClick={() => void controller.requestQuit()} />
+          </div>
         </aside>
-        <section className="workspace-main flex min-w-0 flex-1 flex-col" aria-label="Note workspace">
+        <div ref={split} className="workspace-split">
+        <section className="workspace-main relative flex min-w-0 flex-1 flex-col" aria-label="Note workspace">
           <div className="document-tabbar">
             <div className="document-tab"><Icon name="note" size={15} /><span>{document?.path.split("/").at(-1) ?? "Workspace"}</span>
               {isDirty(document) && <span className="tab-dirty" aria-label="Unsaved changes" />}
@@ -181,14 +221,21 @@ export function Workspace({ controller }: { controller: WorkspaceController }) {
               <h2>A little space to think.</h2><p>Select a note from the sidebar, or create one with Cmd/Ctrl+N.</p>
               <button disabled={blocked || navigation} onClick={() => noteAction("create")}>Create your first note</button>
             </div>}
-            {document && <footer className="document-statusbar"><span>Markdown</span><span>{document.mixed ? "Mixed line endings" : describeSeparator(document.separator)} · UTF-8</span><span>Cmd/Ctrl+S to save</span></footer>}
+            {document && <footer className="document-statusbar"><span>Markdown</span><span>{document.mixed ? "Mixed line endings" : describeSeparator(document.separator)} · UTF-8</span><span>{SHORTCUT}S to save · {SHORTCUT}K to ask</span></footer>}
+            <AskBar controller={controller} state={state} />
           </>}
         </section>
         {searchVisible && state.vault && <SemanticSearch controller={controller} state={state} onClose={() => setSearchVisible(false)} />}
-        {askVisible && state.vault && <AskPanel controller={controller} state={state} onClose={() => setAskVisible(false)} />}
-        {graphVisible && state.vault && <Suspense fallback={<aside className="knowledge-panel" role="status">Loading graph view…</aside>}>
-          <KnowledgeGraph controller={controller} state={state} onClose={() => setGraphVisible(false)} />
-        </Suspense>}
+        {graphVisible && state.vault && <>
+          <div className="split-handle" role="separator" aria-orientation="vertical" aria-label="Resize graph" tabIndex={0}
+            onPointerDown={startResize} onKeyDown={resizeByKey} />
+          <div className="graph-split" style={graphWidth === null ? undefined : { width: graphWidth, flexBasis: graphWidth }}>
+            <Suspense fallback={<aside className="knowledge-panel graph-panel" role="status">Loading graph view…</aside>}>
+              <KnowledgeGraph controller={controller} state={state} onClose={() => setGraphVisible(false)} />
+            </Suspense>
+          </div>
+        </>}
+        </div>
       </div>
     </>}
     {modal === "vault" && <Dialog title="Choose a Vault" onCancel={cancel}>

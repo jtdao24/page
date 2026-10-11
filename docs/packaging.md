@@ -63,7 +63,7 @@ running from a read-only copy.
 ## Gemini API key
 
 A Finder-launched app doesn't see terminal variables, so the key can now be saved in
-the app: **Ask your notes → Gemini API key**. Page stores it in the macOS Keychain
+the app: the key button in the ask box. Page stores it in the macOS Keychain
 (service `com.page.desktop`) and restarts Core to apply it. Unsaved drafts are kept
 across the restart. The key goes to Core only through its environment. The webview,
 logs and errors never see it.
