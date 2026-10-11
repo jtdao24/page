@@ -12,7 +12,7 @@ const answer: AskResponse = {
   vault_id: vault.id, model: "gemini-test", answer: "Water them at dawn [1].", answered_by_model: true,
   finish_reason: "STOP", cited: [1],
   sources: [{ number: 1, note_id: b.id, relative_path: b.relative_path, start_line: 1, end_line: 1,
-    text: b.content, excerpt: false }],
+    text: b.content, excerpt: false, kind: "note" }],
   usage: { context_tokens: 12, budget: 1500, counter: "utf8-bytes/3", input_tokens: 140, output_tokens: 9 },
 };
 let root: Root, host: HTMLDivElement;

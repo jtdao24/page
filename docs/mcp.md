@@ -15,13 +15,15 @@ to the context fetched through Page.
 
 ## Tools
 
-All tools are read-only and work on one vault, chosen when the server starts.
+All tools are read-only and work on one vault, chosen when the server starts. Results
+include notes and [knowledge sources](knowledge-sources.md) (PDFs, code, text), each with a
+`kind`.
 
 | Tool | Input | Returns |
 |---|---|---|
 | `get_context` | `question`, `budget` (50–20,000 tokens, default 1,500), `candidates` (1–50, default 10) | Numbered, source-attributed context that fits the budget; each source's note, path, line range, relevance and whether it was trimmed to an excerpt; token usage |
 | `search_notes` | `query`, `limit` (1–50, default 10) | The most similar passages, with path, lines and cosine score |
-| `read_note` | `path` | A note's full Markdown, ID and revision |
+| `read_note` | `path` | A note's full Markdown, or a PDF, code or text file's extracted text, with its kind and revision |
 | `related_notes` | `path` | Wiki links from the note and backlinks to it, with line numbers; unresolved links say why (`missing`, `ambiguous`, `invalid`) |
 
 `get_context` uses the same pipeline as the desktop ask box: semantic search, then

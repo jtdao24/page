@@ -10,6 +10,9 @@ import { NotePathForm } from "./NotePathForm";
 import { NoteTree } from "./NoteTree";
 import { VaultForms } from "./VaultForms";
 import { AskBar, focusAskBar } from "./AskBar";
+import { type OpenSource, SourceViewer } from "./SourceViewer";
+import { WebPageForm } from "./WebPageForm";
+import type { SourceSummaryResponse } from "../core/types";
 import { SemanticSearch } from "./SemanticSearch";
 import { Icon, type IconName } from "./Icon";
 
@@ -30,7 +33,7 @@ function NavItem({ icon, label, ariaLabel, shortcut, active, disabled, onClick, 
   </button>;
 }
 
-type Modal = "vault" | "create" | "move" | "delete" | "convert" | "orphan" | "reload" | "overwrite" | "failed-move" | "reset" | null;
+type Modal = "vault" | "web" | "create" | "move" | "delete" | "convert" | "orphan" | "reload" | "overwrite" | "failed-move" | "reset" | null;
 
 export function Workspace({ controller }: { controller: WorkspaceController }) {
   const state = useWorkspace(controller);
@@ -39,6 +42,9 @@ export function Workspace({ controller }: { controller: WorkspaceController }) {
   const [graphVisible, setGraphVisible] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [graphWidth, setGraphWidth] = useState<number | null>(null);
+  // A source stays open only while the same note and vault are current.
+  const [opened, setOpened] = useState<{ source: OpenSource; noteKey: string | null; vaultId: string } | null>(null);
+  const [sources, setSources] = useState<{ vaultId: string; items: SourceSummaryResponse[] } | null>(null);
   const split = useRef<HTMLDivElement>(null);
   const document = state.document;
   const blocked = mutationsBlocked(state) || state.vaultBusy;
@@ -69,6 +75,23 @@ export function Workspace({ controller }: { controller: WorkspaceController }) {
     window.addEventListener("keydown", shortcut);
     return () => window.removeEventListener("keydown", shortcut);
   }, [controller, modal]);
+
+  // PDFs, code and text files in the vault folder, refreshed whenever the note list reloads.
+  const vaultId = state.vault?.id;
+  const ready = backendReady(state);
+  useEffect(() => {
+    if (!vaultId || !ready || state.notes === null) return;
+    let live = true;
+    controller.listSources(vaultId).then((items) => { if (live) setSources({ vaultId, items }); }, () => {});
+    return () => { live = false; };
+  }, [controller, vaultId, ready, state.notes]);
+  const sourceItems = sources !== null && sources.vaultId === vaultId ? sources.items : [];
+  // Opening a note (from the tree, graph, search or a citation) closes the source viewer.
+  const noteKey = document ? `${document.vaultId}:${document.noteId}` : null;
+  const openSource = opened !== null && opened.noteKey === noteKey && opened.vaultId === vaultId ? opened.source : null;
+  const viewing = openSource !== null && state.vault !== null;
+  const setOpenSource = (source: OpenSource | null) =>
+    setOpened(source === null || vaultId === undefined ? null : { source, noteKey, vaultId });
 
   function noteAction(action: "create" | "move" | "delete") {
     if (blocked || navigation) return;
@@ -140,6 +163,8 @@ export function Workspace({ controller }: { controller: WorkspaceController }) {
             <NavItem icon="graph" label="Graph" ariaLabel="Knowledge graph" active={graphVisible} disabled={!state.vault}
               onClick={() => { setGraphVisible(!graphVisible); setSearchVisible(false); }} />
             <NavItem icon="ask" label="Ask" ariaLabel="Ask your notes" shortcut="K" disabled={!state.vault} onClick={focusAskBar} />
+            <NavItem icon="globe" label="Add website" ariaLabel="Add website" disabled={!state.vault || blocked || navigation}
+              onClick={() => void controller.guarded("save a web page", () => setModal("web"))} />
           </nav>
           {!sidebarCollapsed && state.vault && <section className="sidebar-files" aria-label="Files">
             <div className="sidebar-heading"><span>Files</span><span className="sidebar-count">{state.notes?.length ?? 0}</span>
@@ -148,8 +173,9 @@ export function Workspace({ controller }: { controller: WorkspaceController }) {
             </div>
             {state.notesLoading && <p role="status" className="sidebar-note">Loading notes…</p>}
             {state.notes?.length === 0 && <p className="sidebar-note">No notes yet. Create a note to begin.</p>}
-            <NoteTree nodes={buildTree(state.notes ?? [])} selected={document?.noteId} disabled={navigation || state.recovery !== null || state.unknown !== null}
-              onSelect={(id) => void controller.selectNote(id)} />
+            <NoteTree nodes={buildTree(state.notes ?? [], sourceItems)} selected={openSource ? openSource.id : document?.noteId}
+              onOpenSource={(source) => setOpenSource({ id: source.id, relativePath: source.relative_path, kind: source.kind })} disabled={navigation || state.recovery !== null || state.unknown !== null}
+              onSelect={(id) => { setOpenSource(null); void controller.selectNote(id); }} />
             {state.listError && <button onClick={() => void controller.reloadNotes()}>Retry Note List</button>}
           </section>}
           {!sidebarCollapsed && state.sessions.length > 1 && <section className="sidebar-section">
@@ -172,8 +198,9 @@ export function Workspace({ controller }: { controller: WorkspaceController }) {
         <div ref={split} className="workspace-split">
         <section className="workspace-main relative flex min-w-0 flex-1 flex-col" aria-label="Note workspace">
           <div className="document-tabbar">
-            <div className="document-tab"><Icon name="note" size={15} /><span>{document?.path.split("/").at(-1) ?? "Workspace"}</span>
-              {isDirty(document) && <span className="tab-dirty" aria-label="Unsaved changes" />}
+            <div className="document-tab"><Icon name={openSource ? openSource.kind : "note"} size={15} />
+              <span>{openSource ? openSource.relativePath.split("/").at(-1) : document?.path.split("/").at(-1) ?? "Workspace"}</span>
+              {!viewing && isDirty(document) && <span className="tab-dirty" aria-label="Unsaved changes" />}
             </div>
           </div>
           {state.vault === null ? <div className="vault-welcome overflow-auto">
@@ -218,11 +245,12 @@ export function Workspace({ controller }: { controller: WorkspaceController }) {
               <h2>A little space to think.</h2><p>Select a note from the sidebar, or create one with Cmd/Ctrl+N.</p>
               <button disabled={blocked || navigation} onClick={() => noteAction("create")}>Create your first note</button>
             </div>}
+            {viewing && openSource && <SourceViewer controller={controller} vaultId={state.vault.id} source={openSource} onClose={() => setOpenSource(null)} />}
             {document && <footer className="document-statusbar"><span>Markdown</span><span>{document.mixed ? "Mixed line endings" : describeSeparator(document.separator)} · UTF-8</span><span>{SHORTCUT}S to save · {SHORTCUT}K to ask</span></footer>}
-            <AskBar controller={controller} state={state} />
+            <AskBar controller={controller} state={state} onOpenSource={setOpenSource} />
           </>}
         </section>
-        {searchVisible && state.vault && <SemanticSearch controller={controller} state={state} onClose={() => setSearchVisible(false)} />}
+        {searchVisible && state.vault && <SemanticSearch controller={controller} state={state} onClose={() => setSearchVisible(false)} onOpenSource={setOpenSource} />}
         {graphVisible && state.vault && <>
           <div className="split-handle" role="separator" aria-orientation="vertical" aria-label="Resize graph" tabIndex={0}
             onPointerDown={startResize} onKeyDown={resizeByKey} />
@@ -235,6 +263,9 @@ export function Workspace({ controller }: { controller: WorkspaceController }) {
         </div>
       </div>
     </>}
+    {modal === "web" && <Dialog title="Add a Website" onCancel={cancel}>
+      <WebPageForm onCancel={cancel} onSubmit={async (url) => { await controller.saveWebPage(url); cancel(); }} />
+    </Dialog>}
     {modal === "vault" && <Dialog title="Choose a Vault" onCancel={cancel}>
       <VaultForms controller={controller} state={state} onDone={cancel} /><button onClick={cancel}>Cancel</button>
     </Dialog>}

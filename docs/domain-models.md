@@ -134,6 +134,15 @@ libraries, LLM providers, MCP, or network services, and it has no serialization 
 Tests enforce that importing it loads no infrastructure modules and that constructing
 models performs no I/O.
 
+## SourceDocument
+
+A read-only file in the vault (PDF, code or text) with its extracted text: `id`,
+`vault_id`, `relative_path`, `content` and `revision` (the SHA-256 of the file bytes).
+Paths follow the note path rules but end in a supported source extension
+(`validate_source_path`; `validate_document_path` accepts either). The ID comes from
+the vault and path, so moving a source makes a new document. Chunk byte offsets refer
+to the extracted text. See [knowledge sources](knowledge-sources.md).
+
 ## Built elsewhere
 
 The domain layer only defines the types. Everything else lives in other modules:

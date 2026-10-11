@@ -123,7 +123,7 @@ def test_notes_changed_outside_page_are_seen(tools, root):
 
 def test_errors_are_tool_errors_with_safe_messages(tools, encoder, root):
     assert error(tools, "read_note", path="missing.md") == "note_not_found: No note at missing.md."
-    for bad in ("../outside.md", "/etc/passwd", "notes.txt"):
+    for bad in ("../outside.md", "/etc/passwd", "notes.exe"):
         assert error(tools, "read_note", path=bad).startswith("invalid_path:")
     assert "budget" in error(tools, "get_context", question="fruit", budget=10)
     assert "query" in error(tools, "search_notes", query="")
@@ -191,3 +191,15 @@ def test_oversized_passages_are_returned_as_marked_excerpts(tools, root):
     assert data["usage"]["tokens"] <= 60
     long = [source for source in data["sources"] if source["path"] == "long.md"]
     assert long and long[0]["excerpt"] is True and len(long[0]["text"]) < len(sentences)
+
+
+def test_sources_are_searchable_and_readable(tools, root):
+    from test_sources import make_pdf
+    (root / "papers").mkdir()
+    (root / "papers" / "fruit.pdf").write_bytes(make_pdf(["fruit orchard yields"]))
+    results = ok(tools, "search_notes", query="fruit orchard", limit=5)["results"]
+    assert {(hit["path"], hit["kind"]) for hit in results} >= {("papers/fruit.pdf", "pdf"), ("fruit.md", "note")}
+    pdf = ok(tools, "read_note", path="papers/fruit.pdf")
+    assert (pdf["kind"], pdf["content"]) == ("pdf", "[Page 1]\nfruit orchard yields\n")
+    assert ok(tools, "read_note", path="fruit.md")["kind"] == "note"
+    assert error(tools, "read_note", path="papers/missing.pdf") == "source_not_found: No readable file at papers/missing.pdf."

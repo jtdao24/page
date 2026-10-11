@@ -106,6 +106,20 @@ MIGRATIONS = (
             vector BLOB NOT NULL
         )""",
     ),
+    (
+        # Vectors may also belong to read-only source documents (PDFs, code),
+        # which are not notes, so drop the foreign key. Each update replaces the
+        # whole snapshot, so no cascade is needed. Existing vectors are kept.
+        """CREATE TABLE semantic_vectors_v4 (
+            chunk_id TEXT PRIMARY KEY NOT NULL,
+            note_id TEXT NOT NULL CHECK(length(note_id)=36),
+            fingerprint TEXT NOT NULL,
+            vector BLOB NOT NULL
+        )""",
+        "INSERT INTO semantic_vectors_v4 SELECT chunk_id,note_id,fingerprint,vector FROM semantic_vectors",
+        "DROP TABLE semantic_vectors",
+        "ALTER TABLE semantic_vectors_v4 RENAME TO semantic_vectors",
+    ),
 )
 SCHEMA_VERSION = len(MIGRATIONS)
 

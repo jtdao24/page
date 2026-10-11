@@ -3,6 +3,7 @@ import { type AskResponse, type DesktopError, type GeminiKeyStatus, toDesktopErr
 import { backendReady, navigationBlocked, type WorkspaceController, type WorkspaceState } from "../workspace/controller";
 import { ErrorText } from "./ErrorText";
 import { Icon } from "./Icon";
+import type { OpenSource } from "./SourceViewer";
 
 const BUDGETS = [500, 1500, 4000] as const;
 const INPUT_ID = "ask-question";
@@ -70,16 +71,25 @@ function GeminiKey({ controller, canRestart }: { controller: WorkspaceController
   </div>;
 }
 
-function Answer({ response, blocked, controller }: { response: AskResponse; blocked: boolean; controller: WorkspaceController }) {
+type Source = AskResponse["sources"][number];
+
+function Answer({ response, blocked, controller, onOpenSource }: {
+  response: AskResponse; blocked: boolean; controller: WorkspaceController; onOpenSource?: (source: OpenSource) => void;
+}) {
   const sources = new Map(response.sources.map((source) => [source.number, source]));
+  // Notes open in the editor (through the dirty guard); files open in the read-only viewer.
+  const open = (source: Source) => source.kind === "note"
+    ? void controller.selectNote(source.note_id)
+    : onOpenSource?.({ id: source.note_id, relativePath: source.relative_path, kind: source.kind, lines: [source.start_line, source.end_line] });
+  const disabled = (source: Source) => source.kind === "note" && blocked;
   return <>
     <div className="ask-answer" aria-label="Answer">
       {response.answer.split(/(\[\d+\])/).map((part, index) => {
         const match = /^\[(\d+)\]$/.exec(part);
         const source = match ? sources.get(Number(match[1])) : undefined;
         return source
-          ? <button key={index} className="citation" disabled={blocked} title={source.relative_path}
-              onClick={() => void controller.selectNote(source.note_id)}>{source.number}</button>
+          ? <button key={index} className="citation" disabled={disabled(source)} title={source.relative_path}
+              onClick={() => open(source)}>{source.number}</button>
           : <span key={index}>{part}</span>;
       })}
     </div>
@@ -87,8 +97,8 @@ function Answer({ response, blocked, controller }: { response: AskResponse; bloc
       <summary>{response.sources.length} {response.sources.length === 1 ? "source" : "sources"}</summary>
       <ol>{response.sources.map((source) =>
         <li key={source.number} className={response.cited.includes(source.number) ? "cited" : undefined}>
-          <button disabled={blocked} onClick={() => void controller.selectNote(source.note_id)}>
-            <span className="source-number">{source.number}</span>{source.relative_path}
+          <button disabled={disabled(source)} onClick={() => open(source)}>
+            <span className="source-number">{source.number}</span>{source.kind !== "note" && <Icon name={source.kind} size={12} />}{source.relative_path}
           </button>
           <small>Lines {source.start_line}–{source.end_line}{source.excerpt ? " · excerpt" : ""}
             {response.cited.includes(source.number) ? " · cited" : ""}</small>
@@ -105,7 +115,9 @@ function Answer({ response, blocked, controller }: { response: AskResponse; bloc
 }
 
 /** A floating ask box over the note; answers stack in a card above it. */
-export function AskBar({ controller, state }: { controller: WorkspaceController; state: WorkspaceState }) {
+export function AskBar({ controller, state, onOpenSource }: {
+  controller: WorkspaceController; state: WorkspaceState; onOpenSource?: (source: OpenSource) => void;
+}) {
   const [question, setQuestion] = useState("");
   const [budget, setBudget] = useState<number>(1500);
   const [thread, setThread] = useState<{ vaultId: string | undefined; exchanges: Exchange[] }>({ vaultId: undefined, exchanges: [] });
@@ -183,7 +195,7 @@ export function AskBar({ controller, state }: { controller: WorkspaceController;
         {showKey && <GeminiKey controller={controller} canRestart={!state.pending && !state.vaultBusy && !state.quitting} />}
         {exchanges.map((exchange) => <article key={exchange.id} className="ask-exchange">
           <p className="ask-question">{exchange.question}</p>
-          {exchange.response && <Answer response={exchange.response} blocked={blocked} controller={controller} />}
+          {exchange.response && <Answer response={exchange.response} blocked={blocked} controller={controller} onOpenSource={onOpenSource} />}
           {!exchange.response && !exchange.error && (busy && exchange === exchanges.at(-1)
             ? <p role="status" className="ask-thinking"><span className="dots" aria-hidden="true"><i /><i /><i /></span>Finding passages and asking Gemini…</p>
             : <p className="knowledge-hint">This answer was interrupted when Page Core restarted.</p>)}

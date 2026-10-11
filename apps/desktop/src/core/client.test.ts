@@ -12,6 +12,7 @@ describe("typed IPC mapping", () => {
     await client.vaultReconcile("vault", { note: "new.md" }); await client.noteList("vault"); await client.graphRead("vault");
     await client.semanticIndex("vault", true); await client.semanticSearch("vault", "query", 5);
     await client.askQuestion("vault", "why?", 1500);
+    await client.sourceList("vault"); await client.sourceRead("vault", "src"); await client.webPageSave("vault", "https://a.b");
     await client.noteRead("vault", "note"); await client.noteCreate("vault", "new.md", "text");
     await client.noteUpdate("vault", "note", "revision", "text");
     await client.noteMove("vault", "note", "revision", "new.md");
@@ -25,7 +26,9 @@ describe("typed IPC mapping", () => {
       ["vault_reconcile", { vault_id: "vault", known_renames: { note: "new.md" } }],
       ["note_list", { vault_id: "vault" }], ["graph_read", { vault_id: "vault" }],
       ["semantic_index", { vault_id: "vault", rebuild: true }], ["semantic_search", { vault_id: "vault", query: "query", limit: 5 }],
-      ["ask_question", { vault_id: "vault", question: "why?", budget: 1500 }], ["note_read", { vault_id: "vault", note_id: "note" }],
+      ["ask_question", { vault_id: "vault", question: "why?", budget: 1500 }],
+      ["source_list", { vault_id: "vault" }], ["source_read", { vault_id: "vault", source_id: "src" }],
+      ["web_page_save", { vault_id: "vault", url: "https://a.b" }], ["note_read", { vault_id: "vault", note_id: "note" }],
       ["note_create", { vault_id: "vault", relative_path: "new.md", content: "text" }],
       ["note_update", { vault_id: "vault", note_id: "note", revision: "revision", content: "text" }],
       ["note_move", { vault_id: "vault", note_id: "note", revision: "revision", relative_path: "new.md" }],

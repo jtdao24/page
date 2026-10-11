@@ -1,7 +1,7 @@
 import type { CSSProperties } from "react";
 
 export type IconName = "ask" | "search" | "graph" | "note" | "folder" | "vault" | "refresh" | "save" | "sidebar" | "plus" | "quit"
-  | "send" | "key" | "close" | "minimize" | "sparkle";
+  | "send" | "key" | "close" | "minimize" | "sparkle" | "pdf" | "code" | "text" | "globe";
 const paths: Record<IconName, string> = {
   ask: "M4 5h16v11H9l-5 4V5ZM8 9h8M8 12h5",
   search: "M16 10a6 6 0 1 1-12 0 6 6 0 0 1 12 0ZM15 15l6 6",
@@ -18,6 +18,10 @@ const paths: Record<IconName, string> = {
   key: "M15 7a4 4 0 1 1-3.5 6L5 19.5V21H3v-3l6.5-6.5A4 4 0 0 1 15 7ZM16 9h.01",
   close: "M6 6l12 12M18 6 6 18",
   minimize: "M6 9l6 6 6-6",
+  pdf: "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6ZM14 2v6h6M8 13h2a1.5 1.5 0 0 1 0 3H8v-3ZM8 16v2M13 13v5M13 13h2.5M13 15.5h2",
+  code: "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6ZM14 2v6h6M10 13l-2 2 2 2M14 13l2 2-2 2",
+  text: "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6ZM14 2v6h6M8 12h8M8 15h8M8 18h5",
+  globe: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18ZM3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3Z",
   sparkle: "M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3ZM19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8L19 16Z",
 };
 

@@ -7,6 +7,7 @@ storage worker thread. Health and request validation never wait for storage.
 
 import asyncio
 import re
+from datetime import UTC, datetime
 from collections.abc import AsyncIterator, Callable
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
@@ -26,7 +27,8 @@ import page_core
 from page_core.answering import answer_question
 from page_core.llm import ChatModel, GeminiModel, LLMNotConfiguredError
 from page_core.semantic import FINGERPRINT
-from page_core.domain import Note
+from page_core.domain import Note, source_kind
+from page_core.web import fetch_page
 from page_core.metadata import NoteMetadata, ReconcileResult
 
 from .errors import ApiError, error_response, field_error, translate, validation_error
@@ -36,7 +38,8 @@ from .schemas import (
     IndexRequest, IndexResponse, SearchRequest, SearchResponse, SearchHitResponse,
     REQUEST_MODELS, CreateNoteRequest, CreateVaultRequest, ErrorResponse, HealthResponse,
     MoveNoteRequest, NoteResponse, NoteSummaryResponse, OpenVaultRequest, ReconcileRequest,
-    ReconcileResponse, UpdateNoteRequest, VaultResponse, parse_note_path, parse_root, parse_uuid,
+    ReconcileResponse, SourceResponse, SourceSummaryResponse, UpdateNoteRequest, VaultResponse,
+    WebPageRequest, parse_note_path, parse_root, parse_uuid,
 )
 from .security import LocalAccessMiddleware, generate_token, validate_token
 from .service import (
@@ -44,6 +47,11 @@ from .service import (
 )
 
 PREFIX = "/api/v1"
+
+
+def _kind(path: object) -> str:
+    """``note`` for Markdown, otherwise the source kind (pdf, code, text)."""
+    return source_kind(path) or "note"
 _IF_MATCH = re.compile(r'"([0-9a-f]{64})"')
 
 
@@ -319,7 +327,8 @@ def create_app(*, session_token: str | None = None, chat_model: ChatModel | None
         hits = await _run(request, lambda service: service.search_vault(identifier, body.query, body.limit))
         return _json(SearchResponse(vault_id=str(identifier), model=FINGERPRINT,
             hits=[SearchHitResponse(chunk_id=str(hit.chunk.id), note_id=str(hit.chunk.note_id),
-                relative_path=str(hit.relative_path), revision=hit.revision, ordinal=hit.chunk.ordinal,
+                relative_path=str(hit.relative_path), kind=_kind(hit.relative_path), revision=hit.revision,
+                ordinal=hit.chunk.ordinal,
                 text=hit.chunk.text, start_byte=hit.chunk.start_byte, end_byte=hit.chunk.end_byte,
                 start_line=hit.start_line, end_line=hit.end_line, score=hit.score) for hit in hits]))
 
@@ -343,13 +352,45 @@ def create_app(*, session_token: str | None = None, chat_model: ChatModel | None
             vault_id=str(identifier), model=answer.model, answer=answer.text,
             answered_by_model=answer.called_model, finish_reason=answer.finish_reason,
             sources=[AskSource(number=block.number, note_id=str(block.note_id),
-                               relative_path=str(block.relative_path), start_line=block.start_line,
+                               relative_path=str(block.relative_path), kind=_kind(block.relative_path),
+                               start_line=block.start_line,
                                end_line=block.end_line, text=block.text, excerpt=block.compressed)
                      for block in package.blocks],
             cited=[block.number for block in answer.citations],
             usage=AskUsage(context_tokens=package.usage.tokens, budget=package.usage.budget,
                            counter=package.usage.counter, input_tokens=answer.input_tokens,
                            output_tokens=answer.output_tokens)))
+
+    @app.get(f"{PREFIX}/vaults/{{vault_id}}/sources", response_model=list[SourceSummaryResponse],
+             responses=_errors(404, 409, 422, 503))
+    async def list_sources(request: Request, vault_id: str) -> Response:
+        identifier = _path_uuid("vault_id", vault_id)
+        entries = await _run(request, lambda service: service.list_sources(identifier))
+        return _json([SourceSummaryResponse(id=str(entry.id), relative_path=str(entry.relative_path),
+                                            kind=entry.kind, size_bytes=entry.size_bytes) for entry in entries])
+
+    @app.get(f"{PREFIX}/vaults/{{vault_id}}/sources/{{source_id}}", response_model=SourceResponse,
+             responses=_errors(404, 409, 422, 503))
+    async def get_source(request: Request, vault_id: str, source_id: str) -> Response:
+        identifiers = _path_uuid("vault_id", vault_id), _path_uuid("source_id", source_id)
+        source = await _run(request, lambda service: service.get_source(*identifiers))
+        return _json(SourceResponse(id=str(source.id), vault_id=str(source.vault_id),
+                                    relative_path=str(source.relative_path), kind=source.kind,
+                                    revision=source.revision, content=source.content))
+
+    @app.post(f"{PREFIX}/vaults/{{vault_id}}/web-pages", status_code=201, response_model=NoteResponse,
+              responses=_errors(404, 409, 415, 422, 502, 503), openapi_extra=_json_body(WebPageRequest))
+    async def save_web_page(request: Request, vault_id: str) -> Response:
+        identifier = _path_uuid("vault_id", vault_id)
+        body = await _body(request, WebPageRequest)
+        # Fetch off the storage worker so a slow site never blocks note editing.
+        try:
+            page = await asyncio.to_thread(fetch_page, body.url)
+        except Exception as exc:
+            raise translate(exc) from None
+        saved_at = datetime.now(UTC)
+        note = await _run(request, lambda service: service.save_web_page(identifier, page, saved_at))
+        return _note(note, 201, location=True)
 
     @app.get(f"{PREFIX}/vaults/{{vault_id}}/graph", response_model=GraphResponse,
              responses=_errors(404, 409, 422, 503))

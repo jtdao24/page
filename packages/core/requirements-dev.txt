@@ -1,5 +1,5 @@
 # Pinned runtime and development environment for page-core, including the
-# local Sentence Transformers and FAISS dependencies and the MCP SDK.
+# local Sentence Transformers and FAISS dependencies, the MCP SDK and pypdf.
 # Generated with pip freeze --exclude-editable on macOS (Python 3.12).
 # Install with: python -m pip install -r packages/core/requirements-dev.txt -e packages/core
 annotated-doc==0.0.5
@@ -45,6 +45,7 @@ pydantic==2.14.0
 pydantic_core==2.50.0
 Pygments==2.21.0
 PyJWT==2.15.1
+pypdf==6.20.0
 pytest==9.1.1
 python-multipart==0.0.32
 PyYAML==6.0.3

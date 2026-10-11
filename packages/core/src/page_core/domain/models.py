@@ -13,6 +13,17 @@ from uuid import UUID
 
 _NOTE_SUFFIX = ".md"
 
+# Read-only knowledge sources Page can index besides notes, by kind.
+SOURCE_KINDS: dict[str, str] = {
+    ".pdf": "pdf",
+    ".txt": "text",
+    **{suffix: "code" for suffix in (
+        ".py", ".js", ".jsx", ".ts", ".tsx", ".rs", ".go", ".java", ".kt", ".swift", ".c", ".h",
+        ".cpp", ".hpp", ".cs", ".rb", ".php", ".sh", ".sql", ".html", ".css", ".json", ".yaml",
+        ".yml", ".toml",
+    )},
+}
+
 # Characters that change a path's meaning on some supported platform:
 # "\\" is a Windows separator, ":" introduces Windows drives and streams,
 # and NUL terminates paths at the OS boundary.
@@ -55,7 +66,7 @@ def _require_aware_datetime(field: str, value: object) -> datetime:
     return moment
 
 
-def _require_note_path(field: str, value: object) -> PurePosixPath:
+def _require_relative_path(field: str, value: object) -> PurePosixPath:
     # Only the pure POSIX flavour is accepted so the domain never holds a
     # platform-specific, filesystem-capable path object.
     if type(value) is not PurePosixPath:
@@ -70,14 +81,44 @@ def _require_note_path(field: str, value: object) -> PurePosixPath:
         raise ValueError(
             f"{field} must not contain '\\', ':' or NUL, got {str(value)!r}"
         )
-    if value.suffix != _NOTE_SUFFIX:
-        raise ValueError(f"{field} must end in {_NOTE_SUFFIX!r}, got {str(value)!r}")
     return value
+
+
+def _require_note_path(field: str, value: object) -> PurePosixPath:
+    path = _require_relative_path(field, value)
+    if path.suffix != _NOTE_SUFFIX:
+        raise ValueError(f"{field} must end in {_NOTE_SUFFIX!r}, got {str(path)!r}")
+    return path
+
+
+def source_kind(path: PurePosixPath) -> str | None:
+    """The source kind for a path's extension (any case), or None if unsupported."""
+    return SOURCE_KINDS.get(path.suffix.lower())
+
+
+def _require_source_path(field: str, value: object) -> PurePosixPath:
+    path = _require_relative_path(field, value)
+    if source_kind(path) is None:
+        raise ValueError(f"{field} must have a supported source suffix, got {str(path)!r}")
+    return path
 
 
 def validate_note_path(path: object) -> PurePosixPath:
     """Return ``path`` if it is a valid ``Note.relative_path``, else raise."""
     return _require_note_path("note path", path)
+
+
+def validate_source_path(path: object) -> PurePosixPath:
+    """Return ``path`` if it is a valid ``SourceDocument.relative_path``, else raise."""
+    return _require_source_path("source path", path)
+
+
+def validate_document_path(path: object) -> PurePosixPath:
+    """Return ``path`` if it is a valid note or source path, else raise."""
+    _require_relative_path("document path", path)
+    if isinstance(path, PurePosixPath) and path.suffix == _NOTE_SUFFIX:
+        return path
+    return _require_source_path("document path", path)
 
 
 @dataclass(frozen=True, slots=True)
@@ -118,6 +159,35 @@ class Note:
         _require_aware_datetime("Note.updated_at", self.updated_at)
         if self.updated_at < self.created_at:
             raise ValueError("Note.updated_at must not be earlier than created_at")
+
+
+@dataclass(frozen=True, slots=True)
+class SourceDocument:
+    """A read-only file in a vault (PDF, code or text) and the text extracted from it.
+
+    Identity follows the path: ``id`` is derived from the vault and path, so a
+    moved source is a new document. ``revision`` is the SHA-256 of the file bytes.
+    Chunk byte offsets refer to ``content``, the extracted text.
+    """
+
+    id: UUID
+    vault_id: UUID
+    relative_path: PurePosixPath
+    content: str
+    revision: str
+
+    def __post_init__(self) -> None:
+        _require_type("SourceDocument.id", self.id, UUID)
+        _require_type("SourceDocument.vault_id", self.vault_id, UUID)
+        _require_source_path("SourceDocument.relative_path", self.relative_path)
+        _require_type("SourceDocument.content", self.content, str)
+        revision = _require_type("SourceDocument.revision", self.revision, str)
+        if len(revision) != 64 or any(ch not in "0123456789abcdef" for ch in revision):
+            raise ValueError("SourceDocument.revision must be a lowercase SHA-256 hex digest")
+
+    @property
+    def kind(self) -> str:
+        return SOURCE_KINDS[self.relative_path.suffix.lower()]
 
 
 @dataclass(frozen=True, slots=True)

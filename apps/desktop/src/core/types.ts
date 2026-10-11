@@ -121,14 +121,22 @@ export interface IndexResponse {
   vault_id: string; model: string; notes: number; chunks: number;
   generated: number; reused: number; removed: number;
 }
+/** "note" for Markdown; otherwise a read-only source file. */
+export type DocumentKind = "note" | "pdf" | "code" | "text";
+export type SourceKind = Exclude<DocumentKind, "note">;
+export interface SourceSummaryResponse { id: string; relative_path: string; kind: SourceKind; size_bytes: number }
+export interface SourceResponse {
+  id: string; vault_id: string; relative_path: string; kind: SourceKind; revision: string; content: string;
+}
+
 export interface SearchHitResponse {
-  chunk_id: string; note_id: string; relative_path: string; revision: string;
+  chunk_id: string; note_id: string; relative_path: string; kind: DocumentKind; revision: string;
   ordinal: number; text: string; start_byte: number; end_byte: number;
   start_line: number; end_line: number; score: number;
 }
 export interface SearchResponse { vault_id: string; model: string; hits: SearchHitResponse[] }
 export interface AskSource {
-  number: number; note_id: string; relative_path: string;
+  number: number; note_id: string; relative_path: string; kind: DocumentKind;
   start_line: number; end_line: number; text: string; excerpt: boolean;
 }
 export interface AskUsage {
