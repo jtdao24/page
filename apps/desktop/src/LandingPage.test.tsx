@@ -53,4 +53,12 @@ describe("Page download landing page", () => {
     expect(screen.queryByText(/WHY WE MADE PAGE/)).toBeNull();
     expect(document.querySelector("canvas")).toBeNull();
   });
+
+  it("seats the mascot on the download card as decoration", () => {
+    render(<LandingPage />);
+    const mascot = document.querySelector(".download-cards > .card-mascot");
+    expect(mascot?.getAttribute("aria-hidden")).toBe("true");
+    expect(mascot?.querySelector("img")?.getAttribute("src")).toMatch(/mascot/);
+    expect(mascot?.nextElementSibling?.classList.contains("download-card")).toBe(true);
+  });
 });

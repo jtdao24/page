@@ -1,5 +1,6 @@
 import hacklantaLogo from "../hacklanta.png";
 import { ScreenshotFolio } from "./landing/ScreenshotFolio";
+import { CardMascot } from "./landing/CardMascot";
 import { FeatureTour } from "./landing/FeatureTour";
 import { PerformanceStats } from "./landing/PerformanceStats";
 
@@ -50,6 +51,7 @@ export default function LandingPage({ macDownloadUrl }: { macDownloadUrl?: strin
       <section className="landing-download" id="download" aria-labelledby="download-title">
         <div className="download-heading"><p className="landing-kicker">YOUR NEXT IDEA NEEDS A PLACE TO START.</p><h2 id="download-title">turn a Page<span>.</span></h2></div>
         <div className="download-cards">
+          <CardMascot />
           <div className="download-card"><span className="download-platform">PAGE / macOS</span><h3>your knowledge, ready to go.</h3><p>Apple Silicon · macOS 14 or later</p>
             {macDownloadUrl ? <>
               <a className="landing-primary" href={macDownloadUrl} download>Download for macOS <DownloadIcon /></a>
