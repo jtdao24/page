@@ -203,3 +203,9 @@ def test_sources_are_searchable_and_readable(tools, root):
     assert (pdf["kind"], pdf["content"]) == ("pdf", "[Page 1]\nfruit orchard yields\n")
     assert ok(tools, "read_note", path="fruit.md")["kind"] == "note"
     assert error(tools, "read_note", path="papers/missing.pdf") == "source_not_found: No readable file at papers/missing.pdf."
+
+
+def test_get_context_reports_the_whole_vault_size(tools, root):
+    import math
+    expected = sum(math.ceil(len(path.read_bytes()) / 3) for path in root.rglob("*.md"))
+    assert ok(tools, "get_context", question="fruit", budget=60)["usage"]["vault_tokens"] == expected

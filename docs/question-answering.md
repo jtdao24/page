@@ -50,6 +50,15 @@ shows:
 - context tokens used out of the budget (Page's `utf8-bytes/3` estimate), and the input
   and output tokens Gemini reports.
 
+The top of the answer card compares the latest answer's context with the whole vault,
+for example "214 sent vs ~18.4K for the whole vault · 98% less". Both numbers use the
+same estimate; the whole vault counts every note and readable source. It shows how much
+smaller the context is than pasting everything, not that the answer is as good. The
+percentage is rounded down and never shows 100%. The sent figure includes the short source labels
+(like `[1] papers/x.pdf (lines 3–5)`) while the whole-vault figure counts only the text,
+so the saving shown is slightly conservative; in a tiny vault the context can even be
+larger, and then no percentage is shown. Per-file counts are cached by revision.
+
 ## Privacy and security
 
 - Only the passages selected for a question, and the question itself, are sent to

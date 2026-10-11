@@ -6,6 +6,20 @@ import { Icon } from "./Icon";
 import type { OpenSource } from "./SourceViewer";
 
 const BUDGETS = [500, 1500, 4000] as const;
+// The user's locale, like the other numbers on screen.
+const compact = new Intl.NumberFormat(undefined, { notation: "compact", maximumFractionDigits: 1 });
+
+/** "214 sent vs ~18.4K for the whole vault · 99% less", for the latest answer. */
+function Savings({ usage }: { usage: AskResponse["usage"] }) {
+  const { context_tokens: sent, vault_tokens: vault } = usage;
+  if (vault <= 0) return null;
+  // Round down and stop at 99%: some context is always sent.
+  const saved = vault > sent ? Math.min(99, Math.floor((1 - sent / vault) * 100)) : 0;
+  return <span className="ask-savings" title={`Page sent ${sent.toLocaleString()} tokens of context. Sending every note and file in this vault would be about ${vault.toLocaleString()} tokens (both estimated the same way).`}>
+    <strong>{sent.toLocaleString()}</strong> sent vs ~{compact.format(vault)} for the whole vault
+    {saved > 0 && <em>{saved}% less</em>}
+  </span>;
+}
 const INPUT_ID = "ask-question";
 
 /** Focus the floating ask box (Cmd/Ctrl+K and the sidebar's Ask item). */
@@ -146,6 +160,7 @@ export function AskBar({ controller, state, onOpenSource }: {
   const busy = loading?.key === key;
   const blocked = navigationBlocked(state) || state.recovery !== null;
   const lastError = exchanges.at(-1)?.error;
+  const latest = [...exchanges].reverse().find((exchange) => exchange.response !== undefined)?.response;
   const showKey = keyVisible || lastError?.code === "llm_not_configured";
 
   useEffect(() => {
@@ -192,6 +207,7 @@ export function AskBar({ controller, state, onOpenSource }: {
     {hasCard && <section className="ask-card" aria-label="Answers">
       <header className="ask-card-header">
         <span><Icon name="sparkle" size={14} />Ask your notes</span>
+        {latest?.answered_by_model && <Savings usage={latest.usage} />}
         <button className="icon-button" aria-label="New conversation" title="New conversation" disabled={busy || exchanges.length === 0}
           onClick={() => setThread({ vaultId, exchanges: [] })}><Icon name="plus" size={14} /></button>
         <button className="icon-button" aria-label="Close answers" title="Close (Esc)" onClick={() => setCardOpen(false)}><Icon name="minimize" size={14} /></button>

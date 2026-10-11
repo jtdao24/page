@@ -80,6 +80,7 @@ class ContextUsage(BaseModel):
     candidate_tokens: int
     considered: int
     selected: int
+    vault_tokens: int = Field(description="Estimated tokens for the whole vault, for comparison")
 
 
 class OptimizedContext(BaseModel):
@@ -160,9 +161,9 @@ class PageVaultTools:
             for hit in hits])
 
     async def get_context(self, question: str, budget: int, candidates: int) -> OptimizedContext:
-        package = await self._run(
+        prepared = await self._run(
             lambda: self._service.question_context(self.vault.id, question, budget, candidates))
-        usage = package.usage
+        package, usage = prepared.package, prepared.package.usage
         return OptimizedContext(
             context=package.result.context_text,
             sources=[ContextSource(number=block.number, note_id=str(block.note_id), path=str(block.relative_path),
@@ -172,7 +173,7 @@ class PageVaultTools:
                      for block in package.blocks],
             usage=ContextUsage(tokens=usage.tokens, budget=usage.budget, counter=usage.counter,
                                candidate_tokens=usage.candidate_tokens, considered=usage.considered,
-                               selected=usage.selected))
+                               selected=usage.selected, vault_tokens=prepared.vault_tokens))
 
     async def read_note(self, path: str) -> NoteContent:
         def read() -> NoteContent:

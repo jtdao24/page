@@ -28,7 +28,8 @@ include notes and [knowledge sources](knowledge-sources.md) (PDFs, code, text), 
 
 `get_context` uses the same pipeline as the desktop ask box: semantic search, then
 context optimization ranked by cosine similarity (see [evaluation](evaluation.md) for
-why the learned reranker isn't used). Token counts use Page's `utf8-bytes/3` estimate,
+why the learned reranker isn't used). `usage.vault_tokens` estimates the whole vault, for comparison with
+`usage.tokens`. Token counts use Page's `utf8-bytes/3` estimate,
 not the client model's tokenizer.
 
 Each call reads the saved files, so notes edited in Page or another editor are
