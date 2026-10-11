@@ -68,7 +68,9 @@ the app: the key button in the ask box. Page stores it in the macOS Keychain
 across the restart. The key goes to Core only through its environment. The webview,
 logs and errors never see it.
 
-A saved key takes precedence over `GEMINI_API_KEY`. **Remove Key** deletes it from the
+A saved key takes precedence over `GEMINI_API_KEY`. Page reads the Keychain at most once per app run and keeps
+the key in memory after that; macOS may ask permission for that read, and asks again
+after every rebuild of an unsigned development app, but not for a signed release. **Remove Key** deletes it from the
 Keychain.
 
 Gemini calls verify TLS with certifi's CA bundle, because python.org and
