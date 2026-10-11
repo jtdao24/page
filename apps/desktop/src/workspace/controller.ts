@@ -178,6 +178,25 @@ function initialState(available: boolean): WorkspaceState {
   };
 }
 
+/** The vault-relative .md path for a path chosen in Finder, or null if it's outside the vault. */
+export function vaultRelativePath(root: string, chosen: string): string | null {
+  const normalize = (path: string) => path.replace(/\\/g, "/").replace(/\/+$/, "");
+  const base = normalize(root);
+  const path = normalize(chosen);
+  if (!path.startsWith(`${base}/`)) return null;
+  const relative = path.slice(base.length + 1);
+  return /\.md$/i.test(relative) ? relative.replace(/\.md$/i, ".md") : `${relative}.md`;
+}
+
+/** "Untitled.md", then "Untitled 2.md" … in a folder, skipping names already taken. */
+export function untitledPath(folder: string, taken: ReadonlySet<string>): string {
+  const prefix = folder ? `${folder}/` : "";
+  for (let number = 1; ; number++) {
+    const path = `${prefix}Untitled${number === 1 ? "" : ` ${number}`}.md`;
+    if (!taken.has(path)) return path;
+  }
+}
+
 function localError(code: string, message: string): DesktopError {
   return { kind: "backend", status: null, code, message, details: null };
 }
@@ -1002,6 +1021,41 @@ export class WorkspaceController {
   }
 
   /** Create a new note from an orphaned draft at a user-chosen path. */
+  /** Create "Untitled.md" in the current note's folder and open it. Callers run the dirty guard first. */
+  createUntitled(): Promise<boolean> {
+    const folder = this.state.document?.path.split("/").slice(0, -1).join("/") ?? "";
+    const taken = new Set((this.state.notes ?? []).map((note) => note.relative_path));
+    return this.createNote(untitledPath(folder, taken));
+  }
+
+  /** Ask Finder's save window for a note path inside the vault; null if cancelled or outside it. */
+  private async pickNotePath(title: string, suggested: string): Promise<string | null> {
+    const vault = this.state.vault;
+    if (vault === null || this.client === null) return null;
+    const chosen = await this.api.pickSavePath(title, `${vault.root_path}/${suggested}`);
+    if (chosen === null) return null;
+    const relative = vaultRelativePath(vault.root_path, chosen);
+    if (relative === null) this.announce("Notes must stay inside this vault's folder. Choose a place inside it.", "error");
+    return relative;
+  }
+
+  /** Rename or move the open note through Finder's save window. */
+  async moveNoteWithPicker(): Promise<boolean> {
+    const document = this.state.document;
+    if (document === null || document.status !== "ready") return false;
+    const path = await this.pickNotePath("Rename or move note", document.path);
+    if (path === null || path === document.path) return false;
+    return this.moveNote(path);
+  }
+
+  /** Save an orphaned draft as a new note through Finder's save window. */
+  async saveOrphanWithPicker(): Promise<boolean> {
+    const document = this.state.document;
+    if (document === null || document.status !== "orphaned") return false;
+    const path = await this.pickNotePath("Save draft as a new note", document.path);
+    return path === null ? false : this.saveOrphanAs(path);
+  }
+
   saveOrphanAs(relativePath: string): Promise<boolean> {
     const document = this.state.document;
     if (document === null || document.status !== "orphaned") return Promise.resolve(false);

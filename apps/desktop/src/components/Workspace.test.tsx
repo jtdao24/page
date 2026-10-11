@@ -46,12 +46,6 @@ async function setup(content = "original") {
 async function type(text: string) {
   await act(async () => editor().dispatch({ changes: { from: editor().state.doc.length, insert: text } }));
 }
-async function input(element: HTMLInputElement, value: string) {
-  await act(async () => {
-    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(element, value);
-    element.dispatchEvent(new Event("input", { bubbles: true }));
-  });
-}
 
 describe("desktop workspace interaction", () => {
   it("collapses the sidebar to icons without replacing the editor or losing a draft", async () => {
@@ -97,19 +91,21 @@ describe("desktop workspace interaction", () => {
     expect(client.vaultCreate).toHaveBeenCalledWith("/tmp/Second Brain", "Second Brain");
     expect(host.querySelector('[role="dialog"]')).toBeNull();
   });
-  it("creates and moves through forms with explicit nested paths", async () => {
+  it("creates Untitled notes instantly and renames them in the Finder save window", async () => {
     const { client, controller } = await setup();
     await click("New Note");
-    const dialog = host.querySelector('[role="dialog"]')!;
-    const path = dialog.querySelector("input")!;
-    await input(path, "nested/new.md");
-    await act(async () => dialog.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })));
-    expect(client.noteCreate).toHaveBeenCalledWith(vault.id, "nested/new.md", "");
-    expect(controller.getState().document?.path).toBe("nested/new.md");
+    expect(host.querySelector('[role="dialog"]')).toBeNull();
+    expect(client.noteCreate).toHaveBeenCalledWith(vault.id, "Untitled.md", "");
+    expect(controller.getState().document?.path).toBe("Untitled.md");
     await click("Rename / Move");
-    const moving = host.querySelector('[role="dialog"]')!;
-    await input(moving.querySelector("input")!, "archive/new.md");
-    await act(async () => moving.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })));
+    expect(client.pickSavePath).toHaveBeenLastCalledWith("Rename or move note", `${vault.root_path}/Untitled.md`);
+    expect(client.noteMove).not.toHaveBeenCalled();
+    client.pickSavePath.mockResolvedValueOnce("/somewhere/else/new.md");
+    await click("Rename / Move");
+    expect(client.noteMove).not.toHaveBeenCalled();
+    expect(host.textContent).toContain("Notes must stay inside this vault's folder");
+    client.pickSavePath.mockResolvedValueOnce(`${vault.root_path}/archive/new`);
+    await click("Rename / Move");
     expect(client.noteMove).toHaveBeenCalledWith(vault.id, note().id, note().revision, "archive/new.md");
     expect(controller.getState().document?.path).toBe("archive/new.md");
     expect(editor().contentDOM.getAttribute("aria-label")).toBe("Markdown: archive/new.md");
@@ -172,8 +168,7 @@ describe("desktop workspace interaction", () => {
     await click("Quit Page"); await click("Cancel", host.querySelector('[role="dialog"]')!);
     expect(client.desktopQuit).not.toHaveBeenCalled();
     await click("New Note"); await click("Discard", host.querySelector('[role="dialog"]')!);
-    expect(host.textContent).toContain("Relative note path"); expect(client.noteUpdate).not.toHaveBeenCalled();
-    await click("Cancel", host.querySelector('[role="dialog"]')!);
+    expect(client.noteCreate).toHaveBeenCalledWith(vault.id, "Untitled.md", ""); expect(client.noteUpdate).not.toHaveBeenCalled();
     await type("again"); await click("Close Vault"); await click("Save", host.querySelector('[role="dialog"]')!);
     expect(client.vaultClose).toHaveBeenCalledTimes(1); expect(client.noteUpdate).toHaveBeenCalledTimes(1);
   });

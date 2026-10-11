@@ -6,7 +6,6 @@ import { describeSeparator } from "../workspace/text";
 import { Dialog } from "./Dialog";
 import { ErrorText } from "./ErrorText";
 import { MarkdownEditor } from "./MarkdownEditor";
-import { NotePathForm } from "./NotePathForm";
 import { NoteTree } from "./NoteTree";
 import { Home } from "./Home";
 import { openVaultWithPicker, VaultChoices } from "./VaultChoices";
@@ -34,7 +33,7 @@ function NavItem({ icon, label, ariaLabel, shortcut, active, disabled, onClick, 
   </button>;
 }
 
-type Modal = "vault" | "web" | "create" | "move" | "delete" | "convert" | "orphan" | "reload" | "overwrite" | "failed-move" | "reset" | null;
+type Modal = "vault" | "web" | "delete" | "convert" | "reload" | "overwrite" | "failed-move" | "reset" | null;
 
 export function Workspace({ controller, onShowIntro }: { controller: WorkspaceController; onShowIntro?: () => void }) {
   const state = useWorkspace(controller);
@@ -70,7 +69,7 @@ export function Workspace({ controller, onShowIntro }: { controller: WorkspaceCo
       if (key === "s" && !mutationsBlocked(current)) void controller.save();
       if (key === "o" && !navigationBlocked(current)) void openVaultWithPicker(controller);
       if (key === "n" && !mutationsBlocked(current) && !navigationBlocked(current)) {
-        void controller.guarded("create another note", () => setModal("create"));
+        void controller.guarded("create another note", () => void controller.createUntitled());
       }
     }
     window.addEventListener("keydown", shortcut);
@@ -96,7 +95,10 @@ export function Workspace({ controller, onShowIntro }: { controller: WorkspaceCo
 
   function noteAction(action: "create" | "move" | "delete") {
     if (blocked || navigation) return;
-    void controller.guarded(action === "create" ? "create another note" : `${action} this note`, () => setModal(action));
+    const run = action === "create" ? () => void controller.createUntitled()
+      : action === "move" ? () => void controller.moveNoteWithPicker()
+      : () => setModal("delete");
+    void controller.guarded(action === "create" ? "create another note" : `${action} this note`, run);
   }
   const cancel = () => setModal(null);
 
@@ -234,7 +236,7 @@ export function Workspace({ controller, onShowIntro }: { controller: WorkspaceCo
             </section>}
             {document?.mixed && <p className="border-b bg-amber-50 p-3 text-sm">Mixed line endings: read-only until conversion is confirmed.
               <button disabled={blocked} onClick={() => setModal("convert")}>Convert to LF</button></p>}
-            {document?.status === "orphaned" && <p role="alert" className="p-3">This note is missing on disk. Copy your draft from the editor, or <button disabled={blocked} onClick={() => setModal("orphan")}>Save Draft As New Note</button>.</p>}
+            {document?.status === "orphaned" && <p role="alert" className="p-3">This note is missing on disk. Copy your draft from the editor, or <button disabled={blocked} onClick={() => void controller.saveOrphanWithPicker()}>Save Draft As New Note</button>.</p>}
             {document?.status === "loading" && <p className="p-6" role="status">Loading note…</p>}
             {document?.status === "unreadable" && <div className="p-6" role="alert">
               {document.loadError && <ErrorText error={document.loadError} />}
@@ -286,15 +288,6 @@ export function Workspace({ controller, onShowIntro }: { controller: WorkspaceCo
       <div className="vault-dialog"><VaultChoices controller={controller} state={state} onDone={cancel} /></div>
       {state.vaultError && <p role="alert" className="home-error"><ErrorText error={state.vaultError} /></p>}
       <button onClick={cancel}>Cancel</button>
-    </Dialog>}
-    {(modal === "create" || modal === "move" || modal === "orphan") && <Dialog title={modal === "move" ? "Rename / Move Note" : "Create Note"} onCancel={cancel}>
-      <NotePathForm initialPath={modal === "move" ? document?.path : ""} label={modal === "move" ? "Move Note" : "Create Note"} disabled={blocked}
-        onCancel={cancel} onSubmit={async (path) => {
-          const result = modal === "move" ? await controller.moveNote(path) : modal === "orphan" ? await controller.saveOrphanAs(path) : await controller.createNote(path);
-          if (result) cancel();
-          return result;
-        }} />
-      {state.actionError && <p role="alert"><ErrorText error={state.actionError.error} /></p>}
     </Dialog>}
     {modal === "delete" && <Dialog title="Permanently Delete Note" tone="danger" onCancel={cancel}>
       <p className="break-all">Delete {document?.path}? Deletion is permanent. There is no trash or undo.</p>
