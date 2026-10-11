@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createKnowledgeGraph, graphElements } from "./graph";
+import { createKnowledgeGraph, folderColor, graphElements } from "./graph";
 import type { GraphResponse } from "../core/types";
 
 export const linkedGraph: GraphResponse = {
@@ -29,5 +29,26 @@ describe("Cytoscape knowledge graph", () => {
     expect(new Set(elements.map((e) => e.data.id)).size).toBe(6);
     const cy = createKnowledgeGraph(null, graph, () => {});
     expect(cy.edges()).toHaveLength(3); cy.destroy();
+  });
+  it("colors notes by top-level folder, sizes them by links and labels them by file name", () => {
+    expect(folderColor("a.md")).toBe(folderColor("b.md"));
+    expect(folderColor("garden/x.md")).toBe(folderColor("garden/deep/y.md"));
+    expect(folderColor("garden/x.md")).not.toBe(folderColor("a.md"));
+    const cy = createKnowledgeGraph(null, linkedGraph, () => {});
+    expect(cy.getElementById("a").data("degree")).toBe(2);
+    expect(cy.getElementById("b").data("degree")).toBe(1);
+    expect(cy.getElementById("b").data("label")).toBe("b");
+    expect(cy.getElementById("b").data("path")).toBe("nested/b.md");
+    cy.destroy();
+  });
+  it("highlights a hovered note's neighborhood and fades the rest", () => {
+    const graph = { ...linkedGraph, nodes: [...linkedGraph.nodes, { id: "c", relative_path: "c.md" }] };
+    const cy = createKnowledgeGraph(null, graph, () => {});
+    cy.getElementById("b").emit("mouseover");
+    expect(cy.getElementById("a").hasClass("focused")).toBe(true);
+    expect(cy.getElementById("c").hasClass("faded")).toBe(true);
+    cy.getElementById("b").emit("mouseout");
+    expect(cy.elements(".faded, .focused")).toHaveLength(0);
+    cy.destroy();
   });
 });

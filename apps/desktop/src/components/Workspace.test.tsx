@@ -24,7 +24,7 @@ async function mount(controller: WorkspaceController) {
   await act(async () => root.render(<StrictMode><Workspace controller={controller} /></StrictMode>));
 }
 function button(text: string, scope: ParentNode = host): HTMLButtonElement {
-  const result = [...scope.querySelectorAll("button")].find((item) => item.textContent === text);
+  const result = [...scope.querySelectorAll("button")].find((item) => item.textContent === text || item.getAttribute("aria-label") === text);
   if (!result) throw new Error(`Missing button: ${text}`);
   return result;
 }
@@ -54,15 +54,20 @@ async function input(element: HTMLInputElement, value: string) {
 }
 
 describe("desktop workspace interaction", () => {
-  it("toggles Files without replacing the editor or losing a draft", async () => {
+  it("collapses the sidebar to icons without replacing the editor or losing a draft", async () => {
     await setup(); await type(" draft");
     const view = editor();
-    const toggle = host.querySelector<HTMLButtonElement>('button[aria-controls="workspace-sidebar"]')!;
-    await act(async () => toggle.click());
-    expect(host.querySelector<HTMLElement>("#workspace-sidebar")!.hidden).toBe(true);
-    expect(toggle.getAttribute("aria-expanded")).toBe("false");
-    await act(async () => toggle.click());
-    expect(host.querySelector<HTMLElement>("#workspace-sidebar")!.hidden).toBe(false);
+    const sidebar = host.querySelector<HTMLElement>("#workspace-sidebar")!;
+    expect(sidebar.querySelector(".sidebar-nav")?.textContent).toContain("Graph");
+    const toggle = () => host.querySelector<HTMLButtonElement>('button[aria-controls="workspace-sidebar"]')!;
+    await act(async () => toggle().click());
+    expect(sidebar.hasAttribute("data-collapsed")).toBe(true);
+    expect(sidebar.querySelector(".sidebar-files")).toBeNull();
+    expect(toggle().getAttribute("aria-expanded")).toBe("false");
+    expect(button("Knowledge graph").title).toBe("Graph");
+    await act(async () => toggle().click());
+    expect(sidebar.hasAttribute("data-collapsed")).toBe(false);
+    expect(sidebar.querySelector(".sidebar-files")).not.toBeNull();
     expect(editor()).toBe(view);
     expect(view.state.sliceDoc()).toBe("original draft");
   });
@@ -102,7 +107,7 @@ describe("desktop workspace interaction", () => {
   it("disables backend actions in an ordinary browser", async () => {
     await mount(new WorkspaceController(null));
     expect(host.textContent).toContain("Desktop runtime unavailable");
-    expect(button("Open / Create Vault").disabled).toBe(true);
+    expect(host.querySelector('[aria-label="Open Vault"]')).toBeNull();
     expect(host.querySelector(".cm-editor")).toBeNull();
   });
   it("Strict Mode initializes once and shows an accessible empty vault", async () => {
