@@ -41,6 +41,8 @@ export interface PageClient {
   geminiKeyClear(): Promise<void>;
   /** Native folder picker; resolves to the chosen absolute path, or null if cancelled. */
   pickFolder(title: string): Promise<string | null>;
+  /** Native save window for a Markdown file; resolves to the chosen absolute path, or null. */
+  pickSavePath(title: string, defaultPath: string): Promise<string | null>;
   /** Resolves to an unsubscribe function. */
   onBackendStatus(handler: (status: BackendStatus) => void): Promise<() => void>;
   onQuitRequested(handler: () => void): Promise<() => void>;
@@ -101,6 +103,12 @@ export function createPageClient(invoke: InvokeFn, listen: ListenFn): PageClient
     geminiKeyClear: () => call("gemini_key_clear"),
     pickFolder: async (title) => {
       const chosen = await call<unknown>("plugin:dialog|open", { options: { directory: true, multiple: false, title } });
+      return typeof chosen === "string" && chosen.length > 0 ? chosen : null;
+    },
+    pickSavePath: async (title, defaultPath) => {
+      const chosen = await call<unknown>("plugin:dialog|save", {
+        options: { title, defaultPath, filters: [{ name: "Markdown note", extensions: ["md"] }] },
+      });
       return typeof chosen === "string" && chosen.length > 0 ? chosen : null;
     },
     onBackendStatus: (handler) =>

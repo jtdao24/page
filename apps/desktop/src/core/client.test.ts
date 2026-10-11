@@ -19,7 +19,7 @@ describe("typed IPC mapping", () => {
     await client.noteDelete("vault", "note", "revision");
     await client.preferencesRead(); await client.preferencesWrite(emptyPreferences()); await client.desktopQuit();
     await client.geminiKeyStatus(); await client.geminiKeySave("key"); await client.geminiKeyClear();
-    await client.pickFolder("Choose");
+    await client.pickFolder("Choose"); await client.pickSavePath("Move", "/v/a.md");
     expect(invoke.mock.calls).toEqual([
       ["backend_start"], ["backend_status"], ["backend_restart"],
       ["vault_create", { root_path: "/tmp/vault", name: "Notes" }], ["vault_open", { root_path: "/tmp/vault" }],
@@ -37,6 +37,7 @@ describe("typed IPC mapping", () => {
       ["preferences_read"], ["preferences_write", { preferences: emptyPreferences() }], ["desktop_quit"],
       ["gemini_key_status"], ["gemini_key_save", { key: "key" }], ["gemini_key_clear"],
       ["plugin:dialog|open", { options: { directory: true, multiple: false, title: "Choose" } }],
+      ["plugin:dialog|save", { options: { title: "Move", defaultPath: "/v/a.md", filters: [{ name: "Markdown note", extensions: ["md"] }] } }],
     ]);
   });
   it("does not display arbitrary rejected data", async () => {
