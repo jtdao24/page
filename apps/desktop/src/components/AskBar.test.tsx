@@ -13,7 +13,7 @@ const answer: AskResponse = {
   finish_reason: "STOP", cited: [1],
   sources: [{ number: 1, note_id: b.id, relative_path: b.relative_path, start_line: 1, end_line: 1,
     text: b.content, excerpt: false, kind: "note" }],
-  usage: { context_tokens: 12, budget: 1500, counter: "utf8-bytes/3", input_tokens: 140, output_tokens: 9 },
+  usage: { context_tokens: 12, budget: 1500, counter: "utf8-bytes/3", input_tokens: 140, output_tokens: 9, vault_tokens: 18400 },
 };
 let root: Root, host: HTMLDivElement;
 beforeEach(() => {
@@ -62,9 +62,20 @@ describe("floating ask box", () => {
     expect(card).toContain("when should I water?");
     expect(card).toContain("Water them at dawn");
     expect(card).toContain("Context 12 of 1,500 tokens · gemini-test: 140 in, 9 out");
+    const savings = host.querySelector(".ask-savings")!;
+    expect(savings.textContent).toBe("12 sent vs ~18.4K for the whole vault99% less");
     expect(card).toContain("garden.md");
     expect(card).toContain("not your whole vault");
     expect(host.querySelector<HTMLTextAreaElement>("#ask-question")!.value).toBe("");
+  });
+  it("compares without a percentage when the vault is smaller than the context", async () => {
+    const { client } = await setup();
+    client.askQuestion.mockResolvedValueOnce({ ...answer, usage: { ...answer.usage, context_tokens: 40, vault_tokens: 30 } });
+    await click("Ask");
+    expect(host.querySelector(".ask-savings")?.textContent).toBe("40 sent vs ~30 for the whole vault");
+    client.askQuestion.mockResolvedValueOnce({ ...answer, usage: { ...answer.usage, vault_tokens: 0 } });
+    await type("again"); await click("Ask");
+    expect(host.querySelector(".ask-savings")).toBeNull();
   });
   it("submits with Enter, keeps follow-ups in one thread and closes with Escape", async () => {
     const { client } = await setup();
@@ -98,6 +109,7 @@ describe("floating ask box", () => {
       finish_reason: "NO_SOURCES", sources: [], cited: [], usage: { ...answer.usage, context_tokens: 0, input_tokens: 0, output_tokens: 0 } });
     await click("Ask");
     expect(host.textContent).toContain("Gemini was not called");
+    expect(host.querySelector(".ask-savings")).toBeNull();
     expect(host.querySelector(".ask-sources")).toBeNull();
   });
   it("explains a missing API key and offers retry for other errors", async () => {

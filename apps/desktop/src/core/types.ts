@@ -141,6 +141,8 @@ export interface AskSource {
 }
 export interface AskUsage {
   context_tokens: number; budget: number; counter: string; input_tokens: number; output_tokens: number;
+  /** Estimated tokens for the whole vault, with the same counter as context_tokens. */
+  vault_tokens: number;
 }
 export interface GeminiKeyStatus {
   stored: boolean;
