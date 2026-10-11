@@ -9,7 +9,7 @@ import type { SearchResponse } from "../core/types";
 
 const a = note(), b = note("33333333-3333-4333-8333-333333333333", "garden text", "garden.md");
 const results: SearchResponse = { vault_id: vault.id, model: "test", hits: [{
-  chunk_id: "44444444-4444-4444-8444-444444444444", note_id: b.id, relative_path: b.relative_path,
+  chunk_id: "44444444-4444-4444-8444-444444444444", note_id: b.id, relative_path: b.relative_path, kind: "note",
   revision: b.revision, ordinal: 0, text: b.content, start_byte: 0, end_byte: 11,
   start_line: 1, end_line: 1, score: 0.85,
 }] };

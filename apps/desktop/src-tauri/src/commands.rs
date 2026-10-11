@@ -10,7 +10,7 @@ use tauri::{AppHandle, Emitter, State, Webview};
 
 use crate::api::{
     AskResponse, GraphResponse, IndexResponse, NoteResponse, NoteSummaryResponse,
-    ReconcileResponse, SearchResponse, VaultResponse,
+    ReconcileResponse, SearchResponse, SourceResponse, SourceSummaryResponse, VaultResponse,
 };
 use crate::backend::{BackendManager, BackendStatus};
 use crate::error::DesktopError;
@@ -190,6 +190,41 @@ pub async fn ask_question(
     ensure_main(&webview)?;
     let backend = Arc::clone(&state.backend);
     blocking(move || backend.client()?.ask_question(&vault_id, &question, budget)).await
+}
+
+#[tauri::command(rename_all = "snake_case")]
+pub async fn source_list(
+    webview: Webview,
+    state: State<'_, AppState>,
+    vault_id: String,
+) -> Result<Vec<SourceSummaryResponse>, DesktopError> {
+    ensure_main(&webview)?;
+    let backend = Arc::clone(&state.backend);
+    blocking(move || backend.client()?.list_sources(&vault_id)).await
+}
+
+#[tauri::command(rename_all = "snake_case")]
+pub async fn source_read(
+    webview: Webview,
+    state: State<'_, AppState>,
+    vault_id: String,
+    source_id: String,
+) -> Result<SourceResponse, DesktopError> {
+    ensure_main(&webview)?;
+    let backend = Arc::clone(&state.backend);
+    blocking(move || backend.client()?.read_source(&vault_id, &source_id)).await
+}
+
+#[tauri::command(rename_all = "snake_case")]
+pub async fn web_page_save(
+    webview: Webview,
+    state: State<'_, AppState>,
+    vault_id: String,
+    url: String,
+) -> Result<NoteResponse, DesktopError> {
+    ensure_main(&webview)?;
+    let backend = Arc::clone(&state.backend);
+    blocking(move || backend.client()?.save_web_page(&vault_id, &url)).await
 }
 
 #[tauri::command(rename_all = "snake_case")]

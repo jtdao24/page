@@ -121,6 +121,11 @@ Page answers questions from your notes with Gemini and cited sources. Set
 `GEMINI_API_KEY` (and optionally `PAGE_GEMINI_MODEL`) before `npm run tauri:dev`. See
 [question answering](question-answering.md) for setup, privacy and errors.
 
+## Knowledge sources
+
+PDFs, code and text files in the vault folder are indexed read-only next to notes,
+and **Add website** saves a page as a note. See [knowledge sources](knowledge-sources.md).
+
 ## MCP server
 
 Page's MCP server serves a vault's search and optimized context to MCP clients:

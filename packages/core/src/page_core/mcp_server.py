@@ -24,12 +24,13 @@ from pydantic import BaseModel, Field
 from page_core import __version__
 from page_core.api.errors import translate
 from page_core.api.service import LocalVaultService, revision_of_note
-from page_core.domain import validate_note_path
+from page_core.domain import source_kind, validate_note_path, validate_source_path
 
 INSTRUCTIONS = (
-    "Page is the user's local Markdown knowledge base. Use get_context to gather the passages "
-    "relevant to a question within a token budget, and cite them by note path and lines. Use "
-    "search_notes to explore, read_note for a whole note, and related_notes to follow links."
+    "Page is the user's local knowledge base: Markdown notes plus PDFs, code and text files in "
+    "the same folder. Use get_context to gather the passages relevant to a question within a token "
+    "budget, and cite them by path and lines. Use search_notes to explore, read_note for a whole "
+    "note or file, and related_notes to follow links between notes."
 )
 _READ_ONLY = ToolAnnotations(read_only_hint=True, destructive_hint=False, idempotent_hint=True,
                              open_world_hint=False)
@@ -37,11 +38,19 @@ _READ_ONLY = ToolAnnotations(read_only_hint=True, destructive_hint=False, idempo
 Query = Annotated[str, Field(min_length=1, max_length=2000)]
 NotePath = Annotated[str, Field(min_length=1, max_length=1024,
                                 description="Vault-relative note path, e.g. projects/plan.md")]
+DocumentPath = Annotated[str, Field(min_length=1, max_length=1024,
+                                    description="Vault-relative path of a note or source, e.g. papers/study.pdf")]
+Kind = Literal["note", "pdf", "code", "text"]
+
+
+def _kind(path: PurePosixPath) -> str:
+    return source_kind(path) or "note"
 
 
 class SearchResult(BaseModel):
     note_id: str
     path: str
+    kind: Kind
     start_line: int
     end_line: int
     score: float
@@ -56,6 +65,7 @@ class ContextSource(BaseModel):
     number: int
     note_id: str
     path: str
+    kind: Kind
     start_line: int
     end_line: int
     relevance: float
@@ -81,6 +91,7 @@ class OptimizedContext(BaseModel):
 class NoteContent(BaseModel):
     note_id: str
     path: str
+    kind: Kind
     revision: str
     lines: int
     content: str
@@ -143,7 +154,8 @@ class PageVaultTools:
     async def search_notes(self, query: str, limit: int) -> SearchResults:
         hits = await self._run(lambda: self._service.search_vault(self.vault.id, query, limit))
         return SearchResults(results=[
-            SearchResult(note_id=str(hit.chunk.note_id), path=str(hit.relative_path), start_line=hit.start_line,
+            SearchResult(note_id=str(hit.chunk.note_id), path=str(hit.relative_path), kind=_kind(hit.relative_path),
+                         start_line=hit.start_line,
                          end_line=hit.end_line, score=round(hit.score, 4), text=hit.chunk.text)
             for hit in hits])
 
@@ -154,6 +166,7 @@ class PageVaultTools:
         return OptimizedContext(
             context=package.result.context_text,
             sources=[ContextSource(number=block.number, note_id=str(block.note_id), path=str(block.relative_path),
+                                   kind=_kind(block.relative_path),
                                    start_line=block.start_line, end_line=block.end_line,
                                    relevance=round(block.relevance, 4), excerpt=block.compressed, text=block.text)
                      for block in package.blocks],
@@ -163,10 +176,24 @@ class PageVaultTools:
 
     async def read_note(self, path: str) -> NoteContent:
         def read() -> NoteContent:
+            if source_kind(PurePosixPath(path)) is not None:
+                return read_source()
             note = self._service.get_note(self.vault.id, self._note_id(path))
-            return NoteContent(note_id=str(note.id), path=str(note.relative_path),
+            return NoteContent(note_id=str(note.id), path=str(note.relative_path), kind="note",
                                revision=revision_of_note(note), lines=len(note.content.splitlines()),
                                content=note.content)
+
+        def read_source() -> NoteContent:
+            try:
+                relative = validate_source_path(PurePosixPath(path))
+            except (TypeError, ValueError):
+                raise ToolError("invalid_path: Use a vault-relative path from search results.") from None
+            entry = next((item for item in self._service.list_sources(self.vault.id) if item.relative_path == relative), None)
+            if entry is None:
+                raise ToolError(f"source_not_found: No readable file at {relative}.")
+            source = self._service.get_source(self.vault.id, entry.id)
+            return NoteContent(note_id=str(source.id), path=str(source.relative_path), kind=_kind(source.relative_path),
+                               revision=source.revision, lines=len(source.content.splitlines()), content=source.content)
         return await self._run(read)
 
     async def related_notes(self, path: str) -> RelatedNotes:
@@ -210,8 +237,9 @@ def create_server(tools: PageVaultTools) -> MCPServer:
         return await tools.get_context(question, budget, candidates)
 
     @server.tool(annotations=_READ_ONLY)
-    async def read_note(path: NotePath) -> NoteContent:
-        """The full Markdown content of one note, by vault-relative path."""
+    async def read_note(path: DocumentPath) -> NoteContent:
+        """The full content of one note, or the extracted text of a PDF, code or text file, by
+        vault-relative path. PDF text marks each page as [Page n]."""
         return await tools.read_note(path)
 
     @server.tool(annotations=_READ_ONLY)

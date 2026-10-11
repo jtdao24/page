@@ -459,6 +459,10 @@ schemas, model setup, failure handling, incremental behavior and limits.
 
 ## Question answering
 
+Knowledge sources add `GET /api/v1/vaults/{vault_id}/sources`,
+`GET /api/v1/vaults/{vault_id}/sources/{source_id}` and
+`POST /api/v1/vaults/{vault_id}/web-pages`; see [knowledge sources](knowledge-sources.md).
+
 Question answering adds authenticated `POST /api/v1/vaults/{vault_id}/ask`. It retrieves and
 optimizes context like search, then sends only the selected passages and the question
 to the configured language model (Gemini, keyed by `GEMINI_API_KEY` at startup) and

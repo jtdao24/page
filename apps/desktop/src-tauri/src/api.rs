@@ -176,6 +176,8 @@ pub struct SearchHitResponse {
     pub chunk_id: String,
     pub note_id: String,
     pub relative_path: String,
+    /// "note" for Markdown, or the source kind: "pdf", "code" or "text".
+    pub kind: String,
     pub revision: String,
     pub ordinal: usize,
     pub text: String,
@@ -210,6 +212,7 @@ pub struct AskSource {
     pub number: usize,
     pub note_id: String,
     pub relative_path: String,
+    pub kind: String,
     pub start_line: usize,
     pub end_line: usize,
     pub text: String,
@@ -258,6 +261,51 @@ impl fmt::Debug for AskResponse {
             .field("usage", &self.usage)
             .finish_non_exhaustive()
     }
+}
+
+const SOURCE_KINDS: [&str; 3] = ["pdf", "code", "text"];
+
+/// A document kind consistent with its path: notes are Markdown.
+fn valid_kind(kind: &str, relative_path: &str) -> bool {
+    match kind {
+        "note" => relative_path.ends_with(".md"),
+        other => SOURCE_KINDS.contains(&other) && !relative_path.ends_with(".md"),
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SourceSummaryResponse {
+    pub id: String,
+    pub relative_path: String,
+    pub kind: String,
+    pub size_bytes: u64,
+}
+
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SourceResponse {
+    pub id: String,
+    pub vault_id: String,
+    pub relative_path: String,
+    pub kind: String,
+    pub revision: String,
+    pub content: String,
+}
+
+impl fmt::Debug for SourceResponse {
+    // Extracted text stays out of Debug output.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("SourceResponse")
+            .field("id", &self.id)
+            .field("kind", &self.kind)
+            .finish_non_exhaustive()
+    }
+}
+
+#[derive(Serialize)]
+struct WebPageRequest<'a> {
+    url: &'a str,
 }
 
 #[derive(Serialize)]
@@ -532,6 +580,7 @@ impl CoreApiClient {
                     || !is_canonical_uuid(&hit.note_id)
                     || !is_revision(&hit.revision)
                     || hit.relative_path.is_empty()
+                    || !valid_kind(&hit.kind, &hit.relative_path)
                     || hit.start_byte >= hit.end_byte
                     || hit.end_byte - hit.start_byte != hit.text.len()
                     || hit.start_line == 0
@@ -584,6 +633,7 @@ impl CoreApiClient {
             || response.sources.iter().any(|source| {
                 !is_canonical_uuid(&source.note_id)
                     || source.relative_path.is_empty()
+                    || !valid_kind(&source.kind, &source.relative_path)
                     || source.start_line == 0
                     || source.end_line < source.start_line
                     || source.text.is_empty()
@@ -621,6 +671,60 @@ impl CoreApiClient {
             return Err(invalid_response(Effect::Read));
         }
         Ok(graph)
+    }
+
+    /// PDFs, code and text files in the vault folder, indexed read-only.
+    pub fn list_sources(&self, vault_id: &str) -> Result<Vec<SourceSummaryResponse>, DesktopError> {
+        let route = format!("/vaults/{}/sources", uuid(vault_id)?);
+        let reply = self.send(Method::GET, &route, None, None, None, Effect::Read, 200)?;
+        let sources: Vec<SourceSummaryResponse> = decode(&reply.body, Effect::Read)?;
+        let ids: BTreeSet<&str> = sources.iter().map(|source| source.id.as_str()).collect();
+        if ids.len() != sources.len()
+            || sources.iter().any(|source| {
+                !is_canonical_uuid(&source.id)
+                    || source.relative_path.is_empty()
+                    || !SOURCE_KINDS.contains(&source.kind.as_str())
+                    || !valid_kind(&source.kind, &source.relative_path)
+            })
+        {
+            return Err(invalid_response(Effect::Read));
+        }
+        Ok(sources)
+    }
+
+    /// A source's extracted text.
+    pub fn read_source(
+        &self,
+        vault_id: &str,
+        source_id: &str,
+    ) -> Result<SourceResponse, DesktopError> {
+        let route = format!("/vaults/{}/sources/{}", uuid(vault_id)?, uuid(source_id)?);
+        let reply = self.send(Method::GET, &route, None, None, None, Effect::Read, 200)?;
+        let source: SourceResponse = decode(&reply.body, Effect::Read)?;
+        if source.id != source_id
+            || source.vault_id != vault_id
+            || !is_revision(&source.revision)
+            || !SOURCE_KINDS.contains(&source.kind.as_str())
+            || !valid_kind(&source.kind, &source.relative_path)
+        {
+            return Err(invalid_response(Effect::Read));
+        }
+        Ok(source)
+    }
+
+    /// Fetch a web page once and save it as a new note under `web/`.
+    pub fn save_web_page(&self, vault_id: &str, url: &str) -> Result<NoteResponse, DesktopError> {
+        let route = format!("/vaults/{}/web-pages", uuid(vault_id)?);
+        let reply = self.send(
+            Method::POST,
+            &route,
+            Some(json(&WebPageRequest { url })?),
+            None,
+            Some(Duration::from_secs(90)),
+            Effect::Mutation,
+            201,
+        )?;
+        full_note(&reply, vault_id, None, Effect::Mutation)
     }
 
     pub fn read_note(&self, vault_id: &str, note_id: &str) -> Result<NoteResponse, DesktopError> {
@@ -1101,7 +1205,7 @@ mod tests {
     #[test]
     fn semantic_commands_validate_sources_and_use_fixed_routes() {
         let valid = json!({"vault_id": VAULT, "model": "pinned", "hits": [{
-            "chunk_id": NOTE, "note_id": NOTE, "relative_path": "a.md", "revision": revision(),
+            "chunk_id": NOTE, "note_id": NOTE, "relative_path": "a.md", "kind": "note", "revision": revision(),
             "ordinal": 0, "text": "secret note text", "start_byte": 0, "end_byte": 16,
             "start_line": 1, "end_line": 1, "score": 0.9
         }]});
@@ -1115,6 +1219,8 @@ mod tests {
         invalid_id["hits"][0]["note_id"] = json!("bad");
         let mut invalid_revision = valid.clone();
         invalid_revision["hits"][0]["revision"] = json!("bad");
+        let mut mismatched_kind = valid.clone();
+        mismatched_kind["hits"][0]["kind"] = json!("pdf");
         let (results, requests) = with_server(
             vec![
                 valid,
@@ -1123,12 +1229,13 @@ mod tests {
                 invalid_score,
                 invalid_id,
                 invalid_revision,
+                mismatched_kind,
             ]
             .iter()
             .map(|body| json_response("200 OK", body))
             .collect(),
             |client| {
-                (0..6)
+                (0..7)
                     .map(|_| client.search_vault(VAULT, "meaning", 10))
                     .collect::<Vec<_>>()
             },
@@ -1166,10 +1273,67 @@ mod tests {
     }
 
     #[test]
+    fn sources_and_web_pages_validate_kinds_and_hide_text() {
+        let listed = json!([
+            {"id": NOTE, "relative_path": "papers/study.pdf", "kind": "pdf", "size_bytes": 1200},
+        ]);
+        let mut note_as_source = listed.clone();
+        note_as_source[0]["relative_path"] = json!("papers/study.md");
+        let mut unknown_kind = listed.clone();
+        unknown_kind[0]["kind"] = json!("note");
+        let source = json!({"id": NOTE, "vault_id": VAULT, "relative_path": "code/a.py", "kind": "code",
+            "revision": revision(), "content": "secret source text"});
+        let mut other_source = source.clone();
+        other_source["id"] = json!(VAULT);
+        let (results, requests) = with_server(
+            vec![
+                json_response("200 OK", &listed),
+                json_response("200 OK", &note_as_source),
+                json_response("200 OK", &unknown_kind),
+                json_response("200 OK", &source),
+                json_response("200 OK", &other_source),
+                note_reply("201 Created", "# Saved page"),
+            ],
+            |client| {
+                (
+                    (0..3)
+                        .map(|_| client.list_sources(VAULT))
+                        .collect::<Vec<_>>(),
+                    client.read_source(VAULT, NOTE),
+                    client.read_source(VAULT, NOTE),
+                    client.save_web_page(VAULT, "https://example.com/a"),
+                )
+            },
+        );
+        let (lists, read, foreign, saved) = results;
+        assert_eq!(lists[0].as_ref().unwrap()[0].kind, "pdf");
+        assert_eq!(lists[1].as_ref().unwrap_err().code, "invalid_response");
+        assert_eq!(lists[2].as_ref().unwrap_err().code, "invalid_response");
+        assert_eq!(read.as_ref().unwrap().content, "secret source text");
+        assert!(!format!("{read:?}").contains("secret source text"));
+        assert_eq!(foreign.unwrap_err().code, "invalid_response");
+        assert_eq!(saved.unwrap().content, "# Saved page");
+        for request in &requests[..3] {
+            assert_common(request, "GET", &format!("/api/v1/vaults/{VAULT}/sources"));
+        }
+        assert_common(
+            &requests[3],
+            "GET",
+            &format!("/api/v1/vaults/{VAULT}/sources/{NOTE}"),
+        );
+        assert_common(
+            &requests[5],
+            "POST",
+            &format!("/api/v1/vaults/{VAULT}/web-pages"),
+        );
+        assert_eq!(requests[5].json(), json!({"url": "https://example.com/a"}));
+    }
+
+    #[test]
     fn ask_validates_sources_and_citations_and_hides_text() {
         let valid = json!({"vault_id": VAULT, "model": "gemini-test", "answer": "Apples [1].",
             "answered_by_model": true, "finish_reason": "STOP",
-            "sources": [{"number": 1, "note_id": NOTE, "relative_path": "a.md", "start_line": 1,
+            "sources": [{"number": 1, "note_id": NOTE, "relative_path": "a.md", "kind": "note", "start_line": 1,
                 "end_line": 2, "text": "secret note text", "excerpt": false}],
             "cited": [1],
             "usage": {"context_tokens": 40, "budget": 500, "counter": "utf8-bytes/3",

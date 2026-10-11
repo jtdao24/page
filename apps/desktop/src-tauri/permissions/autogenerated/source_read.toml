@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-source-read"
+description = "Enables the source_read command without any pre-configured scope."
+commands.allow = ["source_read"]
+
+[[permission]]
+identifier = "deny-source-read"
+description = "Denies the source_read command without any pre-configured scope."
+commands.deny = ["source_read"]

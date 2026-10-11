@@ -169,9 +169,12 @@ filesystem vault are unchanged; no Windows metadata behavior is claimed as verif
 
 ## Derived vector cache
 
+Migration 4 drops the cache's foreign key to `notes`, so vectors can also belong to
+read-only [knowledge sources](knowledge-sources.md). Existing vectors are kept.
+
 Migration 3 adds `semantic_vectors` to the same private database, storing canonical
 chunk/note IDs, the model/chunker fingerprint, and normalized vector bytes.
-Markdown is not stored. Replacement snapshots commit atomically and foreign keys
-cascade when note metadata is deleted. Vector corruption can be repaired with a
+Markdown is not stored. Replacement snapshots commit atomically; since migration 4,
+vectors for deleted notes disappear with the next snapshot rather than by cascade. Vector corruption can be repaired with a
 semantic index rebuild while preserving the vault's historical note identities.
 See [semantic search](semantic-search.md) for cache validation and reuse rules.
