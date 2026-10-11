@@ -6,7 +6,8 @@ import { Icon } from "./Icon";
 import type { OpenSource } from "./SourceViewer";
 
 const BUDGETS = [500, 1500, 4000] as const;
-const compact = new Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 1 });
+// The user's locale, like the other numbers on screen.
+const compact = new Intl.NumberFormat(undefined, { notation: "compact", maximumFractionDigits: 1 });
 
 /** "214 sent vs ~18.4K for the whole vault · 99% less", for the latest answer. */
 function Savings({ usage }: { usage: AskResponse["usage"] }) {

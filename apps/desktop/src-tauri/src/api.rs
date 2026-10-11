@@ -237,6 +237,8 @@ pub struct AskUsage {
     pub input_tokens: usize,
     pub output_tokens: usize,
     /// Estimated tokens for the whole vault, for comparison with `context_tokens`.
+    /// Absent from an older Core, which then shows no comparison instead of failing.
+    #[serde(default)]
     pub vault_tokens: usize,
 }
 
@@ -1342,6 +1344,11 @@ mod tests {
                 "input_tokens": 120, "output_tokens": 8, "vault_tokens": 9000}});
         let mut foreign = valid.clone();
         foreign["vault_id"] = json!(NOTE);
+        let mut older_core = valid.clone();
+        older_core["usage"]
+            .as_object_mut()
+            .unwrap()
+            .remove("vault_tokens");
         let mut unknown_citation = valid.clone();
         unknown_citation["cited"] = json!([2]);
         let mut misnumbered = valid.clone();
@@ -1354,6 +1361,7 @@ mod tests {
         uncalled_citation["answered_by_model"] = json!(false);
         let bodies = vec![
             valid,
+            older_core,
             foreign,
             unknown_citation,
             misnumbered,
@@ -1375,9 +1383,11 @@ mod tests {
         );
         let first = results[0].as_ref().unwrap();
         assert_eq!(first.cited, vec![1]);
+        assert_eq!(first.usage.vault_tokens, 9000);
         assert!(!format!("{first:?}").contains("secret note text"));
         assert!(!format!("{first:?}").contains("Apples"));
-        for result in &results[1..] {
+        assert_eq!(results[1].as_ref().unwrap().usage.vault_tokens, 0);
+        for result in &results[2..] {
             assert_eq!(result.as_ref().unwrap_err().code, "invalid_response");
         }
         for request in requests {

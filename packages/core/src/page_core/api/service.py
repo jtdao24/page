@@ -96,6 +96,8 @@ class _Session:
         self.storage = storage
         self.needs_reconciliation = False
         self.sources = SourceLibrary(storage.vault.root_path, storage.vault.id)
+        # Estimated tokens per document, keyed by ID and revision, for the whole-vault total.
+        self.token_counts: dict[UUID, tuple[str, int]] = {}
 
     def snapshot(self) -> VaultSession:
         return VaultSession(self.storage.vault, self.needs_reconciliation)
@@ -341,17 +343,30 @@ class LocalVaultService:
             raise InvalidSearchError("invalid question")
         graph = build_graph(vault_id, notes)
         documents = self._documents(session, notes)
+        revisions = self._revisions(documents)
         counter = Utf8TokenEstimate()
-        vault_tokens = sum(counter.count(document.content) for document in documents)
+        vault_tokens = self._vault_tokens(session, documents, revisions, counter)
         if not documents:
             session.storage.metadata.replace_vectors(FINGERPRINT, [])
             return QuestionContext(optimize_context(question, (), graph, budget=budget, counter=counter), 0)
         try:
             hits = SemanticIndex(session.storage.metadata, self._semantic_encoder()).search(
-                question, documents, self._revisions(documents), candidates)
+                question, documents, revisions, candidates)
         except ValueError as exc:
             raise InvalidSearchError("invalid question") from exc
         return QuestionContext(optimize_context(question, hits, graph, budget=budget, counter=counter), vault_tokens)
+
+    @staticmethod
+    def _vault_tokens(session: _Session, documents: tuple[Note | SourceDocument, ...],
+                      revisions: dict[UUID, str], counter: Utf8TokenEstimate) -> int:
+        """Total estimated tokens, counting only documents whose revision changed."""
+        counts: dict[UUID, tuple[str, int]] = {}
+        for document in documents:
+            cached = session.token_counts.get(document.id)
+            revision = revisions[document.id]
+            counts[document.id] = cached if cached and cached[0] == revision else (revision, counter.count(document.content))
+        session.token_counts = counts  # drops deleted documents
+        return sum(count for _, count in counts.values())
 
     def source_library(self, vault_id: UUID) -> SourceLibrary:
         """The vault's thread-safe source library, so callers can extract text off the worker."""

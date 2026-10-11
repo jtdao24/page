@@ -68,6 +68,15 @@ describe("floating ask box", () => {
     expect(card).toContain("not your whole vault");
     expect(host.querySelector<HTMLTextAreaElement>("#ask-question")!.value).toBe("");
   });
+  it("compares without a percentage when the vault is smaller than the context", async () => {
+    const { client } = await setup();
+    client.askQuestion.mockResolvedValueOnce({ ...answer, usage: { ...answer.usage, context_tokens: 40, vault_tokens: 30 } });
+    await click("Ask");
+    expect(host.querySelector(".ask-savings")?.textContent).toBe("40 sent vs ~30 for the whole vault");
+    client.askQuestion.mockResolvedValueOnce({ ...answer, usage: { ...answer.usage, vault_tokens: 0 } });
+    await type("again"); await click("Ask");
+    expect(host.querySelector(".ask-savings")).toBeNull();
+  });
   it("submits with Enter, keeps follow-ups in one thread and closes with Escape", async () => {
     const { client } = await setup();
     const input = host.querySelector<HTMLTextAreaElement>("#ask-question")!;

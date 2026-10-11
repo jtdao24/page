@@ -112,3 +112,31 @@ def test_ask_reports_the_whole_vault_size_for_comparison(client, vault):
     usage = ask(client, vault, question="fruit apples?", budget=200).json()["usage"]
     assert usage["vault_tokens"] == sum(math.ceil(len(text.encode()) / 3) for text in contents)
     assert usage["context_tokens"] < usage["vault_tokens"]
+
+
+def test_vault_size_is_cached_per_revision(client, vault, monkeypatch):
+    import math
+    from page_core import context
+    create_note(client, vault, "a.md", "fruit apples are sweet")
+    note = create_note(client, vault, "b.md", "space " * 60)
+    counted = []
+    original = context.Utf8TokenEstimate.count
+    monkeypatch.setattr(context.Utf8TokenEstimate, "count", lambda self, text: counted.append(text) or original(self, text))
+    first = ask(client, vault, question="fruit?", budget=200).json()["usage"]["vault_tokens"]
+    whole = [text for text in counted if text in ("fruit apples are sweet", "space " * 60)]
+    assert len(whole) == 2
+    counted.clear()
+    assert ask(client, vault, question="fruit?", budget=200).json()["usage"]["vault_tokens"] == first
+    assert "space " * 60 not in counted and "fruit apples are sweet" not in counted
+    update = client.put(f"{API}/vaults/{vault['id']}/notes/{note['id']}", json={"content": "space"},
+                        headers={"If-Match": f'"{note["revision"]}"'})
+    assert update.status_code == 200, update.text
+    usage = ask(client, vault, question="fruit?", budget=200).json()["usage"]
+    assert usage["vault_tokens"] == math.ceil(len("fruit apples are sweet") / 3) + math.ceil(len("space") / 3)
+
+
+def test_a_tiny_vault_can_cost_less_than_the_context(client, vault):
+    create_note(client, vault, "a.md", "fruit")
+    usage = ask(client, vault, question="fruit?", budget=200).json()["usage"]
+    # Source labels make the context larger than the note's own text.
+    assert usage["vault_tokens"] == 2 and usage["context_tokens"] > usage["vault_tokens"]
