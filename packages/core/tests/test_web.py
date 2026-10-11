@@ -61,6 +61,11 @@ def test_html_becomes_readable_markdown():
         assert dropped not in markdown
 
 
+def test_pages_wrapped_in_a_form_keep_their_content():
+    _, markdown = html_to_markdown("<form><h2>Menu</h2><p>Espresso 3 dollars</p><textarea>x</textarea><button>Order</button></form>")
+    assert markdown == "## Menu\n\nEspresso 3 dollars\n"
+
+
 def test_fetch_page_converts_html_and_plain_text():
     requests = []
 

@@ -28,7 +28,7 @@ from page_core.web import WebPage, note_for_page
 from page_core.metadata import (
     InvalidRenameError, MetadataSyncError, NoteMetadata, PersistentVault, ReconcileResult,
 )
-from page_core.vault import FileSystemVault, InvalidNotePathError, NoteNotFoundError, VaultError
+from page_core.vault import FileSystemVault, InvalidNotePathError, NoteExistsError, NoteNotFoundError, VaultError
 
 
 class InvalidSearchError(Exception):
@@ -340,6 +340,10 @@ class LocalVaultService:
             raise InvalidSearchError("invalid question") from exc
         return optimize_context(question, hits, graph, budget=budget)
 
+    def source_library(self, vault_id: UUID) -> SourceLibrary:
+        """The vault's thread-safe source library, so callers can extract text off the worker."""
+        return self._note_session(vault_id).sources
+
     def list_sources(self, vault_id: UUID) -> list[SourceEntry]:
         return self._note_session(vault_id).sources.list()
 
@@ -353,12 +357,20 @@ class LocalVaultService:
         if not isinstance(page, WebPage):
             raise TypeError("page must be WebPage")
         path, content = note_for_page(page, saved_at)
+        # Pick up files added outside Page, then also step past any unregistered file.
+        self._note_session(vault_id).storage.reconcile()
         taken = {record.relative_path for record in self.list_notes(vault_id)}
-        candidate, number = path, 2
-        while candidate in taken:
-            candidate = path.with_name(f"{path.stem}-{number}.md")
+        number = 1
+        while number <= 1000:
+            candidate = path if number == 1 else path.with_name(f"{path.stem}-{number}.md")
             number += 1
-        return self.create_note(vault_id, candidate, content)
+            if candidate in taken:
+                continue
+            try:
+                return self.create_note(vault_id, candidate, content)
+            except NoteExistsError:
+                continue
+        raise NoteExistsError(str(path))
 
     def get_graph(self, vault_id: UUID) -> GraphSnapshot:
         session = self._note_session(vault_id)

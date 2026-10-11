@@ -89,6 +89,11 @@ def test_web_pages_are_saved_as_notes_with_unique_names(client, vault, monkeypat
     assert first.headers["ETag"] == f'"{first.json()["revision"]}"'
     second = client.post(f"{API}/vaults/{vault['id']}/web-pages", json={"url": "https://example.com/espresso"})
     assert second.json()["relative_path"] == "web/example.com/espresso-guide-2.md"
+    # A file added outside Page takes the next name too.
+    (root(vault) / "web" / "example.com" / "espresso-guide-3.md").write_text("mine")
+    third = client.post(f"{API}/vaults/{vault['id']}/web-pages", json={"url": "https://example.com/espresso"})
+    assert third.json()["relative_path"] == "web/example.com/espresso-guide-4.md"
+    assert (root(vault) / "web" / "example.com" / "espresso-guide-3.md").read_text() == "mine"
     assert (root(vault) / "web" / "example.com" / "espresso-guide.md").read_text().endswith("A double uses 18 g.\n")
 
 
