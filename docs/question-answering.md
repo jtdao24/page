@@ -50,14 +50,19 @@ shows:
 - context tokens used out of the budget (Page's `utf8-bytes/3` estimate), and the input
   and output tokens Gemini reports.
 
-The top of the answer card compares the latest answer's context with the whole vault,
-for example "214 sent vs ~18.4K for the whole vault · 98% less". Both numbers use the
-same estimate; the whole vault counts every note and readable source. It shows how much
-smaller the context is than pasting everything, not that the answer is as good. The
-percentage is rounded down and never shows 100%. The sent figure includes the short source labels
-(like `[1] papers/x.pdf (lines 3–5)`) while the whole-vault figure counts only the text,
-so the saving shown is slightly conservative; in a tiny vault the context can even be
-larger, and then no percentage is shown. Per-file counts are cached by revision.
+The top of the answer card shows what Page's trimming saved on the latest answer, for
+example "214 sent vs 1.2K in the matching passages · 82% less". The second number is
+the passages Page found for the question (10 by default), sent whole and untrimmed, in
+the same format, so the two compare like for like. Measured on October 11, 2026, it was
+modest: a median of 21% on the 40 benchmark questions (from 9% to 76%) and 23% on the
+demo vault, the same at budgets of 500, 1,500 and 4,000 tokens. The saving comes from
+dropping weakly related and duplicate passages, not from the budget. When nothing is
+dropped, the card says every matching passage fit. The percentage is rounded down and capped at 99%.
+
+The whole vault's size is in the tooltip, for scale only. Comparing with the whole
+vault would show close to 99% in any large vault, because the context is capped by the
+budget, so it says more about vault size than about Page. None of these numbers
+measure answer quality. Per-file counts are cached by revision.
 
 ## Privacy and security
 

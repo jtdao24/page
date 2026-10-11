@@ -275,6 +275,8 @@ class AskUsage(_Response):
     counter: str
     input_tokens: int
     output_tokens: int
+    # The matching passages Page retrieved, sent whole and untrimmed, with the same counter.
+    candidate_tokens: NonNegativeInt
     # Estimated tokens for every note and source in the vault, with the same counter.
     vault_tokens: NonNegativeInt
 

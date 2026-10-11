@@ -31,7 +31,7 @@ export function testClient() {
     askQuestion: vi.fn<PageClient["askQuestion"]>(async (_vault, _question, budget) => ({
       vault_id: vault.id, model: "test-model", answer: "No notes cover that.", answered_by_model: false,
       finish_reason: "NO_SOURCES", sources: [], cited: [],
-      usage: { context_tokens: 0, budget, counter: "utf8-bytes/3", input_tokens: 0, output_tokens: 0, vault_tokens: 0 },
+      usage: { context_tokens: 0, budget, counter: "utf8-bytes/3", input_tokens: 0, output_tokens: 0, candidate_tokens: 0, vault_tokens: 0 },
     })),
     sourceList: vi.fn<PageClient["sourceList"]>(async () => []),
     sourceRead: vi.fn<PageClient["sourceRead"]>(async (_vault, id) => ({ id, vault_id: vault.id, relative_path: "papers/a.pdf",

@@ -59,7 +59,7 @@ describe("read-only sources", () => {
     const answer: AskResponse = { vault_id: vault.id, model: "m", answer: "18 g [1].", answered_by_model: true, finish_reason: "STOP",
       cited: [1], sources: [{ number: 1, note_id: pdf.id, relative_path: pdf.relative_path, kind: "pdf", start_line: 3, end_line: 3,
         text: "espresso uses 18 g", excerpt: false }],
-      usage: { context_tokens: 9, budget: 1500, counter: "utf8-bytes/3", input_tokens: 20, output_tokens: 3, vault_tokens: 900 } };
+      usage: { context_tokens: 9, budget: 1500, counter: "utf8-bytes/3", input_tokens: 20, output_tokens: 3, candidate_tokens: 40, vault_tokens: 900 } };
     client.askQuestion.mockResolvedValue(answer);
     const input = host.querySelector<HTMLTextAreaElement>("#ask-question")!;
     await act(async () => {

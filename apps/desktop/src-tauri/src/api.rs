@@ -236,8 +236,12 @@ pub struct AskUsage {
     pub counter: String,
     pub input_tokens: usize,
     pub output_tokens: usize,
-    /// Estimated tokens for the whole vault, for comparison with `context_tokens`.
-    /// Absent from an older Core, which then shows no comparison instead of failing.
+    /// The matching passages, untrimmed, for comparison with `context_tokens`.
+    /// These two fields are absent from an older Core, which then shows no
+    /// comparison instead of failing.
+    #[serde(default)]
+    pub candidate_tokens: usize,
+    /// Estimated tokens for the whole vault, shown for scale.
     #[serde(default)]
     pub vault_tokens: usize,
 }
@@ -1341,14 +1345,13 @@ mod tests {
                 "end_line": 2, "text": "secret note text", "excerpt": false}],
             "cited": [1],
             "usage": {"context_tokens": 40, "budget": 500, "counter": "utf8-bytes/3",
-                "input_tokens": 120, "output_tokens": 8, "vault_tokens": 9000}});
+                "input_tokens": 120, "output_tokens": 8, "candidate_tokens": 160, "vault_tokens": 9000}});
         let mut foreign = valid.clone();
         foreign["vault_id"] = json!(NOTE);
         let mut older_core = valid.clone();
-        older_core["usage"]
-            .as_object_mut()
-            .unwrap()
-            .remove("vault_tokens");
+        let usage = older_core["usage"].as_object_mut().unwrap();
+        usage.remove("candidate_tokens");
+        usage.remove("vault_tokens");
         let mut unknown_citation = valid.clone();
         unknown_citation["cited"] = json!([2]);
         let mut misnumbered = valid.clone();
@@ -1384,9 +1387,11 @@ mod tests {
         let first = results[0].as_ref().unwrap();
         assert_eq!(first.cited, vec![1]);
         assert_eq!(first.usage.vault_tokens, 9000);
+        assert_eq!(first.usage.candidate_tokens, 160);
         assert!(!format!("{first:?}").contains("secret note text"));
         assert!(!format!("{first:?}").contains("Apples"));
         assert_eq!(results[1].as_ref().unwrap().usage.vault_tokens, 0);
+        assert_eq!(results[1].as_ref().unwrap().usage.candidate_tokens, 0);
         for result in &results[2..] {
             assert_eq!(result.as_ref().unwrap_err().code, "invalid_response");
         }
