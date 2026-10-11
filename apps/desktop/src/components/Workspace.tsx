@@ -8,7 +8,8 @@ import { ErrorText } from "./ErrorText";
 import { MarkdownEditor } from "./MarkdownEditor";
 import { NotePathForm } from "./NotePathForm";
 import { NoteTree } from "./NoteTree";
-import { VaultForms } from "./VaultForms";
+import { Home } from "./Home";
+import { openVaultWithPicker, VaultChoices } from "./VaultChoices";
 import { AskBar, focusAskBar } from "./AskBar";
 import { type OpenSource, SourceViewer } from "./SourceViewer";
 import { WebPageForm } from "./WebPageForm";
@@ -35,7 +36,7 @@ function NavItem({ icon, label, ariaLabel, shortcut, active, disabled, onClick, 
 
 type Modal = "vault" | "web" | "create" | "move" | "delete" | "convert" | "orphan" | "reload" | "overwrite" | "failed-move" | "reset" | null;
 
-export function Workspace({ controller }: { controller: WorkspaceController }) {
+export function Workspace({ controller, onShowIntro }: { controller: WorkspaceController; onShowIntro?: () => void }) {
   const state = useWorkspace(controller);
   const [modal, setModal] = useState<Modal>(null);
   const [searchVisible, setSearchVisible] = useState(false);
@@ -67,7 +68,7 @@ export function Workspace({ controller }: { controller: WorkspaceController }) {
       const current = controller.getState();
       if (key === "k") { focusAskBar(); return; }
       if (key === "s" && !mutationsBlocked(current)) void controller.save();
-      if (key === "o" && !navigationBlocked(current)) setModal("vault");
+      if (key === "o" && !navigationBlocked(current)) void openVaultWithPicker(controller);
       if (key === "n" && !mutationsBlocked(current) && !navigationBlocked(current)) {
         void controller.guarded("create another note", () => setModal("create"));
       }
@@ -142,7 +143,7 @@ export function Workspace({ controller }: { controller: WorkspaceController }) {
     </section> : <>
       <div className="workspace-notices max-h-40 shrink-0 overflow-auto px-4">
         {errors.map((error, index) => error && <p className="py-1 text-sm text-red-700" role="alert" key={index}><ErrorText error={error} /></p>)}
-        {state.vaultError && modal !== "vault" && <p role="alert"><ErrorText error={state.vaultError} /></p>}
+        {state.vaultError && modal !== "vault" && state.vault !== null && <p role="alert"><ErrorText error={state.vaultError} /></p>}
         {state.preferencesWarning && <p role="alert" className="text-sm">
           <ErrorText error={state.preferencesWarning} /> The settings file is preserved.
           <button onClick={() => setModal("reset")}>Reset Remembered Workspace</button>
@@ -186,14 +187,19 @@ export function Workspace({ controller }: { controller: WorkspaceController }) {
             {state.sessions.map((vault) => <button className="block w-full break-words text-left" key={vault.id} disabled={navigation || vault.id === state.vault?.id}
               onClick={() => void controller.selectSession(vault.id)}>{vault.name}</button>)}
           </section>}
-          {!sidebarCollapsed && <section className="sidebar-section sidebar-recents">
+          {!sidebarCollapsed && state.vault && <section className="sidebar-section sidebar-recents">
             <h3>Recent vaults</h3>
-            {state.preferences.recent_vaults.map((entry) => <button className="block w-full break-all text-left text-xs" key={entry.vault_id}
-              disabled={navigation} onClick={() => void controller.openRecent(entry)}>{entry.root_path}</button>)}
+            {state.preferences.recent_vaults.map((entry) => <div className="recent-row" key={entry.vault_id}>
+              <button className="block w-full break-all text-left text-xs" disabled={navigation}
+                onClick={() => void controller.openRecent(entry)}>{entry.root_path}</button>
+              {entry.vault_id !== state.vault?.id && <button className="icon-button forget-recent"
+                aria-label={`Remove ${entry.root_path} from recent`} title="Remove from recent (the folder isn't deleted)"
+                onClick={() => controller.forgetRecent(entry.vault_id)}><Icon name="close" size={12} /></button>}
+            </div>)}
             {state.preferences.recent_vaults.length === 0 && <p className="text-xs text-neutral-500">No recent vaults</p>}
           </section>}
           <div className="sidebar-footer">
-            <NavItem icon="folder" label="Open vault" ariaLabel="Open Vault" shortcut="O" disabled={navigation} onClick={() => setModal("vault")} />
+            <NavItem icon="folder" label="Open vault" ariaLabel="Open Vault" shortcut="O" disabled={navigation} onClick={() => void openVaultWithPicker(controller)} />
             {state.vault && <NavItem icon="vault" label="Close vault" ariaLabel="Close Vault" disabled={navigation} onClick={() => void controller.closeVault()} />}
             <NavItem icon="quit" label="Quit" ariaLabel="Quit Page" disabled={state.pending !== null || state.quitting} onClick={() => void controller.requestQuit()} />
           </div>
@@ -206,11 +212,7 @@ export function Workspace({ controller }: { controller: WorkspaceController }) {
               {!viewing && isDirty(document) && <span className="tab-dirty" aria-label="Unsaved changes" />}
             </div>
           </div>
-          {state.vault === null ? <div className="vault-welcome overflow-auto">
-            <div className="welcome-mark"><Icon name="vault" size={36} /></div>
-            <h2>Your notes, in your hands.</h2><p>Open a workspace or start a new one. Everything stays in your Markdown files.</p>
-            <VaultForms controller={controller} state={state} />
-          </div> : <>
+          {state.vault === null ? <Home controller={controller} state={state} onShowIntro={onShowIntro} /> : <>
             <div className="document-toolbar">
               <span className="document-breadcrumb"><span>{state.vault.name}</span><span className="breadcrumb-separator">/</span>{document?.path || "Select a note"}</span>
               <span role="status" className="save-state">{state.pending ? "Saving change…" : isDirty(document) ? "Unsaved changes" : readyDocument ? "Saved" : ""}</span>
@@ -244,9 +246,20 @@ export function Workspace({ controller }: { controller: WorkspaceController }) {
                 onChange={(content) => controller.setDraft(document.noteId, document.editorKey, content)} />
             </div>}
             {document === null && <div className="workspace-welcome">
-              <div className="welcome-note"><Icon name="note" size={40} /></div>
-              <h2>A little space to think.</h2><p>Select a note from the sidebar, or create one with Cmd/Ctrl+N.</p>
-              <button disabled={blocked || navigation} onClick={() => noteAction("create")}>Create your first note</button>
+              <h2>What would you like to do?</h2>
+              <p>Pick a note on the left, or start with one of these.</p>
+              <div className="quick-actions">
+                {([
+                  ["plus", "Write a new note", `${SHORTCUT}N`, () => noteAction("create"), blocked || navigation],
+                  ["globe", "Save a web page", "", () => void controller.guarded("save a web page", () => setModal("web")), blocked || navigation],
+                  ["graph", "See how notes connect", "", () => { setGraphVisible(true); setSearchVisible(false); }, false],
+                  ["ask", "Ask your notes", `${SHORTCUT}K`, focusAskBar, false],
+                ] as const).map(([icon, label, hint, action, off], index) => <button key={label} className="quick-action"
+                  style={{ animationDelay: `${60 + index * 60}ms` }} disabled={off} onClick={action}>
+                  <Icon name={icon} size={18} /><span>{label}</span>{hint && <kbd>{hint}</kbd>}
+                </button>)}
+              </div>
+              <p className="welcome-tip">Tip: drop PDFs, code or text files into <code>{state.vault.root_path.split(/[\\/]/).filter(Boolean).at(-1)}</code> and they become searchable too.</p>
             </div>}
             {viewing && openSource && <SourceViewer controller={controller} vaultId={state.vault.id} source={openSource} onClose={() => setOpenSource(null)} />}
             {document && <footer className="document-statusbar"><span>Markdown</span><span>{document.mixed ? "Mixed line endings" : describeSeparator(document.separator)} · UTF-8</span><span>{SHORTCUT}S to save · {SHORTCUT}K to ask</span></footer>}
@@ -269,8 +282,10 @@ export function Workspace({ controller }: { controller: WorkspaceController }) {
     {modal === "web" && <Dialog title="Add a Website" onCancel={cancel}>
       <WebPageForm onCancel={cancel} onSubmit={async (url) => { await controller.saveWebPage(url); cancel(); }} />
     </Dialog>}
-    {modal === "vault" && <Dialog title="Choose a Vault" onCancel={cancel}>
-      <VaultForms controller={controller} state={state} onDone={cancel} /><button onClick={cancel}>Cancel</button>
+    {modal === "vault" && <Dialog title="Switch Vault" onCancel={cancel}>
+      <div className="vault-dialog"><VaultChoices controller={controller} state={state} onDone={cancel} /></div>
+      {state.vaultError && <p role="alert" className="home-error"><ErrorText error={state.vaultError} /></p>}
+      <button onClick={cancel}>Cancel</button>
     </Dialog>}
     {(modal === "create" || modal === "move" || modal === "orphan") && <Dialog title={modal === "move" ? "Rename / Move Note" : "Create Note"} onCancel={cancel}>
       <NotePathForm initialPath={modal === "move" ? document?.path : ""} label={modal === "move" ? "Move Note" : "Create Note"} disabled={blocked}

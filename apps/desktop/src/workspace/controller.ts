@@ -17,6 +17,7 @@ import {
   toDesktopError,
 } from "../core/types";
 import { type LineSeparator, convertToLf, detectLineEndings } from "./text";
+import { SAMPLE_NOTES } from "./sample";
 
 export interface DocumentState {
   vaultId: string;
@@ -548,6 +549,17 @@ export class WorkspaceController {
     this.writePreferences({ version: 1, recent_vaults: recent, active_vault_id: vault.id });
   }
 
+  /** Remove a vault from the recent list; its folder and notes are untouched. The open vault stays. */
+  forgetRecent(vaultId: string): void {
+    const current = this.state.preferences;
+    if (vaultId === this.state.vault?.id || !current.recent_vaults.some((entry) => entry.vault_id === vaultId)) return;
+    this.writePreferences({
+      ...current,
+      recent_vaults: current.recent_vaults.filter((entry) => entry.vault_id !== vaultId),
+      active_vault_id: current.active_vault_id === vaultId ? null : current.active_vault_id,
+    });
+  }
+
   async resetPreferences(): Promise<void> {
     const vault = this.state.vault;
     const fresh = emptyPreferences();
@@ -571,6 +583,34 @@ export class WorkspaceController {
     return this.guarded("create a vault", () =>
       this.vaultAction(() => this.api.vaultCreate(rootPath, name), null),
     );
+  }
+
+  /** Native folder picker; null when cancelled or outside the desktop app. */
+  pickFolder(title: string): Promise<string | null> {
+    return this.client === null ? Promise.resolve(null) : this.api.pickFolder(title);
+  }
+
+  /** Create a vault filled with starter notes that teach Page, and open the welcome note. */
+  async createSampleVault(rootPath: string): Promise<boolean> {
+    if (!(await this.createVault(rootPath, "Page Sample"))) return false;
+    const vault = this.state.vault;
+    if (vault === null) return false;
+    let first: string | null = null;
+    for (const sample of SAMPLE_NOTES) {
+      try {
+        const note = await this.api.noteCreate(vault.id, sample.path, sample.content);
+        first ??= note.id;
+      } catch (cause) {
+        const error = toDesktopError(cause);
+        // A note with that name already exists in the chosen folder: keep the user's file.
+        if (error.code === "note_exists") continue;
+        this.set({ actionError: { operation: "create", error } });
+        break;
+      }
+    }
+    await this.loadNotes();
+    if (first !== null && this.state.vault?.id === vault.id) await this.selectNote(first);
+    return true;
   }
 
   openVault(rootPath: string): Promise<boolean | undefined> {

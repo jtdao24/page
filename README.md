@@ -16,7 +16,7 @@ the files remain the source of truth.
 
 - **Browse your vault.** Navigate nested folders and switch between open vaults.
 - **Write in Markdown.** Edit with syntax highlighting, undo and redo, and a dark
-  interface with subtle violet accents.
+  interface with soft blue accents.
 - **Save when you're ready.** Save explicitly with the button or Cmd+S. Page asks
   what to do with an unsaved draft before you leave it.
 - **Organize your notes.** Create notes, rename them, move them between folders,

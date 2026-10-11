@@ -76,8 +76,9 @@ python-build-standalone builds on macOS don't find the system certificates.
 
 ## Permissions
 
-- **Webview:** the Tauri capability grants only Page's own commands. There's no
-  generic filesystem, shell or HTTP access, and the content security policy allows
+- **Webview:** the Tauri capability grants only Page's own commands, plus the native
+  folder picker (`dialog:allow-open`), which returns only the folder the user chooses.
+  There's no generic filesystem, shell or HTTP access, and the content security policy allows
   only the app and its IPC.
 - **Hardened runtime:** on for the app. The bundled Python and its libraries are
   signed with `src-tauri/runtime-entitlements.plist` when built with a Developer ID. That

@@ -1,9 +1,9 @@
-import cytoscape, { type Core, type ElementDefinition } from "cytoscape";
+import cytoscape, { type Core, type ElementDefinition, type LayoutOptions } from "cytoscape";
 import type { GraphResponse } from "../core/types";
 
 /** Soft colors that read well on the dark canvas; each top-level folder gets one. */
-const PALETTE = ["#b39af6", "#7cc4d8", "#e7a77c", "#8fcf9b", "#e88fb4", "#d9c36f", "#9aa7f5", "#77d1bd"];
-const ROOT_COLOR = "#c9b8fa";
+const PALETTE = ["#7fa6e3", "#7cc4d8", "#e7a77c", "#8fcf9b", "#e88fb4", "#d9c36f", "#c9a0dc", "#77d1bd"];
+const ROOT_COLOR = "#9fbbe8";
 const UNRESOLVED_COLOR = "#6f6a64";
 
 export function folderColor(relativePath: string): string {
@@ -42,34 +42,52 @@ export function graphElements(graph: GraphResponse): ElementDefinition[] {
   return elements;
 }
 
+/**
+ * Force-directed layouts cost roughly n² per iteration, so large vaults get
+ * cheaper layouts: an animated force layout for small graphs, a shorter
+ * unanimated one for medium graphs, and rings by link count for big ones.
+ */
+export function layoutFor(nodeCount: number, animate: boolean): LayoutOptions {
+  if (nodeCount <= 1) return { name: "circle", padding: 40, animate: false };
+  if (nodeCount <= 400) {
+    return { name: "cose", animate, animationDuration: 700, animationEasing: "ease-out", padding: 48, randomize: true, fit: true,
+      nodeRepulsion: () => 14000, idealEdgeLength: () => 80, edgeElasticity: () => 120, gravity: 0.9, numIter: 1500, componentSpacing: 80 };
+  }
+  if (nodeCount <= 1500) {
+    return { name: "cose", animate: false, padding: 48, randomize: true, fit: true, nodeRepulsion: () => 14000,
+      idealEdgeLength: () => 80, gravity: 1, numIter: 300, componentSpacing: 60 };
+  }
+  return { name: "concentric", animate: false, padding: 40, fit: true, minNodeSpacing: 6,
+    concentric: (node) => node.degree(false), levelWidth: () => 2 };
+}
+
 /** Real Cytoscape is also used headlessly by behavior tests. */
 export function createKnowledgeGraph(container: HTMLElement | null, graph: GraphResponse, onOpen: (id: string) => void): Core {
   const animate = container !== null && !window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
   const cy = cytoscape({
     ...(container ? { container } : { headless: true }),
     elements: graphElements(graph),
-    layout: graph.nodes.length > 1
-      ? { name: "cose", animate, animationDuration: 700, animationEasing: "ease-out", padding: 48, randomize: true, fit: true,
-        nodeRepulsion: () => 14000, idealEdgeLength: () => 80, edgeElasticity: () => 120, gravity: 0.9, numIter: 1500, componentSpacing: 80 }
-      : { name: "circle", padding: 40, animate: false },
+    layout: layoutFor(graph.nodes.length, animate),
+    // Big graphs pan and zoom from a cached image and hide edges while moving.
+    ...(graph.nodes.length > 400 ? { textureOnViewport: true, hideEdgesOnViewport: true } : {}),
     minZoom: .15, maxZoom: 3, wheelSensitivity: .3,
     style: [
       { selector: "node", style: {
         "background-color": "data(color)", width: "mapData(degree, 0, 10, 20, 46)", height: "mapData(degree, 0, 10, 20, 46)",
-        label: "data(label)", color: "#d8d2e2", "font-size": 12, "font-weight": 500, "text-valign": "bottom", "text-margin-y": 7,
+        label: "data(label)", color: "#d4dae4", "font-size": 12, "font-weight": 500, "text-valign": "bottom", "text-margin-y": 7,
         "text-wrap": "ellipsis", "text-max-width": "130px", "text-outline-color": "#1b1b1d", "text-outline-width": 2.5,
         "min-zoomed-font-size": 7, "border-width": 0, "transition-property": "opacity, border-width, background-color",
         "transition-duration": 180,
       } },
       { selector: "node[?unresolved]", style: { "border-width": 1.5, "border-color": "#c4a876", "border-style": "dashed",
         color: "#a59f97", "font-style": "italic" } },
-      { selector: "node:selected", style: { "border-width": 3, "border-color": "#f1e8ff", "underlay-color": "#b39af6",
+      { selector: "node:selected", style: { "border-width": 3, "border-color": "#eaf1fb", "underlay-color": "#7fa6e3",
         "underlay-opacity": .35, "underlay-padding": 9, "underlay-shape": "ellipse", "font-weight": 700, color: "#fff" } },
-      { selector: "edge", style: { width: 1.4, "line-color": "#5a526d", "target-arrow-color": "#5a526d", "target-arrow-shape": "triangle",
+      { selector: "edge", style: { width: 1.4, "line-color": "#4c5870", "target-arrow-color": "#4c5870", "target-arrow-shape": "triangle",
         "arrow-scale": .8, "curve-style": "bezier", opacity: .75, "transition-property": "opacity, line-color, width", "transition-duration": 180 } },
       { selector: ".faded", style: { opacity: .14 } },
       { selector: "node.focused", style: { "border-width": 2.5, "border-color": "#ffffff", color: "#fff" } },
-      { selector: "edge.focused", style: { "line-color": "#b39af6", "target-arrow-color": "#b39af6", width: 2, opacity: 1 } },
+      { selector: "edge.focused", style: { "line-color": "#7fa6e3", "target-arrow-color": "#7fa6e3", width: 2, opacity: 1 } },
     ],
   });
   cy.on("tap", "node", (event) => {

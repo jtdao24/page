@@ -39,6 +39,8 @@ export interface PageClient {
   geminiKeyStatus(): Promise<GeminiKeyStatus>;
   geminiKeySave(key: string): Promise<void>;
   geminiKeyClear(): Promise<void>;
+  /** Native folder picker; resolves to the chosen absolute path, or null if cancelled. */
+  pickFolder(title: string): Promise<string | null>;
   /** Resolves to an unsubscribe function. */
   onBackendStatus(handler: (status: BackendStatus) => void): Promise<() => void>;
   onQuitRequested(handler: () => void): Promise<() => void>;
@@ -97,6 +99,10 @@ export function createPageClient(invoke: InvokeFn, listen: ListenFn): PageClient
     geminiKeyStatus: () => call("gemini_key_status"),
     geminiKeySave: (key) => call("gemini_key_save", { key }),
     geminiKeyClear: () => call("gemini_key_clear"),
+    pickFolder: async (title) => {
+      const chosen = await call<unknown>("plugin:dialog|open", { options: { directory: true, multiple: false, title } });
+      return typeof chosen === "string" && chosen.length > 0 ? chosen : null;
+    },
     onBackendStatus: (handler) =>
       listen(BACKEND_STATUS_EVENT, (payload) => handler(payload as BackendStatus)),
     onQuitRequested: (handler) => listen(QUIT_REQUESTED_EVENT, () => handler()),
