@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { WorkspaceController, isDirty, mutationsBlocked } from "./controller";
+import { WorkspaceController, isDirty, mutationsBlocked, untitledPath, vaultRelativePath } from "./controller";
 import { deferred, failure, note, ready, testClient, vault } from "./testClient";
 import type { NoteResponse } from "../core/types";
 
@@ -315,3 +315,32 @@ describe("workspace actions", () => {
     expect(client.desktopQuit).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("note paths chosen without typing", () => {
+  it("turns a Finder path into a vault-relative Markdown path, refusing anything outside", () => {
+    expect(vaultRelativePath("/Users/me/Vault", "/Users/me/Vault/ideas/plan.md")).toBe("ideas/plan.md");
+    expect(vaultRelativePath("/Users/me/Vault/", "/Users/me/Vault/plan")).toBe("plan.md");
+    expect(vaultRelativePath("/Users/me/Vault", "/Users/me/Vault/Plan.MD")).toBe("Plan.md");
+    expect(vaultRelativePath("C:\\Notes", "C:\\Notes\\a\\b.md")).toBe("a/b.md");
+    expect(vaultRelativePath("/Users/me/Vault", "/Users/me/Vault2/plan.md")).toBeNull();
+    expect(vaultRelativePath("/Users/me/Vault", "/Users/me/plan.md")).toBeNull();
+    expect(vaultRelativePath("/Users/me/Vault", "/Users/me/Vault")).toBeNull();
+  });
+  it("numbers Untitled notes within a folder", () => {
+    expect(untitledPath("", new Set())).toBe("Untitled.md");
+    expect(untitledPath("ideas", new Set(["ideas/Untitled.md", "ideas/Untitled 2.md", "Untitled 3.md"]))).toBe("ideas/Untitled 3.md");
+  });
+  it("steps past an Untitled name taken by a file Page hasn't seen yet", async () => {
+    const { testClient, note, vault } = await import("./testClient");
+    const { client } = testClient();
+    const controller = new WorkspaceController(client);
+    await controller.start(); await controller.openVault(vault.root_path);
+    client.noteCreate.mockRejectedValueOnce({ kind: "api", status: 409, code: "note_exists", message: "exists", details: null });
+    client.noteCreate.mockImplementation(async (_vault, path) => note("66666666-6666-4666-8666-666666666666", "", path));
+    expect(await controller.createUntitled()).toBe(true);
+    expect(client.noteCreate.mock.calls.map((call) => call[1])).toEqual(["Untitled.md", "Untitled 2.md"]);
+    expect(controller.getState().actionError).toBeNull();
+    expect(controller.getState().document?.path).toBe("Untitled 2.md");
+  });
+});
+

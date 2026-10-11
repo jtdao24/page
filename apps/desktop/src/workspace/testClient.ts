@@ -49,6 +49,7 @@ export function testClient() {
     geminiKeySave: vi.fn<PageClient["geminiKeySave"]>(async () => {}),
     geminiKeyClear: vi.fn<PageClient["geminiKeyClear"]>(async () => {}),
     pickFolder: vi.fn<PageClient["pickFolder"]>(async () => null),
+    pickSavePath: vi.fn<PageClient["pickSavePath"]>(async () => null),
     onBackendStatus: vi.fn(async (handler: (status: BackendStatus) => void) => {
       statusHandler = handler;
       return () => { if (statusHandler === handler) statusHandler = undefined; };

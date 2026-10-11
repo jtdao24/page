@@ -28,6 +28,7 @@
     "allow-preferences-read",
     "allow-preferences-write",
     "dialog:allow-open",
+    "dialog:allow-save",
     "allow-source-list",
     "allow-source-read",
     "allow-web-page-save",

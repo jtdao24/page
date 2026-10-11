@@ -91,9 +91,11 @@ sessions and recent selections are displayed separately. Close Vault closes the
 session without deleting files.
 
 The sidebar is built only from note summaries, with nested navigable folders and
-deterministic lexical ordering. New Note uses a user-entered canonical relative
-path ending in lowercase `.md`. Rename / Move uses the complete destination path;
-occupied destinations remain errors. Delete requires a separate confirmation naming
+deterministic lexical ordering. New Note (⌘N) immediately creates `Untitled.md`
+(then `Untitled 2.md` …) in the open note's folder and opens it. Rename / Move and
+Save Draft As New Note open the native save window inside the vault (the dialog
+plugin's `dialog:allow-save`); a chosen place outside the vault is refused, and `.md`
+is added if missing. Occupied destinations remain errors. Delete requires a separate confirmation naming
 the path and stating that it is permanent, with no trash or undo.
 
 Save is explicit (Cmd/Ctrl+S). Cmd/Ctrl+N starts New Note, Cmd/Ctrl+O opens vault
