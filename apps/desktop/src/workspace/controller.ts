@@ -17,6 +17,7 @@ import {
   toDesktopError,
 } from "../core/types";
 import { type LineSeparator, convertToLf, detectLineEndings } from "./text";
+import { SAMPLE_NOTES } from "./sample";
 
 export interface DocumentState {
   vaultId: string;
@@ -571,6 +572,30 @@ export class WorkspaceController {
     return this.guarded("create a vault", () =>
       this.vaultAction(() => this.api.vaultCreate(rootPath, name), null),
     );
+  }
+
+  /** Native folder picker; null when cancelled or outside the desktop app. */
+  pickFolder(title: string): Promise<string | null> {
+    return this.client === null ? Promise.resolve(null) : this.api.pickFolder(title);
+  }
+
+  /** Create a vault filled with starter notes that teach Page, and open the welcome note. */
+  async createSampleVault(rootPath: string): Promise<boolean> {
+    if (!(await this.createVault(rootPath, "Page Sample"))) return false;
+    const vault = this.state.vault;
+    if (vault === null) return false;
+    let first: string | null = null;
+    for (const sample of SAMPLE_NOTES) {
+      try {
+        const note = await this.api.noteCreate(vault.id, sample.path, sample.content);
+        first ??= note.id;
+      } catch {
+        // A note with that name already exists in the chosen folder; keep the user's file.
+      }
+    }
+    await this.loadNotes();
+    if (first !== null && this.state.vault?.id === vault.id) await this.selectNote(first);
+    return true;
   }
 
   openVault(rootPath: string): Promise<boolean | undefined> {

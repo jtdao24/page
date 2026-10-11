@@ -11,7 +11,17 @@ there with `storage_unavailable`. Release builds run a bundled Python runtime; s
 The workspace uses an Obsidian-inspired dark palette and a sidebar with labeled
 actions (New note, Search, Graph, Ask, with their shortcuts) above the Files tree. The
 sidebar collapses to an icon rail; collapsing preserves the current editor, selection,
-undo history and draft. A rounded ask box floats over the note (Cmd/Ctrl+K).
+undo history and draft. A rounded ask box floats over the note (Cmd/Ctrl+K). The theme
+uses soft blues taken from the app icon, and motion is disabled for users who prefer
+reduced motion.
+
+With no vault open, the home screen offers three choices that use the native folder
+picker (the Tauri dialog plugin, granted only `dialog:allow-open`): start with a
+sample vault of linked starter notes, create a vault in a chosen folder, or open
+one. Recent vaults and a typed-path fallback are below. A five-step intro appears
+on first launch (remembered in the webview's local storage) and can be replayed from
+the home screen. With a vault open and no note selected, quick actions offer a new
+note, saving a web page, the graph and Ask.
 
 ## Boundaries and commands
 

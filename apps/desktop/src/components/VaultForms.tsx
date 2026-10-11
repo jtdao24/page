@@ -25,6 +25,12 @@ export function VaultForms({ controller, state, focus = "open", onDone }: VaultF
   const [openRoot, setOpenRoot] = useState("");
   const [problem, setProblem] = useState<{ form: "create" | "open"; text: string } | null>(null);
   const disabled = navigationBlocked(state);
+  async function browse(set: (path: string) => void, title: string) {
+    const folder = await controller.pickFolder(title);
+    if (folder !== null) set(folder);
+  }
+  const browseButton = (set: (path: string) => void, title: string) =>
+    <button type="button" className="browse-button" disabled={disabled} onClick={() => void browse(set, title)}>Browse…</button>;
 
   async function submitCreate(event: FormEvent) {
     event.preventDefault();
@@ -59,6 +65,7 @@ export function VaultForms({ controller, state, focus = "open", onDone }: VaultF
             autoFocus={focus === "open"}
           />
         </label>
+        {browseButton(setOpenRoot, "Choose a vault folder")}
         {problem?.form === "open" && (
           <p role="alert" className="text-xs text-red-700">
             {problem.text}
@@ -82,6 +89,10 @@ export function VaultForms({ controller, state, focus = "open", onDone }: VaultF
             autoFocus={focus === "create"}
           />
         </label>
+        {browseButton((path) => {
+          setCreateRoot(path);
+          if (!name.trim()) setName(path.split(/[\\/]/).filter(Boolean).at(-1) ?? "");
+        }, "Choose a folder for your new vault")}
         <label className="block text-xs text-neutral-600">
           Vault name
           <input className={inputClass} value={name} onChange={(event) => setName(event.target.value)} />
