@@ -71,8 +71,18 @@ impl KeyStore {
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
             Err(_) => return Err(store_error()),
         };
-        if !file.metadata().map_err(|_| store_error())?.is_file() {
+        let metadata = file.metadata().map_err(|_| store_error())?;
+        if !metadata.is_file() {
             return Err(store_error());
+        }
+        // If the file was made readable by others, make it private again before use.
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            if metadata.permissions().mode() & 0o077 != 0 {
+                file.set_permissions(fs::Permissions::from_mode(0o600))
+                    .map_err(|_| store_error())?;
+            }
         }
         let mut text = String::new();
         file.take(MAX_KEY_LENGTH as u64 + 2)
@@ -170,6 +180,16 @@ mod tests {
                 |path: &std::path::Path| fs::metadata(path).unwrap().permissions().mode() & 0o777;
             assert_eq!(mode(&temp.0.join("settings")), 0o700);
             assert_eq!(mode(&store.path()), 0o600);
+        }
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            fs::set_permissions(store.path(), fs::Permissions::from_mode(0o644)).unwrap();
+            assert_eq!(store.read().unwrap().as_deref(), Some("AIza-second"));
+            assert_eq!(
+                fs::metadata(store.path()).unwrap().permissions().mode() & 0o777,
+                0o600
+            );
         }
         assert!(store.save("not valid").is_err());
         assert_eq!(store.read().unwrap().as_deref(), Some("AIza-second"));

@@ -72,7 +72,11 @@ logs and errors never see it.
 A saved key takes precedence over `GEMINI_API_KEY`. **Remove Key** deletes the file.
 Page used the macOS Keychain before, but macOS asks permission for every Keychain
 read by an app it doesn't fully trust, including every development rebuild, so the
-key moved to a file protected by your account's file permissions. An old
+key moved to a file protected by your account's file permissions. If those
+permissions are loosened, Page makes the file private again when it next reads it. The
+key is plain text in that file, so backups of your user folder (such as Time Machine)
+include it; remove it with **Remove Key** before sharing a backup. On Windows, which isn't
+supported yet, the file would rely on the per-user permissions of the AppData folder. An old
 `com.page.desktop` Keychain entry is no longer read and can be deleted in Keychain
 Access.
 
