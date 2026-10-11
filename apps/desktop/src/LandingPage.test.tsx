@@ -1,6 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen, within } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
+import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import LandingPage from "./LandingPage";
 
@@ -26,16 +25,9 @@ describe("Page download landing page", () => {
     expect(screen.getByText(/Native desktop app. The local core is installed separately/)).toBeTruthy();
   });
 
-  it("opens a sample node with keyboard input and updates the illustrated note", async () => {
-    const user = userEvent.setup();
+  it("keeps the removed sample graph out of the landing page", () => {
     render(<LandingPage />);
-    const node = screen.getByRole("button", { name: "Read sample: Things I want to build" });
-    node.focus();
-    await user.keyboard("{Enter}");
-    expect(node.getAttribute("aria-pressed")).toBe("true");
-    expect(screen.getByRole("button", { name: "Read sample: The art of noticing" }).getAttribute("aria-pressed")).toBe("false");
-    const reading = document.querySelector<HTMLElement>(".demo-reading")!;
-    expect(within(reading).getByRole("heading", { name: "Things I want to build" })).toBeTruthy();
-    expect(within(reading).getByText("Projects/things-i-want-to-build.md")).toBeTruthy();
+    expect(document.querySelector(".landing-library")).toBeNull();
+    expect(screen.queryByRole("button", { name: /Read sample:/ })).toBeNull();
   });
 });
