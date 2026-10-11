@@ -140,3 +140,11 @@ def test_a_tiny_vault_can_cost_less_than_the_context(client, vault):
     usage = ask(client, vault, question="fruit?", budget=200).json()["usage"]
     # Source labels make the context larger than the note's own text.
     assert usage["vault_tokens"] == 2 and usage["context_tokens"] > usage["vault_tokens"]
+
+
+def test_ask_compares_with_the_untrimmed_matching_passages(client, vault):
+    create_note(client, vault, "fruit.md", "fruit apples are sweet. " * 40 + "\n\nfruit pears are soft. " * 40)
+    usage = ask(client, vault, question="fruit apples?", budget=60).json()["usage"]
+    # Page trimmed the matching passages to fit the budget.
+    assert usage["context_tokens"] <= 60 < usage["candidate_tokens"]
+    assert usage["candidate_tokens"] <= usage["vault_tokens"] + 50  # labels add a little

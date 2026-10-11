@@ -141,7 +141,9 @@ export interface AskSource {
 }
 export interface AskUsage {
   context_tokens: number; budget: number; counter: string; input_tokens: number; output_tokens: number;
-  /** Estimated tokens for the whole vault, with the same counter as context_tokens. */
+  /** The matching passages Page retrieved, untrimmed, with the same counter as context_tokens. */
+  candidate_tokens: number;
+  /** Estimated tokens for the whole vault, shown for scale. */
   vault_tokens: number;
 }
 export interface GeminiKeyStatus {

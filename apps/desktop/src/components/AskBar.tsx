@@ -9,15 +9,20 @@ const BUDGETS = [500, 1500, 4000] as const;
 // The user's locale, like the other numbers on screen.
 const compact = new Intl.NumberFormat(undefined, { notation: "compact", maximumFractionDigits: 1 });
 
-/** "214 sent vs ~18.4K for the whole vault · 99% less", for the latest answer. */
+/**
+ * "214 sent vs 1.2K in the matching passages · 82% less": what Page's trimming
+ * saved compared with sending the passages it found whole. The whole vault is in
+ * the tooltip for scale only; it isn't a realistic alternative.
+ */
 function Savings({ usage }: { usage: AskResponse["usage"] }) {
-  const { context_tokens: sent, vault_tokens: vault } = usage;
-  if (vault <= 0) return null;
+  const { context_tokens: sent, candidate_tokens: found, vault_tokens: vault } = usage;
+  if (found <= 0) return null;
   // Round down and stop at 99%: some context is always sent.
-  const saved = vault > sent ? Math.min(99, Math.floor((1 - sent / vault) * 100)) : 0;
-  return <span className="ask-savings" title={`Page sent ${sent.toLocaleString()} tokens of context. Sending every note and file in this vault would be about ${vault.toLocaleString()} tokens (both estimated the same way).`}>
-    <strong>{sent.toLocaleString()}</strong> sent vs ~{compact.format(vault)} for the whole vault
-    {saved > 0 && <em>{saved}% less</em>}
+  const saved = found > sent ? Math.min(99, Math.floor((1 - sent / found) * 100)) : 0;
+  const scale = vault > 0 ? ` For scale, the whole vault is about ${vault.toLocaleString()} tokens.` : "";
+  return <span className="ask-savings" title={`Page found ${found.toLocaleString()} tokens of matching passages and trimmed them to the ${sent.toLocaleString()} it sent (both estimated the same way).${scale}`}>
+    <strong>{sent.toLocaleString()}</strong>
+    {saved > 0 ? <> sent vs {compact.format(found)} in the matching passages<em>{saved}% less</em></> : <> sent · every matching passage fit</>}
   </span>;
 }
 const INPUT_ID = "ask-question";
