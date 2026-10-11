@@ -172,7 +172,7 @@ details[open] > .folder-row::before { transform: rotate(90deg); }
 .unresolved-link { color: #c4a876; }
 
 /* Editor leaves room for the floating ask box. */
-.page-editor .cm-content { padding: 35px 28px 190px; caret-color: #9dbcf0; }
+.page-editor .cm-content { padding: 35px 28px 250px; caret-color: #9dbcf0; }
 
 /* Floating ask box and the answer card above it. */
 .ask-dock { position: absolute; left: 50%; bottom: 40px; transform: translateX(-50%); width: min(720px, calc(100% - 48px)); z-index: 5; display: flex; flex-direction: column; gap: 10px; pointer-events: none; }
@@ -247,7 +247,7 @@ details[open] > .folder-row::before { transform: rotate(90deg); }
 .source-path { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #d5d0ca; font-size: 12px; }
 .source-badge { margin-right: auto; padding: 2px 8px; border-radius: 10px; background: #233236; color: #9fd3e0; font-size: 10px; }
 .source-message { padding: 24px 28px; color: var(--muted); }
-.source-scroll { flex: 1; min-height: 0; overflow: auto; padding: 24px 0 190px; }
+.source-scroll { flex: 1; min-height: 0; overflow: auto; padding: 24px 0 250px; }
 .source-body { position: relative; display: flex; min-width: max-content; font: 13px ui-monospace, SFMono-Regular, Menlo, monospace; }
 .source-gutter { margin: 0; padding: 0 14px 0 20px; min-width: 56px; text-align: right; color: #55514a; user-select: none; }
 .source-text { margin: 0; padding: 0 28px 0 8px; color: #d6d0c7; white-space: pre; tab-size: 4; outline: none; }
@@ -351,27 +351,35 @@ details[open] > .note-tree { animation: slide-down .22s var(--ease) both; }
 .ask-savings em { font-style: normal; font-weight: 600; color: #8fcf9b; }
 @media (max-width: 900px) { .ask-savings { display: none; } }
 
-/* Mascot beside the ask box */
-.ask-mascot { position: absolute; left: -104px; bottom: -8px; width: 96px; height: 96px; pointer-events: none; }
-.ask-mascot img { width: 96px; height: 96px; filter: drop-shadow(0 8px 14px #0007); animation: mascot-float 3.2s ease-in-out infinite; transform-origin: 50% 90%; }
+/* Mascot sitting on top of the chat: the next element (card or ask box) covers its legs. */
+.ask-dock > .ask-card, .ask-dock > .ask-box { position: relative; z-index: 1; }
+.ask-mascot { position: relative; z-index: 0; align-self: flex-start; margin: 0 0 -42px 28px; width: 96px; height: 96px; pointer-events: none; }
+.ask-mascot img { width: 96px; height: 96px; filter: drop-shadow(0 6px 10px #0006); transform-origin: 50% 80%; animation: mascot-sit 4s ease-in-out infinite; }
 .ask-mascot.is-thinking img { animation: mascot-ponder 1.6s ease-in-out infinite; }
-.ask-mascot.is-happy img { animation: mascot-hop .7s var(--ease) 2; }
-.mascot-thought { position: absolute; left: 46px; bottom: 92px; padding: 8px 12px; border-radius: 16px; background: #eef3fb; box-shadow: 0 6px 16px #0006; animation: pop-in .3s var(--ease) both; }
+.ask-mascot.is-happy img { animation: mascot-dance .6s ease-in-out 4; }
+.mascot-thought { position: absolute; left: 84px; top: -4px; padding: 8px 12px; border-radius: 16px; background: #eef3fb; box-shadow: 0 6px 16px #0006; animation: pop-in .3s var(--ease) both; }
 .mascot-thought .dots i { background: #3d5f96; }
 .mascot-thought-tail { position: absolute; border-radius: 50%; background: #eef3fb; }
-.mascot-thought-tail-1 { width: 10px; height: 10px; left: 6px; bottom: -9px; }
-.mascot-thought-tail-2 { width: 6px; height: 6px; left: -1px; bottom: -17px; }
-.mascot-sparkles i { position: absolute; font-style: normal; color: #f6d27a; font-size: 14px; text-shadow: 0 0 8px #f6d27a99; animation: sparkle 1.3s var(--ease) both; }
-.mascot-sparkles i:nth-child(1) { left: -4px; top: 6px; }
-.mascot-sparkles i:nth-child(2) { left: 80px; top: -6px; animation-delay: .12s; font-size: 18px; }
-.mascot-sparkles i:nth-child(3) { left: 90px; top: 40px; animation-delay: .24s; font-size: 11px; }
-@keyframes mascot-float { 0%, 100% { transform: translateY(0) rotate(-2deg); } 50% { transform: translateY(-5px) rotate(2deg); } }
+.mascot-thought-tail-1 { width: 10px; height: 10px; left: -6px; bottom: 2px; }
+.mascot-thought-tail-2 { width: 6px; height: 6px; left: -14px; bottom: -4px; }
+.mascot-sparkles i { position: absolute; font-style: normal; color: #f6d27a; font-size: 16px; text-shadow: 0 0 8px #f6d27a99; animation: sparkle 1.2s var(--ease) infinite; }
+.mascot-sparkles i:nth-child(1) { left: -10px; top: 6px; color: #a9c3ee; text-shadow: 0 0 8px #a9c3ee99; }
+.mascot-sparkles i:nth-child(2) { left: 84px; top: -8px; animation-delay: .3s; font-size: 18px; }
+.mascot-sparkles i:nth-child(3) { left: 96px; top: 22px; animation-delay: .6s; color: #a9c3ee; text-shadow: 0 0 8px #a9c3ee99; }
+.mascot-sparkles i:nth-child(4) { left: 6px; top: -14px; animation-delay: .9s; font-size: 11px; }
+@keyframes mascot-sit { 0%, 100% { transform: rotate(-2deg) scale(1); } 50% { transform: rotate(2deg) scale(1.02, .99); } }
 @keyframes mascot-ponder { 0%, 100% { transform: rotate(-6deg) translateY(0); } 50% { transform: rotate(4deg) translateY(-2px); } }
-@keyframes mascot-hop { 0% { transform: translateY(0) scale(1); } 30% { transform: translateY(-16px) scale(1.06, .96); } 60% { transform: translateY(0) scale(1.04, .94); } 100% { transform: translateY(0) scale(1); } }
-@keyframes sparkle { 0% { opacity: 0; transform: scale(.3) rotate(0); } 40% { opacity: 1; transform: scale(1.2) rotate(30deg); } 100% { opacity: 0; transform: scale(.8) translateY(-10px) rotate(60deg); } }
+@keyframes mascot-dance {
+  0% { transform: rotate(0) translateY(0); }
+  25% { transform: rotate(-12deg) translateY(-12px) scale(1.04, .97); }
+  50% { transform: rotate(0) translateY(0) scale(.98, 1.03); }
+  75% { transform: rotate(12deg) translateY(-12px) scale(1.04, .97); }
+  100% { transform: rotate(0) translateY(0); }
+}
+@keyframes sparkle { 0% { opacity: 0; transform: scale(.4) translateY(4px) rotate(0); } 40% { opacity: 1; transform: scale(1.15) rotate(20deg); } 100% { opacity: 0; transform: scale(.8) translateY(-14px) rotate(40deg); } }
 @media (max-width: 1100px) {
-  .ask-mascot { left: -70px; width: 64px; height: 64px; }
-  .ask-mascot img { width: 64px; height: 64px; }
-  .mascot-thought { left: 28px; bottom: 62px; }
+  .ask-mascot { width: 72px; height: 72px; margin: 0 0 -32px 22px; }
+  .ask-mascot img { width: 72px; height: 72px; }
+  .mascot-thought { left: 64px; }
 }
 

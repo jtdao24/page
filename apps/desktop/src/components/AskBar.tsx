@@ -219,6 +219,7 @@ export function AskBar({ controller, state, onOpenSource }: {
 
   const hasCard = cardOpen && (exchanges.length > 0 || showKey);
   return <div className="ask-dock">
+    <Mascot mood={busy ? "thinking" : happy ? "happy" : "idle"} />
     {hasCard && <section className="ask-card" aria-label="Answers">
       <header className="ask-card-header">
         <span><Icon name="sparkle" size={14} />Ask your notes</span>
@@ -247,7 +248,6 @@ export function AskBar({ controller, state, onOpenSource }: {
         <div ref={end} />
       </div>
     </section>}
-    <Mascot mood={busy ? "thinking" : happy ? "happy" : "idle"} />
     <form className="ask-box" aria-label="Ask your notes" onSubmit={(event) => { event.preventDefault(); void ask(); }}>
       <label htmlFor={INPUT_ID} className="sr-only">Question</label>
       <textarea ref={input} id={INPUT_ID} rows={1} value={question} maxLength={2000} disabled={!state.vault}

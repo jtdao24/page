@@ -64,9 +64,10 @@ vault would show close to 99% in any large vault, because the context is capped 
 budget, so it says more about vault size than about Page. None of these numbers
 measure answer quality. Per-file counts are cached by revision.
 
-Page's mascot sits beside the ask box. It floats gently, shows a thought bubble while
-Page finds passages and waits for Gemini, and hops happily with a few sparkles for a
-moment when an answer arrives (not after an error). Its motion stops when the system
+Page's mascot sits on top of the chat: on the answer card when it's open, otherwise
+on the ask box, with its legs tucked behind the edge. It sways gently, shows a thought
+bubble while Page finds passages and waits for Gemini, and dances with music notes and
+sparkles for a moment when an answer arrives (not after an error). Its motion stops when the system
 asks for reduced motion.
 
 ## Privacy and security
