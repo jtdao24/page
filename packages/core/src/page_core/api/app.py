@@ -103,6 +103,19 @@ async def _run[T](request: Request, operation: Callable[[LocalVaultService], T])
         raise translate(exc) from None
 
 
+async def _warm_sources(request: Request, vault_id: UUID) -> None:
+    """Extract source text (slow for big PDFs) off the storage worker before a search.
+
+    The worker then finds it cached, so note reads and saves aren't held up. Errors
+    are left for the real request to report.
+    """
+    try:
+        library = await _run(request, lambda service: service.source_library(vault_id))
+        await asyncio.to_thread(library.documents)
+    except Exception:
+        return
+
+
 def _path_uuid(name: str, value: str) -> UUID:
     try:
         return parse_uuid(value)
@@ -314,6 +327,7 @@ def create_app(*, session_token: str | None = None, chat_model: ChatModel | None
     async def index_vault(request: Request, vault_id: str) -> Response:
         identifier = _path_uuid("vault_id", vault_id)
         body = await _body(request, IndexRequest)
+        await _warm_sources(request, identifier)
         result = await _run(request, lambda service: service.index_vault(identifier, body.rebuild))
         return _json(IndexResponse(vault_id=str(identifier), model=FINGERPRINT,
             notes=result.notes, chunks=result.chunks, generated=result.generated,
@@ -324,6 +338,7 @@ def create_app(*, session_token: str | None = None, chat_model: ChatModel | None
     async def search_vault(request: Request, vault_id: str) -> Response:
         identifier = _path_uuid("vault_id", vault_id)
         body = await _body(request, SearchRequest)
+        await _warm_sources(request, identifier)
         hits = await _run(request, lambda service: service.search_vault(identifier, body.query, body.limit))
         return _json(SearchResponse(vault_id=str(identifier), model=FINGERPRINT,
             hits=[SearchHitResponse(chunk_id=str(hit.chunk.id), note_id=str(hit.chunk.note_id),
@@ -342,6 +357,7 @@ def create_app(*, session_token: str | None = None, chat_model: ChatModel | None
             raise translate(LLMNotConfiguredError("no API key"))
         # Context is built on the storage worker; the model call runs elsewhere so a
         # slow provider never blocks note editing.
+        await _warm_sources(request, identifier)
         package = await _run(request, lambda service: service.question_context(
             identifier, body.question, body.budget))
         try:

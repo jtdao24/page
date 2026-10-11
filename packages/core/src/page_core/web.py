@@ -116,7 +116,8 @@ def fetch_page(url: str, *, opener: Callable[..., Any] = _default_open,
     return WebPage(final_url, title or urllib.parse.urlsplit(final_url).hostname or "Page", markdown)
 
 
-_SKIP = {"script", "style", "noscript", "template", "svg", "nav", "footer", "form", "button", "iframe", "select", "aside"}
+# Some sites wrap the whole page in a <form>, so forms are kept; their controls carry no text.
+_SKIP = {"script", "style", "noscript", "template", "svg", "nav", "footer", "button", "iframe", "select", "aside", "textarea"}
 _BLOCK = {"p", "div", "section", "article", "main", "header", "br", "tr", "table", "figure", "figcaption", "blockquote", "dl", "dt", "dd"}
 
 

@@ -133,3 +133,25 @@ def test_extraction_is_cached_until_the_file_changes(vault_root):
     assert changed["readme.txt"].content == "changed text!"
     target.unlink()
     assert "readme.txt" not in {str(d.relative_path) for d in library.documents()}
+
+
+def test_cache_is_bounded_and_safe_to_warm_from_another_thread(vault_root, monkeypatch):
+    import threading
+    from page_core import sources
+    calls = []
+
+    def extract(path, data):
+        calls.append(str(path))
+        return extract_text(path, data)
+    library = SourceLibrary(vault_root, uuid4(), extract=extract)
+    warm = threading.Thread(target=library.documents)
+    warm.start(); warm.join()
+    first = len(calls)
+    library.documents()
+    assert len(calls) == first  # the worker reuses what the warm-up thread extracted
+    monkeypatch.setattr(sources, "MAX_CACHED_CHARACTERS", 5)
+    small = SourceLibrary(vault_root, uuid4(), extract=extract)
+    calls.clear()
+    small.documents(); small.documents()
+    assert calls.count("code/timer.py") == 2  # too big to keep, so it's read again
+    assert small._cached_characters <= 5

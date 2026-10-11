@@ -178,4 +178,24 @@ describe("floating ask box", () => {
     expect(client.backendRestart).not.toHaveBeenCalled();
     expect(input.value).toBe("bad key");
   });
+  it("retries a failed question without erasing what's being typed", async () => {
+    const { client } = await setup();
+    client.askQuestion.mockRejectedValueOnce(failure("llm_rate_limited"));
+    await click("Ask");
+    await type("a different draft");
+    await click("Try Again");
+    expect(client.askQuestion).toHaveBeenLastCalledWith(vault.id, "when should I water?", 1500);
+    expect(host.querySelector<HTMLTextAreaElement>("#ask-question")!.value).toBe("a different draft");
+  });
+  it("is ready again as soon as Core recovers, even if the old request never returns", async () => {
+    const { client, emit } = await setup();
+    client.askQuestion.mockReturnValueOnce(new Promise(() => {}));
+    await click("Ask");
+    await act(async () => emit({ ...ready, state: "failed", error: failure("backend_exited") }));
+    await act(async () => emit(ready));
+    expect(host.textContent).not.toContain("asking Gemini");
+    await type("next question");
+    expect(button("Ask")!.disabled).toBe(false);
+  });
 });
+

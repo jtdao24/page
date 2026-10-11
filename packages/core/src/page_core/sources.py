@@ -10,6 +10,7 @@ import hashlib
 import io
 import os
 import stat
+import threading
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
@@ -21,6 +22,8 @@ from page_core.vault import read_regular_file, require_managed_parts
 MAX_SOURCE_BYTES = 25 * 1024 * 1024
 MAX_SOURCE_CHARACTERS = 2_000_000
 MAX_SOURCES = 5000
+# Extracted text kept in memory per vault. Beyond this, files are re-read when needed.
+MAX_CACHED_CHARACTERS = 100_000_000
 # Generated or dependency folders that would drown a vault's own knowledge.
 SKIPPED_FOLDERS = frozenset({"node_modules", "__pycache__", "venv", "target", "dist", "build"})
 
@@ -85,7 +88,11 @@ def extract_text(relative_path: PurePosixPath, data: bytes) -> str:
 
 
 class SourceLibrary:
-    """Sources in one vault folder, with extracted text cached per file version."""
+    """Sources in one vault folder, with extracted text cached per file version.
+
+    Thread-safe: the API warms the cache on another thread, so slow PDF extraction
+    doesn't hold up the storage worker that serves note reads and saves.
+    """
 
     def __init__(self, root: Path, vault_id: UUID, *,
                  extract: Callable[[PurePosixPath, bytes], str] = extract_text) -> None:
@@ -95,6 +102,8 @@ class SourceLibrary:
         self._vault_id = vault_id
         self._extract = extract
         self._cache: dict[PurePosixPath, tuple[tuple[int, int, int], SourceDocument | None]] = {}
+        self._cached_characters = 0
+        self._lock = threading.Lock()
 
     def list(self) -> list[SourceEntry]:
         """Every source file, sorted by path. Hidden, symlinked and skipped folders are ignored."""
@@ -128,7 +137,8 @@ class SourceLibrary:
         if not stat.S_ISREG(info.st_mode) or info.st_size > MAX_SOURCE_BYTES:
             raise SourceNotFoundError(str(relative))
         version = (info.st_size, info.st_mtime_ns, info.st_ino)
-        cached = self._cache.get(relative)
+        with self._lock:
+            cached = self._cache.get(relative)
         if cached is not None and cached[0] == version:
             return cached[1]
         try:
@@ -141,15 +151,27 @@ class SourceLibrary:
                 self._extract(relative, data), hashlib.sha256(data).hexdigest())
         except SourceUnreadableError:
             document = None
-        self._cache[relative] = (version, document)
+        with self._lock:
+            self._forget(relative)
+            size = len(document.content) if document else 0
+            if self._cached_characters + size <= MAX_CACHED_CHARACTERS:
+                self._cache[relative] = (version, document)
+                self._cached_characters += size
         return document
+
+    def _forget(self, relative: PurePosixPath) -> None:
+        """Drop a cached entry; the caller holds the lock."""
+        previous = self._cache.pop(relative, None)
+        if previous is not None and previous[1] is not None:
+            self._cached_characters -= len(previous[1].content)
 
     def documents(self) -> tuple[SourceDocument, ...]:
         """Readable sources with their extracted text; unreadable ones are skipped."""
         entries = self.list()
         listed = {entry.relative_path for entry in entries}
-        for stale in set(self._cache) - listed:
-            del self._cache[stale]
+        with self._lock:
+            for stale in set(self._cache) - listed:
+                self._forget(stale)
         documents = []
         for entry in entries:
             try:

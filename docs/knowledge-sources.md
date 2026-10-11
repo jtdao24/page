@@ -34,7 +34,9 @@ Sources are read-only documents, not notes:
 - A source's ID comes from its path, so a moved file counts as a new document.
 - Sources don't take part in wiki links or the graph.
 
-Extracted text is cached in memory, keyed by file size, modification time and inode.
+Text is extracted before a search on a separate thread, so a big first search
+doesn't hold up opening and saving notes. Up to 100 million characters of extracted
+text are cached in memory, keyed by file size, modification time and inode.
 Embeddings are cached with the notes' embeddings, so unchanged files aren't
 re-processed.
 
@@ -54,6 +56,9 @@ Limits and safety:
 - Only `http` and `https` addresses are accepted, without user names.
 - Addresses that resolve to this computer are refused (loopback, link-local,
   unspecified and multicast). Redirects are checked the same way.
+  The address is checked when it's looked up, so a site that changes its DNS answer
+  between the check and the download could still reach this computer. Private
+  network addresses are allowed, for intranet pages.
 - Only HTML and plain text pages up to 5 MB are saved. The download times out
   after 20 seconds.
 - Pages that need JavaScript to show their content, or a login, save little or
