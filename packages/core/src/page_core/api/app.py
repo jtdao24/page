@@ -376,7 +376,8 @@ def create_app(*, session_token: str | None = None, chat_model: ChatModel | None
             cited=[block.number for block in answer.citations],
             usage=AskUsage(context_tokens=package.usage.tokens, budget=package.usage.budget,
                            counter=package.usage.counter, input_tokens=answer.input_tokens,
-                           output_tokens=answer.output_tokens, vault_tokens=prepared.vault_tokens)))
+                           output_tokens=answer.output_tokens, candidate_tokens=package.usage.candidate_tokens,
+                           vault_tokens=prepared.vault_tokens)))
 
     @app.get(f"{PREFIX}/vaults/{{vault_id}}/sources", response_model=list[SourceSummaryResponse],
              responses=_errors(404, 409, 422, 503))
