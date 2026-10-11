@@ -1,5 +1,9 @@
-import { useState } from "react";
+import { lazy, Suspense, useState } from "react";
 import heroImage from "./assets/page-books.png";
+import hacklantaLogo from "../hacklanta.png";
+
+
+const LogoExperience = lazy(() => import("./landing/LogoExperience").then((module) => ({ default: module.LogoExperience })));
 
 const examples = [
   { title: "The art of noticing", category: "IDEAS", text: "Good ideas begin with small observations. Keep the sentences, questions, and patterns that catch your attention.", path: "Ideas/the-art-of-noticing.md", x: 24, y: 35 },
@@ -25,7 +29,13 @@ export default function LandingPage({ appHref = "/", macDownloadUrl, windowsDown
   return <div className="page-landing" id="top">
     <a className="landing-skip" href="#landing-main">Skip to content</a>
     <header className="landing-nav">
-      <a className="page-wordmark" href="#top" aria-label="Page home">Page<span className="page-fold" aria-hidden="true" /></a>
+      <a className="page-wordmark" href="#top" aria-label="Page home">Page<span className="page-fold" aria-hidden="true" />
+      <div className="logo-experience-credit" aria-label="For Hacklanta">
+          <span>for</span>
+          <img src={hacklantaLogo} alt="Hacklanta" />
+        </div>
+      </a>
+      
       <nav aria-label="Landing page navigation">
         <a className="landing-nav-link" href="#mission">the mission</a><a className="landing-nav-link" href="#how-it-works">how it works</a>
         <a className="landing-open" href={appHref}>Open App <Arrow diagonal /></a>
@@ -46,6 +56,9 @@ export default function LandingPage({ appHref = "/", macDownloadUrl, windowsDown
       </section>
 
       <div className="landing-belt" aria-label="Page principles"><span>plain Markdown</span><span aria-hidden="true">✳</span><span>your files, your control</span><span aria-hidden="true">✳</span><span>ideas in context</span><span aria-hidden="true">✳</span><span>local first</span></div>
+      <Suspense fallback={<div className="logo-experience-placeholder" aria-hidden="true" />}>
+        <LogoExperience />
+      </Suspense>
 
       <section className="landing-section landing-mission" id="mission" aria-labelledby="mission-title">
         <div className="section-label"><span>01 / WHY WE MADE PAGE</span><span>KEEP THE KNOWLEDGE. FIND THE MEANING.</span></div>
