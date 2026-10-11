@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createKnowledgeGraph, folderColor, graphElements } from "./graph";
+import { createKnowledgeGraph, folderColor, graphElements, layoutFor } from "./graph";
 import type { GraphResponse } from "../core/types";
 
 export const linkedGraph: GraphResponse = {
@@ -49,6 +49,20 @@ describe("Cytoscape knowledge graph", () => {
     expect(cy.getElementById("c").hasClass("faded")).toBe(true);
     cy.getElementById("b").emit("mouseout");
     expect(cy.elements(".faded, .focused")).toHaveLength(0);
+    cy.destroy();
+  });
+  it("uses cheaper layouts as graphs grow", () => {
+    expect(layoutFor(1, true).name).toBe("circle");
+    expect(layoutFor(200, true)).toMatchObject({ name: "cose", animate: true, numIter: 1500 });
+    expect(layoutFor(1000, true)).toMatchObject({ name: "cose", animate: false, numIter: 300 });
+    expect(layoutFor(5000, true)).toMatchObject({ name: "concentric", animate: false });
+    const nodes = Array.from({ length: 2000 }, (_, i) => ({ id: `n${i}`, relative_path: `n${i}.md` }));
+    const links = nodes.slice(1).map((node, i) => ({ source_note_id: node.id, target_note_id: nodes[i].id, target_reference: nodes[i].id,
+      line: 1, alias: null, unresolved_reason: null }));
+    const started = performance.now();
+    const cy = createKnowledgeGraph(null, { vault_id: "v", nodes, links }, () => {});
+    expect(cy.nodes()).toHaveLength(2000);
+    expect(performance.now() - started).toBeLessThan(5000);
     cy.destroy();
   });
 });

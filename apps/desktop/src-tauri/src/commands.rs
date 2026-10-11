@@ -431,6 +431,8 @@ mod tests {
             .collect();
         expected.push("core:event:allow-listen".to_owned());
         expected.push("core:event:allow-unlisten".to_owned());
+        // The native folder picker only returns the path the user chose.
+        expected.push("dialog:allow-open".to_owned());
         expected.sort();
         assert_eq!(granted, expected);
     }

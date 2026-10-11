@@ -27,6 +27,7 @@
     "allow-note-delete",
     "allow-preferences-read",
     "allow-preferences-write",
+    "dialog:allow-open",
     "allow-source-list",
     "allow-source-read",
     "allow-web-page-save",

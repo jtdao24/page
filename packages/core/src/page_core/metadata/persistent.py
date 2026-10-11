@@ -133,7 +133,10 @@ class PersistentVault:
                 self.metadata.insert(record)
             elif record != previous:
                 self.metadata.update(record)
-        self._restore_ids()
+        # Re-syncing identities lists every note, so only do it when this read changed
+        # metadata or the in-memory ID disagrees; otherwise reading n notes costs n².
+        if previous is None or record != previous or self.files._ids.get(source.path) != record.id:
+            self._restore_ids()
         return Note(record.id, self.vault.id, source.path, content, record.created_at, record.updated_at)
 
     def _finish_write(self, note: Note, operation: str, previous: NoteMetadata | None) -> Note:

@@ -92,6 +92,7 @@ pub fn run() {
     backend.set_gemini_key_source(Box::new(|| secrets::read_key().ok().flatten()));
     let quit = Arc::new(AtomicBool::new(false));
     let app = tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .menu(build_menu)
         .on_menu_event(|app, event| {
             if event.id() == QUIT_MENU_ID {

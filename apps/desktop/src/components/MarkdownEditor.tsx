@@ -7,9 +7,9 @@ import { useEffect, useRef } from "react";
 import type { LineSeparator } from "../workspace/text";
 
 const syntaxColors: Record<string, string> = {
-  "#404740": "#a8a8a8", "#708": "#c4a7e7", "#219": "#b39af6",
+  "#404740": "#a8a8a8", "#708": "#9cb8e6", "#219": "#7fa6e3",
   "#164": "#a3be8c", "#a11": "#ebbcba", "#e40": "#f6c177",
-  "#00f": "#8fbcbb", "#30a": "#c4a7e7", "#085": "#a3be8c",
+  "#00f": "#8fbcbb", "#30a": "#9cb8e6", "#085": "#a3be8c",
   "#167": "#9ccfd8", "#256": "#8fbcbb", "#00c": "#9ccfd8",
 };
 const darkHighlightStyle = HighlightStyle.define(defaultHighlightStyle.specs.map((spec) => ({
