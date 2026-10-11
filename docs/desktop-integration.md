@@ -35,7 +35,8 @@ Exposed commands: `backend_start`, `backend_status`, `backend_restart`;
 `vault_create`, `vault_open`, `vault_list`, `vault_get`, `vault_close`,
 `vault_reconcile`; `note_list`, `note_read`, `note_create`, `note_update`,
 `note_move`, `note_delete`; `preferences_read`, `preferences_write`, `desktop_quit`;
-`graph_read`, `semantic_index`, `semantic_search`, `ask_question`; `gemini_key_status`,
+`graph_read`, `semantic_index`, `semantic_search`, `ask_question`; `source_list`,
+`source_read`, `web_page_save`; `gemini_key_status`,
 `gemini_key_save`, `gemini_key_clear` (the key goes to the system credential store, never
 back to the webview).
 There is no generic URL, HTTP, filesystem, SQL or shell command. Wire fields

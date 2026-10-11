@@ -7,7 +7,8 @@ itself depends only on a small provider-neutral interface.
 ## How a question is answered
 
 1. **Retrieve.** Page Core brings the semantic index up to date with your saved notes
-   and finds the 10 most similar passages ([semantic search](semantic-search.md)).
+   and [knowledge sources](knowledge-sources.md) (PDFs, code, text), and finds the 10 most
+   similar passages ([semantic search](semantic-search.md)).
 2. **Optimize.** The [context optimizer](context-optimization.md) packs the most relevant of them into numbered,
    source-attributed context that fits your budget. It ranks by embedding similarity
    without the learned reranker, which [evaluation](evaluation.md) showed does not

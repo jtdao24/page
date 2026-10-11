@@ -169,7 +169,8 @@ def test_fingerprint_invalidates_vectors_and_failed_sql_rolls_back(tmp_path):
         assert index.update((note,)).generated == 1
         before = storage.metadata.read_vectors(encoder.fingerprint)
         with pytest.raises(sqlite3.IntegrityError):
-            storage.metadata.replace_vectors(encoder.fingerprint, [(uuid4(), uuid4(), b'bad')])
+            duplicate = uuid4()  # the same chunk twice violates the primary key
+            storage.metadata.replace_vectors(encoder.fingerprint, [(duplicate, uuid4(), b'a'), (duplicate, uuid4(), b'b')])
         assert storage.metadata.read_vectors(encoder.fingerprint) == before
 
 

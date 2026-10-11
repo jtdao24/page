@@ -358,7 +358,11 @@ def _resolve_root(root: object, *, strict: bool) -> Path:
 
 
 def _require_managed_path(path: object) -> PurePosixPath:
-    relative = validate_note_path(path)
+    return require_managed_parts(validate_note_path(path))
+
+
+def require_managed_parts(relative: PurePosixPath) -> PurePosixPath:
+    """Apply the vault's portable-name rules to every component of ``relative``."""
     for part in relative.parts:
         if part.startswith("."):
             raise InvalidNotePathError(f"{relative}: hidden entries are not managed")
@@ -405,6 +409,11 @@ def _timestamps(info: os.stat_result) -> tuple[datetime, datetime]:
     if birth is None:
         return updated_at, updated_at
     return min(datetime.fromtimestamp(birth, tz=UTC), updated_at), updated_at
+
+
+def read_regular_file(path: Path) -> tuple[bytes, os.stat_result]:
+    """Read a regular file without following a final symlink."""
+    return _read_regular_file(path)
 
 
 def _read_regular_file(path: Path) -> tuple[bytes, os.stat_result]:

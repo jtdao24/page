@@ -1,4 +1,4 @@
-import type { NoteSummaryResponse } from "../core/types";
+import type { NoteSummaryResponse, SourceSummaryResponse } from "../core/types";
 
 export interface FolderNode {
   kind: "folder";
@@ -17,22 +17,29 @@ export interface NoteNode {
   note: NoteSummaryResponse;
 }
 
-export type TreeNode = FolderNode | NoteNode;
+export interface SourceNode {
+  kind: "source";
+  /** Stable key: the source's path-derived UUID. */
+  key: string;
+  name: string;
+  source: SourceSummaryResponse;
+}
+
+export type TreeNode = FolderNode | NoteNode | SourceNode;
 
 function compare(left: string, right: string): number {
   return left < right ? -1 : left > right ? 1 : 0;
 }
 
 /**
- * Build nested folders from note summaries only. Ordering is lexical by
+ * Build nested folders from note and source summaries. Ordering is lexical by
  * code unit (folders and notes interleaved by name), then by UUID, so it
  * does not depend on the list order or the user's locale.
  */
-export function buildTree(notes: readonly NoteSummaryResponse[]): TreeNode[] {
+export function buildTree(notes: readonly NoteSummaryResponse[], sources: readonly SourceSummaryResponse[] = []): TreeNode[] {
   const root: FolderNode = { kind: "folder", key: "", name: "", path: "", children: [] };
   const folders = new Map<string, FolderNode>([["", root]]);
-  for (const note of notes) {
-    const parts = note.relative_path.split("/");
+  const parentOf = (parts: string[]) => {
     let parent = root;
     for (const part of parts.slice(0, -1)) {
       const path = parent.path ? `${parent.path}/${part}` : part;
@@ -44,7 +51,15 @@ export function buildTree(notes: readonly NoteSummaryResponse[]): TreeNode[] {
       }
       parent = folder;
     }
-    parent.children.push({
+    return parent;
+  };
+  for (const source of sources) {
+    const parts = source.relative_path.split("/");
+    parentOf(parts).children.push({ kind: "source", key: `source:${source.id}`, name: parts[parts.length - 1], source });
+  }
+  for (const note of notes) {
+    const parts = note.relative_path.split("/");
+    parentOf(parts).children.push({
       kind: "note",
       key: `note:${note.vault_id}:${note.id}`,
       name: parts[parts.length - 1],

@@ -730,6 +730,36 @@ export class WorkspaceController {
     return this.api.askQuestion(vaultId, question, budget);
   }
 
+  listSources(vaultId: string) {
+    return this.api.sourceList(vaultId);
+  }
+
+  readSource(vaultId: string, sourceId: string) {
+    return this.api.sourceRead(vaultId, sourceId);
+  }
+
+  /**
+   * Fetch a web page once, save it as a new note under web/ and open it.
+   * Callers run the dirty guard first, as for creating a note.
+   */
+  async saveWebPage(url: string): Promise<void> {
+    const vault = this.state.vault;
+    if (vault === null || this.client === null || mutationsBlocked(this.state)) {
+      throw localError("unavailable", "Saving a web page is unavailable until Core and the vault are ready.");
+    }
+    try {
+      const note = await this.api.webPageSave(vault.id, url);
+      if (this.state.vault?.id !== vault.id) return;
+      this.documentEpoch += 1;
+      this.set({ document: this.documentFrom(note), conflict: null });
+      this.remember(vault, note.id);
+      this.announce(`Saved ${note.relative_path}.`);
+    } finally {
+      // Refresh even after an error: a timed-out request may still have saved the note.
+      if (this.state.vault?.id === vault.id) void this.loadNotes();
+    }
+  }
+
   geminiKeyStatus() {
     return this.api.geminiKeyStatus();
   }

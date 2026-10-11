@@ -17,6 +17,8 @@ from page_core.llm import (
     LLMUnavailableError,
 )
 from page_core.semantic import ModelUnavailableError, IndexCorruptError, EmbeddingError
+from page_core.sources import SourceNotFoundError, SourceUnreadableError
+from page_core.web import InvalidUrlError, UnsupportedPageError, WebFetchError
 from page_core.metadata import MetadataDecodeError, MetadataError, MetadataNotFoundError, MetadataSyncError
 from page_core.vault import (
     InvalidNotePathError, NoteConflictError, NoteExistsError, NoteNotFoundError,
@@ -137,6 +139,11 @@ def translate(error: BaseException) -> ApiError:
         (LLMUnavailableError, 503, "llm_unavailable", "Gemini could not be reached; try again."),
         (LLMResponseError, 502, "llm_failed",
          "Gemini rejected the request or gave no usable answer; check GEMINI_API_KEY and PAGE_GEMINI_MODEL."),
+        (SourceNotFoundError, 404, "source_not_found", "No readable source has this ID in this vault."),
+        (SourceUnreadableError, 422, "source_unreadable", "Page could not extract text from this file."),
+        (InvalidUrlError, 422, "invalid_url", "Enter a full http:// or https:// address that isn't on this computer."),
+        (UnsupportedPageError, 415, "unsupported_page", "The address is not a web page Page can save, or it is larger than 5 MB."),
+        (WebFetchError, 502, "web_fetch_failed", "The page could not be downloaded."),
         (ModelUnavailableError, 503, "model_unavailable", "Prepare the local embedding model before searching."),
         (IndexCorruptError, 503, "index_corrupt", "The semantic index is corrupt; rebuild it."),
         (EmbeddingError, 503, "embedding_failed", "Local embedding inference failed; try again."),
