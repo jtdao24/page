@@ -1,15 +1,10 @@
-import { lazy, Suspense, useState } from "react";
+import { lazy, Suspense } from "react";
 import heroImage from "./assets/page-books.png";
 import hacklantaLogo from "../hacklanta.png";
 
 
 const LogoExperience = lazy(() => import("./landing/LogoExperience").then((module) => ({ default: module.LogoExperience })));
 
-const examples = [
-  { title: "The art of noticing", category: "IDEAS", text: "Good ideas begin with small observations. Keep the sentences, questions, and patterns that catch your attention.", path: "Ideas/the-art-of-noticing.md", x: 24, y: 35 },
-  { title: "Things I want to build", category: "PROJECTS", text: "An idea doesn’t have to be finished to deserve a home. Collect the sketches, experiments, and what-ifs along the way.", path: "Projects/things-i-want-to-build.md", x: 69, y: 24 },
-  { title: "Notes from the margins", category: "READING", text: "The parts worth returning to, and the thoughts they leave behind. A personal collection of things that made you think.", path: "Reading/notes-from-the-margins.md", x: 56, y: 73 },
-];
 
 function Arrow({ diagonal = false }: { diagonal?: boolean }) {
   return <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
@@ -23,19 +18,16 @@ function DownloadIcon() {
 export default function LandingPage({ appHref = "/", macDownloadUrl, windowsDownloadUrl }: {
   appHref?: string; macDownloadUrl?: string; windowsDownloadUrl?: string;
 }) {
-  const [selected, setSelected] = useState(0);
-  const example = examples[selected];
 
   return <div className="page-landing" id="top">
     <a className="landing-skip" href="#landing-main">Skip to content</a>
     <header className="landing-nav">
       <a className="page-wordmark" href="#top" aria-label="Page home">Page<span className="page-fold" aria-hidden="true" />
       <div className="logo-experience-credit" aria-label="For Hacklanta">
-          <span>for</span>
-          <img src={hacklantaLogo} alt="Hacklanta" />
-        </div>
+        <span>for</span>
+      <img src={hacklantaLogo} alt="Hacklanta" />
+      </div>
       </a>
-      
       <nav aria-label="Landing page navigation">
         <a className="landing-nav-link" href="#mission">the mission</a><a className="landing-nav-link" href="#how-it-works">how it works</a>
         <a className="landing-open" href={appHref}>Open App <Arrow diagonal /></a>
@@ -80,25 +72,9 @@ export default function LandingPage({ appHref = "/", macDownloadUrl, windowsDown
         </ol>
       </section>
 
-      <section className="landing-section landing-library" id="the-library" aria-labelledby="library-title">
-        <div className="section-label"><span>03 / A LOOK INSIDE</span><span>YOUR KNOWLEDGE, IN GOOD COMPANY.</span></div>
-        <div className="library-demo-layout"><div className="library-demo-copy"><h2 id="library-title">follow<br />a thought.</h2><p>Every node is an entry. Open it, read it, and make room beside it for another idea.</p>
-          <a className="landing-text-link" href={appHref}>explore the workspace preview <Arrow diagonal /></a><p className="demo-disclaimer">Illustrative sample below. The experimental graph preview shows shared collections; the native app currently focuses on Markdown editing.</p></div>
-          <div className="landing-demo"><div className="demo-topbar"><span className="demo-brand">Page</span><span className="demo-label">ILLUSTRATIVE PREVIEW</span><span className="demo-dots" aria-hidden="true">● ● ●</span></div>
-            <div className="demo-tabs"><span>Your graph</span><span className="demo-active-tab">{example.title}</span></div>
-            <div className="demo-main"><div className="demo-graph" role="group" aria-label="Sample knowledge graph">
-              <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><path d="M24 35 69 24 56 73Z" /><path d="M24 35 9 69M69 24 88 53M56 73 83 89" /></svg>
-              <span className="demo-satellite satellite-one" aria-hidden="true" /><span className="demo-satellite satellite-two" aria-hidden="true" /><span className="demo-satellite satellite-three" aria-hidden="true" />
-              {examples.map((note, index) => <button key={note.title} className={`demo-node${selected === index ? " is-selected" : ""}`} style={{ left: `${note.x}%`, top: `${note.y}%` }} onClick={() => setSelected(index)} aria-pressed={selected === index} aria-label={`Read sample: ${note.title}`}><span className="demo-node-dot" /><span className="demo-node-label">{note.title}</span></button>)}
-            </div>
-              <div className="demo-reading" aria-live="polite"><span>{example.category} / OPEN NOTE</span><h3>{example.title}</h3><p>{example.text}</p><small>{example.path}</small></div>
-              <p className="demo-instruction">Choose a node. There’s a thought inside.</p>
-            </div>
-          </div>
-        </div>
-      </section>
 
-      <section className="landing-section landing-questions" aria-labelledby="questions-title"><div className="section-label"><span>04 / A FEW GOOD QUESTIONS</span><span>BEFORE YOU TURN THE PAGE.</span></div>
+
+      <section className="landing-section landing-questions" aria-labelledby="questions-title"><div className="section-label"><span>03 / A FEW GOOD QUESTIONS</span><span>BEFORE YOU TURN THE PAGE.</span></div>
         <div className="questions-layout"><h2 id="questions-title">good to<br />know.</h2><div className="landing-faq">
           <details><summary>Where do my notes live?<span aria-hidden="true">+</span></summary><p>In your own Markdown vault on your device. Page builds a local index around your files; your Markdown remains the source of truth.</p></details>
           <details><summary>Do I need an account?<span aria-hidden="true">+</span></summary><p>No account is required for the local workspace. Online sign-in is not configured yet. Future accounts will support connected services and synchronization.</p></details>
