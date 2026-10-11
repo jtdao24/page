@@ -312,3 +312,21 @@ def test_duplicate_allocated_ids_abort_without_losing_notes(persistent, monkeypa
     assert persistent.metadata.list_notes(include_missing=True) == []
     assert (root / "a.md").read_text() == "a"
     assert (root / "b.md").read_text() == "b"
+
+
+def test_reading_unchanged_notes_does_not_relist_every_note(tmp_path, monkeypatch):
+    # Reading n notes once each must not list all n notes per read (n² work), which
+    # made the graph time out on large vaults.
+    with PersistentVault.create(tmp_path / "v", "Big") as storage:
+        paths = [PurePosixPath(f"n{i}.md") for i in range(30)]
+        for path in paths:
+            storage.create_note(path, f"note {path}")
+        calls = []
+        original = storage.metadata.list_notes
+        monkeypatch.setattr(storage.metadata, "list_notes", lambda: calls.append(1) or original())
+        notes = [storage.read_note(path) for path in paths]
+        assert len(calls) == 0
+        assert len({note.id for note in notes}) == 30
+        (tmp_path / "v" / "n0.md").write_text("changed outside Page")
+        assert storage.read_note(paths[0]).id == notes[0].id
+        assert len(calls) == 1  # a changed note still re-syncs identities

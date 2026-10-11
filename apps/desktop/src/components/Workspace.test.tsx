@@ -71,21 +71,31 @@ describe("desktop workspace interaction", () => {
     expect(editor()).toBe(view);
     expect(view.state.sliceDoc()).toBe("original draft");
   });
-  it("open/create forms retain input on errors and use separate commands", async () => {
+  it("opens vaults through the Finder picker and explains a folder that isn't a vault", async () => {
     const { client } = testClient();
     const controller = new WorkspaceController(client); await mount(controller);
-    const open = host.querySelector<HTMLFormElement>('form[aria-label="Open Vault"]')!;
-    const path = open.querySelector("input")!;
-    await input(path, "/tmp/missing");
+    client.pickFolder.mockResolvedValueOnce("/tmp/missing");
     client.vaultOpen.mockRejectedValueOnce(failure("vault_not_found"));
-    await act(async () => open.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })));
-    expect(path.value).toBe("/tmp/missing"); expect(client.vaultCreate).not.toHaveBeenCalled();
-    expect(host.textContent).toContain("No Page vault was found");
-    const create = host.querySelector<HTMLFormElement>('form[aria-label="Create Vault"]')!;
-    const inputs = create.querySelectorAll("input");
-    await input(inputs[0], "/tmp/new"); await input(inputs[1], "New Vault");
-    await act(async () => create.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })));
-    expect(client.vaultCreate).toHaveBeenCalledWith("/tmp/new", "New Vault");
+    await act(async () => window.dispatchEvent(new KeyboardEvent("keydown", { key: "o", metaKey: true })));
+    expect(client.pickFolder).toHaveBeenCalledWith("Choose a vault folder");
+    expect(client.vaultOpen).toHaveBeenCalledWith("/tmp/missing");
+    expect(host.querySelector(".home-error")?.textContent).toContain("No Page vault was found");
+    expect(host.querySelectorAll('[role="alert"]')).toHaveLength(1);
+    client.pickFolder.mockResolvedValueOnce("/tmp/notes");
+    await click("Open Vault");
+    expect(client.vaultOpen).toHaveBeenLastCalledWith("/tmp/notes");
+    expect(client.vaultCreate).not.toHaveBeenCalled();
+  });
+  it("switches vaults from the sidebar with the same Finder choices", async () => {
+    const { client } = await setup();
+    await act(async () => host.querySelector<HTMLButtonElement>(".vault-switcher")!.click());
+    const dialog = host.querySelector('[role="dialog"]')!;
+    expect(dialog.querySelector("input")).toBeNull();
+    client.pickFolder.mockResolvedValueOnce("/tmp/Second Brain");
+    const create = [...dialog.querySelectorAll<HTMLButtonElement>(".home-card")].find((b) => b.textContent?.includes("Create a new vault"))!;
+    await act(async () => create.click());
+    expect(client.vaultCreate).toHaveBeenCalledWith("/tmp/Second Brain", "Second Brain");
+    expect(host.querySelector('[role="dialog"]')).toBeNull();
   });
   it("creates and moves through forms with explicit nested paths", async () => {
     const { client, controller } = await setup();
