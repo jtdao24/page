@@ -14,7 +14,7 @@
     "tauri:build": "npm run tauri:build -w @page/desktop",
     "runtime:prepare": "npm run runtime:prepare -w @page/desktop",
     "tauri:bundle": "npm run tauri:bundle -w @page/desktop",
-    "landing:export": "node scripts/export-landing-site.mjs",
-    "landing:preview": "python3 -m http.server 4173 --directory dist/page-website --bind 127.0.0.1"
+    "landing:preview": "npm run landing:preview -w @page/desktop",
+    "landing:build": "npm run landing:build -w @page/desktop"
   }
 }
