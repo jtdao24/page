@@ -3,6 +3,7 @@ import { type AskResponse, type DesktopError, type GeminiKeyStatus, toDesktopErr
 import { backendReady, navigationBlocked, type WorkspaceController, type WorkspaceState } from "../workspace/controller";
 import { ErrorText } from "./ErrorText";
 import { Icon } from "./Icon";
+import { Mascot } from "./Mascot";
 import type { OpenSource } from "./SourceViewer";
 
 const BUDGETS = [500, 1500, 4000] as const;
@@ -143,6 +144,9 @@ export function AskBar({ controller, state, onOpenSource }: {
   const [loading, setLoading] = useState<{ key: string; request: number } | null>(null);
   const [cardOpen, setCardOpen] = useState(false);
   const [keyVisible, setKeyVisible] = useState(false);
+  const [happy, setHappy] = useState(false);
+  const happyTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  useEffect(() => () => clearTimeout(happyTimer.current), []);
   const owner = useRef(0);
   const nextId = useRef(0);
   const input = useRef<HTMLTextAreaElement>(null);
@@ -192,6 +196,12 @@ export function AskBar({ controller, state, onOpenSource }: {
     };
     try {
       settle({ response: await controller.askVault(vaultId, text, budget) });
+      if (owner.current === request) {
+        // The mascot cheers for a moment when an answer arrives.
+        clearTimeout(happyTimer.current);
+        setHappy(true);
+        happyTimer.current = setTimeout(() => setHappy(false), 2600);
+      }
     } catch (cause: unknown) {
       settle({ error: toDesktopError(cause) });
     } finally {
@@ -237,6 +247,7 @@ export function AskBar({ controller, state, onOpenSource }: {
         <div ref={end} />
       </div>
     </section>}
+    <Mascot mood={busy ? "thinking" : happy ? "happy" : "idle"} />
     <form className="ask-box" aria-label="Ask your notes" onSubmit={(event) => { event.preventDefault(); void ask(); }}>
       <label htmlFor={INPUT_ID} className="sr-only">Question</label>
       <textarea ref={input} id={INPUT_ID} rows={1} value={question} maxLength={2000} disabled={!state.vault}

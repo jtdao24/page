@@ -351,3 +351,27 @@ details[open] > .note-tree { animation: slide-down .22s var(--ease) both; }
 .ask-savings em { font-style: normal; font-weight: 600; color: #8fcf9b; }
 @media (max-width: 900px) { .ask-savings { display: none; } }
 
+/* Mascot beside the ask box */
+.ask-mascot { position: absolute; left: -104px; bottom: -8px; width: 96px; height: 96px; pointer-events: none; }
+.ask-mascot img { width: 96px; height: 96px; filter: drop-shadow(0 8px 14px #0007); animation: mascot-float 3.2s ease-in-out infinite; transform-origin: 50% 90%; }
+.ask-mascot.is-thinking img { animation: mascot-ponder 1.6s ease-in-out infinite; }
+.ask-mascot.is-happy img { animation: mascot-hop .7s var(--ease) 2; }
+.mascot-thought { position: absolute; left: 46px; bottom: 92px; padding: 8px 12px; border-radius: 16px; background: #eef3fb; box-shadow: 0 6px 16px #0006; animation: pop-in .3s var(--ease) both; }
+.mascot-thought .dots i { background: #3d5f96; }
+.mascot-thought-tail { position: absolute; border-radius: 50%; background: #eef3fb; }
+.mascot-thought-tail-1 { width: 10px; height: 10px; left: 6px; bottom: -9px; }
+.mascot-thought-tail-2 { width: 6px; height: 6px; left: -1px; bottom: -17px; }
+.mascot-sparkles i { position: absolute; font-style: normal; color: #f6d27a; font-size: 14px; text-shadow: 0 0 8px #f6d27a99; animation: sparkle 1.3s var(--ease) both; }
+.mascot-sparkles i:nth-child(1) { left: -4px; top: 6px; }
+.mascot-sparkles i:nth-child(2) { left: 80px; top: -6px; animation-delay: .12s; font-size: 18px; }
+.mascot-sparkles i:nth-child(3) { left: 90px; top: 40px; animation-delay: .24s; font-size: 11px; }
+@keyframes mascot-float { 0%, 100% { transform: translateY(0) rotate(-2deg); } 50% { transform: translateY(-5px) rotate(2deg); } }
+@keyframes mascot-ponder { 0%, 100% { transform: rotate(-6deg) translateY(0); } 50% { transform: rotate(4deg) translateY(-2px); } }
+@keyframes mascot-hop { 0% { transform: translateY(0) scale(1); } 30% { transform: translateY(-16px) scale(1.06, .96); } 60% { transform: translateY(0) scale(1.04, .94); } 100% { transform: translateY(0) scale(1); } }
+@keyframes sparkle { 0% { opacity: 0; transform: scale(.3) rotate(0); } 40% { opacity: 1; transform: scale(1.2) rotate(30deg); } 100% { opacity: 0; transform: scale(.8) translateY(-10px) rotate(60deg); } }
+@media (max-width: 1100px) {
+  .ask-mascot { left: -70px; width: 64px; height: 64px; }
+  .ask-mascot img { width: 64px; height: 64px; }
+  .mascot-thought { left: 28px; bottom: 62px; }
+}
+

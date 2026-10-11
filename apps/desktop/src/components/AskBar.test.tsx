@@ -210,5 +210,27 @@ describe("floating ask box", () => {
     await type("next question");
     expect(button("Ask")!.disabled).toBe(false);
   });
+  it("shows the mascot thinking while Page works and happy when the answer arrives", async () => {
+    const { client } = await setup();
+    const mascot = () => host.querySelector(".ask-mascot")!;
+    expect(mascot().className).toContain("is-idle");
+    const pending = deferred<AskResponse>(); client.askQuestion.mockReturnValueOnce(pending.promise);
+    await click("Ask");
+    expect(mascot().className).toContain("is-thinking");
+    expect(mascot().querySelector(".mascot-thought")).not.toBeNull();
+    vi.useFakeTimers();
+    try {
+      await act(async () => pending.resolve(answer));
+      expect(mascot().className).toContain("is-happy");
+      expect(mascot().querySelector(".mascot-thought")).toBeNull();
+      await act(async () => { vi.advanceTimersByTime(2700); });
+      expect(mascot().className).toContain("is-idle");
+    } finally {
+      vi.useRealTimers();
+    }
+    client.askQuestion.mockRejectedValueOnce(failure("llm_rate_limited"));
+    await type("again"); await click("Ask");
+    expect(mascot().className).toContain("is-idle");  // no cheering for an error
+  });
 });
 
