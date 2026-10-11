@@ -24,7 +24,7 @@ All tools are read-only and work on one vault, chosen when the server starts.
 | `read_note` | `path` | A note's full Markdown, ID and revision |
 | `related_notes` | `path` | Wiki links from the note and backlinks to it, with line numbers; unresolved links say why (`missing`, `ambiguous`, `invalid`) |
 
-`get_context` uses the same pipeline as the desktop Ask panel: semantic search, then
+`get_context` uses the same pipeline as the desktop ask box: semantic search, then
 context optimization ranked by cosine similarity (see [evaluation](evaluation.md) for
 why the learned reranker isn't used). Token counts use Page's `utf8-bytes/3` estimate,
 not the client model's tokenizer.

@@ -1,41 +1,91 @@
 import cytoscape, { type Core, type ElementDefinition } from "cytoscape";
 import type { GraphResponse } from "../core/types";
 
+/** Soft colors that read well on the dark canvas; each top-level folder gets one. */
+const PALETTE = ["#b39af6", "#7cc4d8", "#e7a77c", "#8fcf9b", "#e88fb4", "#d9c36f", "#9aa7f5", "#77d1bd"];
+const ROOT_COLOR = "#c9b8fa";
+const UNRESOLVED_COLOR = "#6f6a64";
+
+export function folderColor(relativePath: string): string {
+  const slash = relativePath.indexOf("/");
+  if (slash < 0) return ROOT_COLOR;
+  const folder = relativePath.slice(0, slash);
+  let hash = 0;
+  for (const char of folder) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
+  return PALETTE[hash % PALETTE.length];
+}
+
 /** Unresolved nodes are scoped by source and exact reference, never note UUIDs. */
 export function graphElements(graph: GraphResponse): ElementDefinition[] {
+  const degree = new Map<string, number>();
+  const bump = (id: string) => degree.set(id, (degree.get(id) ?? 0) + 1);
   const elements: ElementDefinition[] = graph.nodes.map((node) => ({
-    data: { id: node.id, noteId: node.id, label: node.relative_path.replace(/\.md$/, ""), unresolved: false },
+    data: {
+      id: node.id, noteId: node.id, path: node.relative_path, unresolved: false, color: folderColor(node.relative_path),
+      label: node.relative_path.replace(/\.md$/, "").split("/").at(-1),
+    },
   }));
   const ghosts = new Set<string>();
   graph.links.forEach((link, index) => {
     const target = link.target_note_id ?? `unresolved:${JSON.stringify([link.source_note_id, link.target_reference])}`;
     if (link.target_note_id === null && !ghosts.has(target)) {
       ghosts.add(target);
-      elements.push({ data: { id: target, label: link.target_reference, unresolved: true } });
+      elements.push({ data: { id: target, label: link.target_reference, unresolved: true, color: UNRESOLVED_COLOR } });
     }
+    bump(link.source_note_id);
+    bump(target);
     elements.push({ data: { id: `edge:${index}`, source: link.source_note_id, target } });
   });
+  for (const element of elements) {
+    if (element.data.source === undefined) element.data.degree = degree.get(element.data.id as string) ?? 0;
+  }
   return elements;
 }
 
 /** Real Cytoscape is also used headlessly by behavior tests. */
 export function createKnowledgeGraph(container: HTMLElement | null, graph: GraphResponse, onOpen: (id: string) => void): Core {
+  const animate = container !== null && !window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
   const cy = cytoscape({
     ...(container ? { container } : { headless: true }),
     elements: graphElements(graph),
-    layout: { name: "circle", padding: 28, animate: false },
-    minZoom: .2, maxZoom: 3,
+    layout: graph.nodes.length > 1
+      ? { name: "cose", animate, animationDuration: 700, animationEasing: "ease-out", padding: 48, randomize: true, fit: true,
+        nodeRepulsion: () => 14000, idealEdgeLength: () => 80, edgeElasticity: () => 120, gravity: 0.9, numIter: 1500, componentSpacing: 80 }
+      : { name: "circle", padding: 40, animate: false },
+    minZoom: .15, maxZoom: 3, wheelSensitivity: .3,
     style: [
-      { selector: "node", style: { "background-color": "#b39af6", label: "data(label)", color: "#ccc4d7", "font-size": 11,
-        width: 18, height: 18, "text-valign": "bottom", "text-margin-y": 8, "text-wrap": "wrap", "text-max-width": "120px" } },
-      { selector: "node[?unresolved]", style: { "background-color": "#77716b", "border-width": 2, "border-color": "#c4a876", "border-style": "dashed" } },
-      { selector: "node:selected", style: { "background-color": "#e3d0ff", "border-color": "#e3d0ff", "border-width": 3 } },
-      { selector: "edge", style: { width: 1, "line-color": "#665979", "target-arrow-color": "#665979", "target-arrow-shape": "triangle", "curve-style": "bezier" } },
+      { selector: "node", style: {
+        "background-color": "data(color)", width: "mapData(degree, 0, 10, 20, 46)", height: "mapData(degree, 0, 10, 20, 46)",
+        label: "data(label)", color: "#d8d2e2", "font-size": 12, "font-weight": 500, "text-valign": "bottom", "text-margin-y": 7,
+        "text-wrap": "ellipsis", "text-max-width": "130px", "text-outline-color": "#1b1b1d", "text-outline-width": 2.5,
+        "min-zoomed-font-size": 7, "border-width": 0, "transition-property": "opacity, border-width, background-color",
+        "transition-duration": 180,
+      } },
+      { selector: "node[?unresolved]", style: { "border-width": 1.5, "border-color": "#c4a876", "border-style": "dashed",
+        color: "#a59f97", "font-style": "italic" } },
+      { selector: "node:selected", style: { "border-width": 3, "border-color": "#f1e8ff", "underlay-color": "#b39af6",
+        "underlay-opacity": .35, "underlay-padding": 9, "underlay-shape": "ellipse", "font-weight": 700, color: "#fff" } },
+      { selector: "edge", style: { width: 1.4, "line-color": "#5a526d", "target-arrow-color": "#5a526d", "target-arrow-shape": "triangle",
+        "arrow-scale": .8, "curve-style": "bezier", opacity: .75, "transition-property": "opacity, line-color, width", "transition-duration": 180 } },
+      { selector: ".faded", style: { opacity: .14 } },
+      { selector: "node.focused", style: { "border-width": 2.5, "border-color": "#ffffff", color: "#fff" } },
+      { selector: "edge.focused", style: { "line-color": "#b39af6", "target-arrow-color": "#b39af6", width: 2, opacity: 1 } },
     ],
   });
   cy.on("tap", "node", (event) => {
     const noteId: unknown = event.target.data("noteId");
     if (typeof noteId === "string") onOpen(noteId);
+  });
+  // Hovering a note highlights it and its direct neighbors.
+  cy.on("mouseover", "node", (event) => {
+    const neighborhood = event.target.closedNeighborhood();
+    cy.elements().not(neighborhood).addClass("faded");
+    neighborhood.addClass("focused");
+    if (container) container.style.cursor = event.target.data("noteId") ? "pointer" : "default";
+  });
+  cy.on("mouseout", "node", () => {
+    cy.elements().removeClass("faded focused");
+    if (container) container.style.cursor = "";
   });
   return cy;
 }

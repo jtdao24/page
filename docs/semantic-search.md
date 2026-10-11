@@ -133,7 +133,7 @@ the main local webview with generated permissions. Rust validates result ownersh
 canonical IDs, revisions, source byte ranges and lengths, line ranges, unique chunk
 IDs, scores, and index counts. Result snippets are excluded from Rust Debug output.
 
-Open **Semantic search** in the ribbon, enter a query, and choose **Search Notes**.
+Open **Search** in the sidebar, enter a query, and choose **Search Notes**.
 The panel searches saved content, lists source passages/line numbers/similarities,
 and opens results through existing dirty draft safeguards. It provides loading,
 empty, model setup, error/retry, and explicit corrupt-index rebuild states. Old
