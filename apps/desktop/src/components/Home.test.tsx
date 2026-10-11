@@ -28,14 +28,14 @@ async function mount() {
 }
 
 describe("home screen", () => {
-  it("offers clear choices, a tour link and the typed-path fallback", async () => {
+  it("offers clear choices and a tour link, with no path typing", async () => {
     const { intro } = await mount();
     expect(host.querySelector(".home-hero h2")?.textContent).toBe("Welcome to Page");
     expect([...host.querySelectorAll(".home-card-title")].map((t) => t.textContent)).toEqual(
       ["Start with a sampleRecommended", "Create a new vault", "Open a vault"]);
     await act(async () => host.querySelector<HTMLButtonElement>(".link-button")!.click());
     expect(intro).toHaveBeenCalledTimes(1);
-    expect(host.querySelector(".home-typed summary")?.textContent).toBe("Type a folder path instead");
+    expect(host.querySelector(".home input")).toBeNull();
   });
   it("does nothing when the folder picker is cancelled", async () => {
     const { client } = await mount();

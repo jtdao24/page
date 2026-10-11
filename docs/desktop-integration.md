@@ -18,7 +18,8 @@ reduced motion.
 With no vault open, the home screen offers three choices that use the native folder
 picker (the Tauri dialog plugin, granted only `dialog:allow-open`): start with a
 sample vault of linked starter notes, create a vault in a chosen folder, or open
-one. Recent vaults and a typed-path fallback are below. A five-step intro appears
+one. Recent vaults are listed below. Paths are never typed: ⌘O and Open vault go
+straight to the picker, and the sidebar's vault name opens the same three choices. A five-step intro appears
 on first launch (remembered in the webview's local storage) and can be replayed from
 the home screen. With a vault open and no note selected, quick actions offer a new
 note, saving a web page, the graph and Ask.
@@ -82,7 +83,8 @@ timeout. No Origin header is sent and authorization is marked sensitive.
 
 ## Workspace actions and fidelity
 
-Create Vault and Open Vault are separate forms accepting absolute native paths.
+Creating and opening vaults use the native folder picker; a new vault is named after
+its folder.
 Create adopts existing managed Markdown files without rewriting them. Open failure
 never creates a vault. Resolved roots/IDs returned by Core are remembered; open
 sessions and recent selections are displayed separately. Close Vault closes the

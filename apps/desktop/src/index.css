@@ -277,15 +277,12 @@ details[open] > .folder-row::before { transform: rotate(90deg); }
 .home-card-text { color: var(--muted); font-size: 12px; line-height: 1.55; }
 .home-error { color: #e8a09a; text-align: center; }
 .home-recents { display: flex; flex-direction: column; gap: 6px; animation: fade-in .5s .25s var(--ease) both; }
-.home-recents h3, .home-typed summary { font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: #8c93a0; margin-bottom: 4px; }
+.home-recents h3 { font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: #8c93a0; margin-bottom: 4px; }
 .home-recent { justify-content: flex-start; gap: 10px; padding: 9px 12px; border: 1px solid transparent; border-radius: 10px; background: transparent; }
 .home-recent:hover:not(:disabled) { background: var(--surface-raised); border-color: var(--line); }
 .home-recent svg { color: var(--accent); }
 .home-recent span { font-size: 13px; color: var(--text); }
 .home-recent small { margin-left: auto; color: #6f7684; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 50%; }
-.home-typed summary { cursor: pointer; width: fit-content; }
-.home-typed[open] > div { margin-top: 12px; padding: 18px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-raised); animation: fade-in .25s var(--ease); }
-.browse-button { margin-right: 6px; }
 @media (max-width: 760px) { .home-choices { grid-template-columns: 1fr; } }
 
 /* Empty note area: quick actions */
@@ -340,3 +337,6 @@ details[open] > .note-tree { animation: slide-down .22s var(--ease) both; }
 @keyframes slide-from-right { from { opacity: 0; transform: translateX(26px); } to { opacity: 1; transform: none; } }
 @keyframes slide-from-left { from { opacity: 0; transform: translateX(-26px); } to { opacity: 1; transform: none; } }
 
+.vault-dialog .home-choices { grid-template-columns: 1fr; gap: 8px; margin-bottom: 12px; }
+.vault-dialog .home-card { min-height: 0; padding: 12px 14px; flex-direction: row; align-items: center; gap: 12px; animation-duration: .3s; }
+.vault-dialog .home-card-text { display: none; }

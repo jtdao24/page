@@ -9,7 +9,7 @@ import { MarkdownEditor } from "./MarkdownEditor";
 import { NotePathForm } from "./NotePathForm";
 import { NoteTree } from "./NoteTree";
 import { Home } from "./Home";
-import { VaultForms } from "./VaultForms";
+import { openVaultWithPicker, VaultChoices } from "./VaultChoices";
 import { AskBar, focusAskBar } from "./AskBar";
 import { type OpenSource, SourceViewer } from "./SourceViewer";
 import { WebPageForm } from "./WebPageForm";
@@ -68,7 +68,7 @@ export function Workspace({ controller, onShowIntro }: { controller: WorkspaceCo
       const current = controller.getState();
       if (key === "k") { focusAskBar(); return; }
       if (key === "s" && !mutationsBlocked(current)) void controller.save();
-      if (key === "o" && !navigationBlocked(current)) setModal("vault");
+      if (key === "o" && !navigationBlocked(current)) void openVaultWithPicker(controller);
       if (key === "n" && !mutationsBlocked(current) && !navigationBlocked(current)) {
         void controller.guarded("create another note", () => setModal("create"));
       }
@@ -140,7 +140,7 @@ export function Workspace({ controller, onShowIntro }: { controller: WorkspaceCo
     </section> : <>
       <div className="workspace-notices max-h-40 shrink-0 overflow-auto px-4">
         {errors.map((error, index) => error && <p className="py-1 text-sm text-red-700" role="alert" key={index}><ErrorText error={error} /></p>)}
-        {state.vaultError && modal !== "vault" && <p role="alert"><ErrorText error={state.vaultError} /></p>}
+        {state.vaultError && modal !== "vault" && state.vault !== null && <p role="alert"><ErrorText error={state.vaultError} /></p>}
         {state.preferencesWarning && <p role="alert" className="text-sm">
           <ErrorText error={state.preferencesWarning} /> The settings file is preserved.
           <button onClick={() => setModal("reset")}>Reset Remembered Workspace</button>
@@ -191,7 +191,7 @@ export function Workspace({ controller, onShowIntro }: { controller: WorkspaceCo
             {state.preferences.recent_vaults.length === 0 && <p className="text-xs text-neutral-500">No recent vaults</p>}
           </section>}
           <div className="sidebar-footer">
-            <NavItem icon="folder" label="Open vault" ariaLabel="Open Vault" shortcut="O" disabled={navigation} onClick={() => setModal("vault")} />
+            <NavItem icon="folder" label="Open vault" ariaLabel="Open Vault" shortcut="O" disabled={navigation} onClick={() => void openVaultWithPicker(controller)} />
             {state.vault && <NavItem icon="vault" label="Close vault" ariaLabel="Close Vault" disabled={navigation} onClick={() => void controller.closeVault()} />}
             <NavItem icon="quit" label="Quit" ariaLabel="Quit Page" disabled={state.pending !== null || state.quitting} onClick={() => void controller.requestQuit()} />
           </div>
@@ -274,8 +274,10 @@ export function Workspace({ controller, onShowIntro }: { controller: WorkspaceCo
     {modal === "web" && <Dialog title="Add a Website" onCancel={cancel}>
       <WebPageForm onCancel={cancel} onSubmit={async (url) => { await controller.saveWebPage(url); cancel(); }} />
     </Dialog>}
-    {modal === "vault" && <Dialog title="Choose a Vault" onCancel={cancel}>
-      <VaultForms controller={controller} state={state} onDone={cancel} /><button onClick={cancel}>Cancel</button>
+    {modal === "vault" && <Dialog title="Switch Vault" onCancel={cancel}>
+      <div className="vault-dialog"><VaultChoices controller={controller} state={state} onDone={cancel} /></div>
+      {state.vaultError && <p role="alert" className="home-error"><ErrorText error={state.vaultError} /></p>}
+      <button onClick={cancel}>Cancel</button>
     </Dialog>}
     {(modal === "create" || modal === "move" || modal === "orphan") && <Dialog title={modal === "move" ? "Rename / Move Note" : "Create Note"} onCancel={cancel}>
       <NotePathForm initialPath={modal === "move" ? document?.path : ""} label={modal === "move" ? "Move Note" : "Create Note"} disabled={blocked}
