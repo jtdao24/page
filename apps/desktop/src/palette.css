@@ -1,0 +1,32 @@
+/* Clothbound blue, paper pages, and ink: shared by every frontend entry. */
+:root {
+  color-scheme: light;
+  --page-paper: #f4f6f7;
+  --page-surface: #fffdf7;
+  --page-sidebar: #e8eef3;
+  --page-chrome: #e0e8ef;
+  --page-hover: #dce6ee;
+  --page-soft: #edf1f5;
+  --page-selection: #dce7f1;
+  --page-border: #c7d3df;
+  --page-control-border: #718aa1;
+  --page-scrollbar: #9bafc2;
+  --page-ink: #223a50;
+  --page-text: #3e5367;
+  --page-muted: #53677a;
+  --page-accent: #355d83;
+  --page-accent-top: #42678b;
+  --page-accent-hover: #284969;
+  --page-focus: #6384a3;
+  --page-edge: #93acc3;
+  --page-selected: #31577c;
+  --page-on-accent: #fffdf7;
+  --page-success: #3b7068;
+  --page-success-wash: #e4eee9;
+  --page-warning: #855c29;
+  --page-warning-wash: #f6ecda;
+  --page-warning-border: #d9c4a6;
+  --page-danger: #963e3a;
+  --page-danger-wash: #f7e5e2;
+  --page-danger-border: #c87d73;
+}

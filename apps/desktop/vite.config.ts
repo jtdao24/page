@@ -1,4 +1,5 @@
 import process from "node:process";
+import { fileURLToPath } from "node:url";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vitest/config";
@@ -10,6 +11,14 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   // Keep Rust errors visible in `tauri dev` output.
   clearScreen: false,
+  build: {
+    rollupOptions: {
+      input: {
+        app: fileURLToPath(new URL("./index.html", import.meta.url)),
+        landing: fileURLToPath(new URL("./landing.html", import.meta.url)),
+      },
+    },
+  },
   server: {
     // Tauri expects a fixed port; fail if it is unavailable.
     port: 1420,
