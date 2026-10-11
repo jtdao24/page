@@ -1,6 +1,7 @@
 import type { CSSProperties } from "react";
 
-type IconName = "ask" | "search" | "graph" | "note" | "folder" | "vault" | "refresh" | "save" | "sidebar" | "plus" | "quit";
+export type IconName = "ask" | "search" | "graph" | "note" | "folder" | "vault" | "refresh" | "save" | "sidebar" | "plus" | "quit"
+  | "send" | "key" | "close" | "minimize" | "sparkle";
 const paths: Record<IconName, string> = {
   ask: "M4 5h16v11H9l-5 4V5ZM8 9h8M8 12h5",
   search: "M16 10a6 6 0 1 1-12 0 6 6 0 0 1 12 0ZM15 15l6 6",
@@ -13,6 +14,11 @@ const paths: Record<IconName, string> = {
   sidebar: "M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5ZM9 3v18",
   plus: "M12 5v14M5 12h14",
   quit: "M9 5H5v14h4M12 12h9M17 8l4 4-4 4",
+  send: "M12 19V5M5 12l7-7 7 7",
+  key: "M15 7a4 4 0 1 1-3.5 6L5 19.5V21H3v-3l6.5-6.5A4 4 0 0 1 15 7ZM16 9h.01",
+  close: "M6 6l12 12M18 6 6 18",
+  minimize: "M6 9l6 6 6-6",
+  sparkle: "M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3ZM19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8L19 16Z",
 };
 
 export function Icon({ name, size = 18, style }: { name: IconName; size?: number; style?: CSSProperties }) {
