@@ -186,8 +186,13 @@ export function Workspace({ controller, onShowIntro }: { controller: WorkspaceCo
           </section>}
           {!sidebarCollapsed && state.vault && <section className="sidebar-section sidebar-recents">
             <h3>Recent vaults</h3>
-            {state.preferences.recent_vaults.map((entry) => <button className="block w-full break-all text-left text-xs" key={entry.vault_id}
-              disabled={navigation} onClick={() => void controller.openRecent(entry)}>{entry.root_path}</button>)}
+            {state.preferences.recent_vaults.map((entry) => <div className="recent-row" key={entry.vault_id}>
+              <button className="block w-full break-all text-left text-xs" disabled={navigation}
+                onClick={() => void controller.openRecent(entry)}>{entry.root_path}</button>
+              {entry.vault_id !== state.vault?.id && <button className="icon-button forget-recent"
+                aria-label={`Remove ${entry.root_path} from recent`} title="Remove from recent (the folder isn't deleted)"
+                onClick={() => controller.forgetRecent(entry.vault_id)}><Icon name="close" size={12} /></button>}
+            </div>)}
             {state.preferences.recent_vaults.length === 0 && <p className="text-xs text-neutral-500">No recent vaults</p>}
           </section>}
           <div className="sidebar-footer">

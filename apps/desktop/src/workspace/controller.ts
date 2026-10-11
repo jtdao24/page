@@ -549,6 +549,17 @@ export class WorkspaceController {
     this.writePreferences({ version: 1, recent_vaults: recent, active_vault_id: vault.id });
   }
 
+  /** Remove a vault from the recent list; its folder and notes are untouched. The open vault stays. */
+  forgetRecent(vaultId: string): void {
+    const current = this.state.preferences;
+    if (vaultId === this.state.vault?.id || !current.recent_vaults.some((entry) => entry.vault_id === vaultId)) return;
+    this.writePreferences({
+      ...current,
+      recent_vaults: current.recent_vaults.filter((entry) => entry.vault_id !== vaultId),
+      active_vault_id: current.active_vault_id === vaultId ? null : current.active_vault_id,
+    });
+  }
+
   async resetPreferences(): Promise<void> {
     const vault = this.state.vault;
     const fresh = emptyPreferences();

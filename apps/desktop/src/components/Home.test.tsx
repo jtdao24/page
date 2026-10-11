@@ -80,6 +80,36 @@ describe("home screen", () => {
   });
 });
 
+describe("recent vaults", () => {
+  const other = { vault_id: "22222222-2222-4222-8222-222222222222", root_path: "/Users/me/Thesis", last_note_id: null };
+  it("removes a vault from recent without touching its folder, and clears it as the active vault", async () => {
+    const { client } = testClient();
+    client.preferencesRead.mockResolvedValue({ version: 1, recent_vaults: [other], active_vault_id: other.vault_id });
+    client.vaultOpen.mockRejectedValueOnce({ kind: "api", status: 404, code: "vault_not_found", message: "gone", details: null });
+    const controller = new WorkspaceController(client);
+    await act(async () => root.render(<Workspace controller={controller} />));
+    await act(async () => { await controller.start(); });
+    const remove = host.querySelector<HTMLButtonElement>('[aria-label="Remove Thesis from recent"]')!;
+    await act(async () => remove.click());
+    await act(async () => { await controller.flushPreferences(); });
+    expect(host.querySelector(".home-recents")).toBeNull();
+    expect(client.preferencesWrite).toHaveBeenLastCalledWith({ version: 1, recent_vaults: [], active_vault_id: null });
+    expect(client.vaultClose).not.toHaveBeenCalled();
+  });
+  it("lets other vaults be removed from the sidebar but keeps the open one", async () => {
+    const { client } = testClient();
+    client.preferencesRead.mockResolvedValue({ version: 1, recent_vaults: [other], active_vault_id: null });
+    const controller = new WorkspaceController(client);
+    await act(async () => root.render(<Workspace controller={controller} />));
+    await act(async () => { await controller.start(); await controller.openVault(vault.root_path); });
+    expect(host.querySelector(`[aria-label="Remove ${vault.root_path} from recent"]`)).toBeNull();
+    await act(async () => host.querySelector<HTMLButtonElement>(`[aria-label="Remove ${other.root_path} from recent"]`)!.click());
+    expect(controller.getState().preferences.recent_vaults.map((entry) => entry.vault_id)).toEqual([vault.id]);
+    controller.forgetRecent(vault.id);
+    expect(controller.getState().preferences.recent_vaults).toHaveLength(1);
+  });
+});
+
 describe("intro tour", () => {
   it("steps forward and back with buttons, dots and arrow keys, then finishes", async () => {
     const done = vi.fn();

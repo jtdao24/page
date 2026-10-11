@@ -21,10 +21,15 @@ export function Home({ controller, state, onShowIntro }: {
     {state.vaultError !== null && <p role="alert" className="home-error"><ErrorText error={state.vaultError} /></p>}
     {recents.length > 0 && <section className="home-recents" aria-label="Recent vaults">
       <h3>Recent</h3>
-      {recents.map((entry) => <button key={entry.vault_id} className="home-recent" disabled={navigationBlocked(state)}
-        onClick={() => void controller.openRecent(entry)}>
-        <Icon name="vault" size={15} /><span>{folderName(entry.root_path)}</span><small>{entry.root_path}</small>
-      </button>)}
+      {recents.map((entry) => <div key={entry.vault_id} className="home-recent-row">
+        <button className="home-recent" disabled={navigationBlocked(state)} onClick={() => void controller.openRecent(entry)}>
+          <Icon name="vault" size={15} /><span>{folderName(entry.root_path)}</span><small>{entry.root_path}</small>
+        </button>
+        <button className="icon-button forget-recent" aria-label={`Remove ${folderName(entry.root_path)} from recent`}
+          title="Remove from recent (the folder isn't deleted)" onClick={() => controller.forgetRecent(entry.vault_id)}>
+          <Icon name="close" size={13} />
+        </button>
+      </div>)}
     </section>}
   </div>;
 }

@@ -340,3 +340,10 @@ details[open] > .note-tree { animation: slide-down .22s var(--ease) both; }
 .vault-dialog .home-choices { grid-template-columns: 1fr; gap: 8px; margin-bottom: 12px; }
 .vault-dialog .home-card { min-height: 0; padding: 12px 14px; flex-direction: row; align-items: center; gap: 12px; animation-duration: .3s; }
 .vault-dialog .home-card-text { display: none; }
+.home-recent-row, .recent-row { display: flex; align-items: center; gap: 4px; }
+.home-recent-row .home-recent { flex: 1; min-width: 0; }
+.recent-row > button:first-child { flex: 1; min-width: 0; }
+.forget-recent { opacity: 0; transition: opacity .15s var(--ease), background .15s var(--ease); }
+.home-recent-row:hover .forget-recent, .recent-row:hover .forget-recent, .forget-recent:focus-visible { opacity: 1; }
+.recent-row .forget-recent { width: 22px; height: 22px; }
+
