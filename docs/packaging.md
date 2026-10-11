@@ -63,15 +63,18 @@ running from a read-only copy.
 ## Gemini API key
 
 A Finder-launched app doesn't see terminal variables, so the key can now be saved in
-the app: the key button in the ask box. Page stores it in the macOS Keychain
-(service `com.page.desktop`) and restarts Core to apply it. Unsaved drafts are kept
+the app: the key button in the ask box. Page stores it in a private file,
+`~/Library/Application Support/com.page.desktop/gemini-api-key` (folder 0700, file 0600,
+written atomically), and restarts Core to apply it. Unsaved drafts are kept
 across the restart. The key goes to Core only through its environment. The webview,
 logs and errors never see it.
 
-A saved key takes precedence over `GEMINI_API_KEY`. Page reads the Keychain at most once per app run and keeps
-the key in memory after that; macOS may ask permission for that read, and asks again
-after every rebuild of an unsigned development app, but not for a signed release. **Remove Key** deletes it from the
-Keychain.
+A saved key takes precedence over `GEMINI_API_KEY`. **Remove Key** deletes the file.
+Page used the macOS Keychain before, but macOS asks permission for every Keychain
+read by an app it doesn't fully trust, including every development rebuild, so the
+key moved to a file protected by your account's file permissions. An old
+`com.page.desktop` Keychain entry is no longer read and can be deleted in Keychain
+Access.
 
 Gemini calls verify TLS with certifi's CA bundle, because python.org and
 python-build-standalone builds on macOS don't find the system certificates.
@@ -125,11 +128,11 @@ Privacy & Security.
   is inside the app:
   - notes and each vault's `.page/` metadata stay in the vault folders;
   - preferences stay in `~/Library/Application Support/com.page.desktop/`;
-  - the Gemini key stays in the Keychain.
+  - the Gemini key stays in the same folder.
 
   Embeddings are rebuilt automatically only if the model changes.
 - **Uninstall:** delete the app. Vault folders are untouched. The preferences folder
-  and the Keychain item can be removed by hand.
+  (including the Gemini key) can be removed by hand.
 - **No automatic updates yet.** Tauri's updater needs signed update artifacts and a
   release server, which depend on the signing setup above.
 
